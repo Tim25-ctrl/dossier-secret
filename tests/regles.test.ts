@@ -166,6 +166,27 @@ describe('Tours et points d\'action', () => {
     expect(actif(etat)).not.toBe(premier);
   });
 
+  it('tour sans limite : aucun délai tant que le joueur est connecté, délai court s\'il se déconnecte', () => {
+    const etat = nouvellePartie(3, { config: { delaiTourMs: null } });
+    const premier = actif(etat);
+    avancer(etat, T0 + 365 * 24 * 3600_000); // un an plus tard
+    expect(actif(etat)).toBe(premier);
+    expect(vuePour(etat, premier).regles.dureeTourMs).toBeNull();
+    // Le tour suivant est lui aussi sans limite.
+    act(etat, premier, { type: 'finTour' }, T0 + 1);
+    const second = actif(etat);
+    avancer(etat, T0 + 10 * 3600_000);
+    expect(actif(etat)).toBe(second);
+    // Déconnecté : passé après le délai réduit ; revenu : de nouveau sans limite.
+    definirConnexion(etat, second, false, T0 + 10 * 3600_000);
+    definirConnexion(etat, second, true, T0 + 10 * 3600_000 + 1000);
+    avancer(etat, T0 + 20 * 3600_000);
+    expect(actif(etat)).toBe(second);
+    definirConnexion(etat, second, false, T0 + 20 * 3600_000);
+    avancer(etat, T0 + 20 * 3600_000 + 5_001);
+    expect(actif(etat)).not.toBe(second);
+  });
+
   it('un joueur qui revient (page rechargée) récupère un délai de tour raisonnable', () => {
     const etat = nouvellePartie(3);
     const premier = actif(etat);
@@ -439,13 +460,15 @@ describe('Pouvoir du complice : l\'Hypothèse falsifiée', () => {
     // Auteur : version originale + avertissement privé.
     const vA = vuePour(etat, auteur);
     expect(vA.historique.find((e) => e.type === 'hypothese')).toMatchObject({ triplet: original });
-    expect(vA.mesHypothesesFalsifiees).toEqual({ H1: publique });
     expect(vA.hypotheseEnCours?.triplet).toEqual(original);
+    // L'auteur n'a AUCUN moyen de savoir que sa version a été falsifiée.
+    expect(vA.hypotheseEnCours?.auteurPrive).toEqual({ original });
+    expect(JSON.stringify(vA)).not.toContain('falsif');
+    expect(JSON.stringify([vA.historique, vA.hypotheseEnCours, vA.moi.journal])).not.toContain('"lieu":"cave"');
     // Autres joueurs : version publique, aucune trace de l'original.
     for (const o of autres(etat, auteur)) {
       const v = vuePour(etat, o);
       expect(v.historique.find((e) => e.type === 'hypothese')).toMatchObject({ triplet: publique });
-      expect(v.mesHypothesesFalsifiees).toEqual({});
       // (le répondant peut voir « serre » parmi SES cartes correspondantes : elles sont calculées sur l'original)
       if (o !== c) expect(JSON.stringify([v.historique, v.hypotheseEnCours?.triplet])).not.toContain('"serre"');
     }

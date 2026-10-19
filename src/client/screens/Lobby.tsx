@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import type { EtatClient } from '../../shared/protocole';
+import { DUREES_TOUR, type EtatClient } from '../../shared/protocole';
 import { Chat } from '../components/Chat';
 import { useNotification } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
+
+export function libelleDuree(s: number | null): string {
+  if (s === null) return 'Sans limite';
+  if (s < 60) return `${s} secondes`;
+  const m = s / 60;
+  return Number.isInteger(m) ? `${m} minute${m > 1 ? 's' : ''}` : `${Math.floor(m)} min ${s % 60} s`;
+}
 
 export function Lobby({ etat }: { etat: EtatClient }) {
   const { salon, moi } = etat;
@@ -108,6 +115,30 @@ export function Lobby({ etat }: { etat: EtatClient }) {
                 </li>
               ))}
             </ul>
+            <div className="champ" style={{ marginTop: 14, marginBottom: 0 }}>
+              <label htmlFor="duree-tour">Durée d'un tour</label>
+              {estHote ? (
+                <select
+                  id="duree-tour"
+                  value={salon.reglages.dureeTourS === null ? 'aucune' : String(salon.reglages.dureeTourS)}
+                  onChange={(e) => void agir(() => connexion.reglerDureeTour(e.target.value === 'aucune' ? null : Number(e.target.value)))}
+                >
+                  {(DUREES_TOUR.includes(salon.reglages.dureeTourS) ? DUREES_TOUR : [salon.reglages.dureeTourS, ...DUREES_TOUR]).map((d) => (
+                    <option key={String(d)} value={d === null ? 'aucune' : String(d)}>
+                      {libelleDuree(d)}
+                      {d === 180 ? ' (recommandé)' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <strong id="duree-tour">{libelleDuree(salon.reglages.dureeTourS)}</strong>
+              )}
+              <span className="petit muet">
+                {salon.reglages.dureeTourS === null
+                  ? "Personne n'est pressé par le temps. Un joueur déconnecté est tout de même passé au bout de quelques secondes pour ne pas bloquer la table."
+                  : "À la fin du temps, le tour passe automatiquement au joueur suivant."}
+              </span>
+            </div>
             <div style={{ marginTop: 14 }}>
               {estHote ? (
                 <>

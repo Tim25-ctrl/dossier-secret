@@ -6,7 +6,7 @@ import { JOUEURS_MAX, JOUEURS_MIN, type ConfigPartie } from '../engine/config';
 import { appliquerAction, avancer, creerPartie, definirConnexion, recalerEcheances, type EtatPartie } from '../engine/partie';
 import { cryptoRng, type Rng } from '../engine/rng';
 import { vuePour } from '../engine/vue';
-import { ALPHABET_CODE, LONGUEUR_CODE, MESSAGE_MAX, PSEUDO_MAX, type EtatClient, type MessageChat, type SalonVue } from '../shared/protocole';
+import { ALPHABET_CODE, LONGUEUR_CODE, MESSAGE_MAX, PSEUDO_MAX, type EtatClient, type MessageChat, type ReglagesSalon, type SalonVue } from '../shared/protocole';
 import type { ActionJeu } from '../shared/types';
 
 export class ErreurJeu extends Error {}
@@ -28,6 +28,7 @@ export interface Salon {
   statut: 'lobby' | 'partie' | 'terminee';
   partie: EtatPartie | null;
   numeroPartie: number;
+  reglages: ReglagesSalon;
   messages: MessageChat[];
   compteurMessages: number;
   creeLe: number;
@@ -115,6 +116,11 @@ export class GestionnaireSalons {
     throw new ErreurJeu('Impossible de créer un salon pour le moment.');
   }
 
+  private reglagesParDefaut(): ReglagesSalon {
+    const ms = this.configPartie.delaiTourMs;
+    return { dureeTourS: ms === null ? null : Math.round((ms ?? 180_000) / 1000) };
+  }
+
   salon(code: string): Salon {
     const s = this.salons.get(normaliserCode(code));
     if (!s) throw new ErreurJeu("Aucun salon ne correspond à ce code.");
@@ -148,6 +154,7 @@ export class GestionnaireSalons {
       statut: 'lobby',
       partie: null,
       numeroPartie: 0,
+      reglages: this.reglagesParDefaut(),
       messages: [],
       compteurMessages: 0,
       creeLe: t,
@@ -243,6 +250,17 @@ export class GestionnaireSalons {
     this.toucher(s);
   }
 
+  /** L'hôte règle la durée d'un tour (dans le salon d'attente uniquement). */
+  reglerDureeTour(code: string, id: string, valeur: unknown) {
+    const s = this.salon(code);
+    if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut modifier les réglages.");
+    if (s.statut !== 'lobby') throw new ErreurJeu('Les réglages ne peuvent plus changer une fois la partie lancée.');
+    const ok = valeur === null || (typeof valeur === 'number' && Number.isInteger(valeur) && valeur >= 30 && valeur <= 3600);
+    if (!ok) throw new ErreurJeu('Durée de tour invalide.');
+    s.reglages = { ...s.reglages, dureeTourS: valeur as number | null };
+    this.toucher(s);
+  }
+
   demarrer(code: string, id: string) {
     const s = this.salon(code);
     if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut lancer la partie.");
@@ -257,7 +275,7 @@ export class GestionnaireSalons {
       joueurs: s.joueurs.map((j) => ({ id: j.id, nom: j.nom, bot: j.bot })),
       rng: this.rng,
       now: this.now(),
-      config: this.configPartie,
+      config: { ...this.configPartie, delaiTourMs: s.reglages.dureeTourS === null ? null : s.reglages.dureeTourS * 1000 },
     });
     s.statut = 'partie';
     this.toucher(s);
@@ -324,6 +342,7 @@ export class GestionnaireSalons {
       joueurs: s.joueurs.map((j) => ({ id: j.id, nom: j.nom, connecte: j.connecte, bot: j.bot, hote: j.id === s.hote })),
       messages: s.messages.slice(-80),
       botsAutorises: this.botsAutorises,
+      reglages: { ...s.reglages },
       min: JOUEURS_MIN,
       max: JOUEURS_MAX,
     };
@@ -398,6 +417,7 @@ export class GestionnaireSalons {
           if (s.partie?.joueurs[j.id]) s.partie.joueurs[j.id].connecte = false;
         }
       }
+      s.reglages ??= this.reglagesParDefaut(); // sauvegardes antérieures aux réglages
       if (s.partie) recalerEcheances(s.partie, t);
       this.salons.set(s.code, s);
     }

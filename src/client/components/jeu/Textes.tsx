@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { INDICES_PAR_ID, LIBELLES_CATEGORIE_INDICE } from '../../../shared/data/indices';
 import { nomElement } from '../../../shared/data/manoir';
-import type { EntreePrivee, EvenementPublic, Triplet } from '../../../shared/types';
+import type { EntreePrivee, EvenementPublic } from '../../../shared/types';
 import { TripletVue } from '../Commun';
 
 export type Noms = (id: string) => string;
@@ -16,7 +16,6 @@ export function texteEvenement(
   ev: EvenementPublic,
   nom: Noms,
   moi: string,
-  falsifiees: Record<string, Triplet> = {},
 ): { contenu: ReactNode; classe?: string } | null {
   const qui = (id: string) => (id === moi ? 'Vous' : nom(id));
   switch (ev.type) {
@@ -33,13 +32,8 @@ export function texteEvenement(
         classe: 'important',
         contenu: (
           <>
-            {qui(ev.auteur)} {ev.auteur === moi ? 'formulez' : 'formule'} une hypothèse{ev.auteur === moi && falsifiees[ev.id] ? ' (votre version originale)' : ''} :{' '}
-            <TripletVue t={ev.triplet} /> — {ev.auteur === moi ? 'vous interrogez' : 'interroge'} {ev.interroges.map(qui).join(', puis ')}.
-            {ev.auteur === moi && falsifiees[ev.id] && (
-              <div className="petit" style={{ color: 'var(--or-clair)', marginTop: 4 }}>
-                ⚠ Les autres joueurs ont vu une version falsifiée : <TripletVue t={falsifiees[ev.id]} />
-              </div>
-            )}
+            {qui(ev.auteur)} {ev.auteur === moi ? 'formulez' : 'formule'} une hypothèse : <TripletVue t={ev.triplet} /> —{' '}
+            {ev.auteur === moi ? 'vous interrogez' : 'interroge'} {ev.interroges.map(qui).join(', puis ')}.
           </>
         ),
       };
@@ -94,12 +88,6 @@ export function texteEntreePrivee(e: EntreePrivee, nom: Noms): ReactNode {
       return (
         <>
           Votre hypothèse : <TripletVue t={e.triplet} />
-        </>
-      );
-    case 'hypothese_falsifiee':
-      return (
-        <>
-          ⚠ Votre hypothèse a été <strong>falsifiée</strong> ! Les autres ont vu : <TripletVue t={e.publique} />
         </>
       );
     case 'carte_vue':

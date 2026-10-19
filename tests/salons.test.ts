@@ -61,6 +61,34 @@ describe('Gestionnaire de salons', () => {
     expect(() => g.demarrer(salon.code, hote.id)).toThrow(/déconnecté/);
   });
 
+  it("seul l'hôte règle la durée du tour (ou « sans limite »), et seulement dans le salon d'attente", () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    const { joueur: b } = g.rejoindre(salon.code, 'B');
+    g.rejoindre(salon.code, 'C');
+    expect(salon.reglages.dureeTourS).toBe(180);
+    expect(() => g.reglerDureeTour(salon.code, b.id, 60)).toThrow(/hôte/);
+    expect(() => g.reglerDureeTour(salon.code, hote.id, 5)).toThrow(/invalide/);
+    expect(() => g.reglerDureeTour(salon.code, hote.id, '60')).toThrow(/invalide/);
+    g.reglerDureeTour(salon.code, hote.id, 300);
+    expect(g.vueSalon(salon).reglages.dureeTourS).toBe(300);
+    g.reglerDureeTour(salon.code, hote.id, null);
+    g.demarrer(salon.code, hote.id);
+    expect(salon.partie!.config.delaiTourMs).toBeNull();
+    expect(() => g.reglerDureeTour(salon.code, hote.id, 60)).toThrow(/lancée/);
+  });
+
+  it('la durée choisie est appliquée à la partie', () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    g.rejoindre(salon.code, 'B');
+    g.rejoindre(salon.code, 'C');
+    g.reglerDureeTour(salon.code, hote.id, 60);
+    g.demarrer(salon.code, hote.id);
+    expect(salon.partie!.config.delaiTourMs).toBe(60_000);
+    expect(salon.partie!.echeanceTour - salon.partie!.creeLe).toBe(60_000);
+  });
+
   it('sauvegarde et restauration après redémarrage : rôles, cartes, compteurs et jetons intacts', () => {
     const { g, avance } = gestionnaire();
     const { salon, joueur: hote, jeton } = g.creer('Hôte');

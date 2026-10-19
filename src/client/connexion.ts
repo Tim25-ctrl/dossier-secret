@@ -161,6 +161,7 @@ class Connexion {
   ajouterBot = () => this.envoyer('salon:ajouterBot', {});
   retirer = (joueurId: string) => this.envoyer('salon:retirer', { joueurId });
   message = (texte: string) => this.envoyer('salon:message', { texte });
+  reglerDureeTour = (dureeTourS: number | null) => this.envoyer('salon:reglages', { dureeTourS });
   action = (a: ActionJeu) => this.envoyer('jeu:action', a);
 }
 

@@ -88,7 +88,7 @@ export function ContenuRegles() {
           <strong>Carnet de déduction et discussion</strong> — gratuits, à tout moment.
         </li>
       </ul>
-      <p>Un tour non terminé expire automatiquement, pour que personne ne bloque la partie.</p>
+      <p>L'hôte choisit dans le salon d'attente la durée d'un tour (de 1 à 10 minutes, ou sans limite). À la fin du temps, le tour passe automatiquement. Un joueur déconnecté est passé au bout de quelques secondes, même sans limite de temps.</p>
 
       <h3>L'hypothèse et l'interrogation</h3>
       <p>
@@ -110,8 +110,8 @@ export function ContenuRegles() {
         </li>
         <li>
           <strong>Hypothèse falsifiée (1 fois par partie)</strong> — juste après l'hypothèse d'un autre joueur, le complice peut modifier un seul de ses trois éléments
-          avant qu'elle soit annoncée. Les autres joueurs voient la version modifiée ; l'auteur voit toujours sa version originale (et est averti de la différence).
-          Les cartes à montrer sont toujours calculées sur la version originale : un joueur interrogé peut donc s'apercevoir de la supercherie.
+          avant qu'elle soit annoncée. Les autres joueurs voient la version modifiée ; l'auteur, lui, voit toujours sa version originale et n'est pas prévenu.
+          Les cartes à montrer restent calculées sur la version originale.
         </li>
       </ul>
       <p>Une accusation finale ne peut jamais être falsifiée.</p>

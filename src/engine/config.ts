@@ -13,7 +13,8 @@ export interface ConfigPartie {
   /** Durée fixe de l'étape de falsification (identique pour chaque hypothèse, pour ne rien trahir). */
   delaiFalsificationMs: number;
   delaiReponseMs: number;
-  delaiTourMs: number;
+  /** Durée maximale d'un tour ; null = sans limite (un joueur déconnecté reste limité). */
+  delaiTourMs: number | null;
   /** Délai de tour réduit lorsque le joueur concerné est déconnecté. */
   delaiDeconnecteMs: number;
   /** Temps minimal laissé au joueur actif après la résolution de son hypothèse. */

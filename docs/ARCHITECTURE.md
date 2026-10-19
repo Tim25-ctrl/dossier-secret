@@ -63,7 +63,7 @@ scripts/simulate.ts  Simulations d'équilibrage
 
 ## Hypothèse falsifiée : deux versions
 
-Le moteur conserve `original` (jamais modifiée, utilisée pour calculer les cartes à montrer) et `publique` (diffusée aux autres). L'auteur voit son original et un avertissement indiquant que les autres ont vu une version différente. Conséquence assumée : un joueur interrogé peut remarquer qu'on lui demande une carte absente de la version annoncée.
+Le moteur conserve `original` (jamais modifiée, utilisée pour calculer les cartes à montrer) et `publique` (diffusée aux autres). L'auteur voit uniquement son original : rien dans ses données ne lui indique que les autres ont vu une version différente. Limite inhérente à la règle : comme les cartes à montrer sont calculées sur l'original, un joueur interrogé peut se voir proposer une carte absente de la version annoncée.
 
 ## Génération des affaires
 

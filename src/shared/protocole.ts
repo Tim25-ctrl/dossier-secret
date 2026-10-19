@@ -23,6 +23,14 @@ export interface MessageChat {
   t: number;
 }
 
+/** Durées de tour proposées dans le salon (en secondes) ; null = sans limite. */
+export const DUREES_TOUR: (number | null)[] = [60, 120, 180, 300, 600, null];
+
+export interface ReglagesSalon {
+  /** Durée d'un tour en secondes ; null = sans limite. */
+  dureeTourS: number | null;
+}
+
 export interface SalonVue {
   code: string;
   statut: 'lobby' | 'partie' | 'terminee';
@@ -30,6 +38,7 @@ export interface SalonVue {
   joueurs: JoueurSalonVue[];
   messages: MessageChat[];
   botsAutorises: boolean;
+  reglages: ReglagesSalon;
   min: number;
   max: number;
 }
@@ -61,6 +70,7 @@ export interface EvenementsClient {
   'salon:ajouterBot': (p: object, ack: (r: Reponse) => void) => void;
   'salon:retirer': (p: { joueurId: string }, ack: (r: Reponse) => void) => void;
   'salon:message': (p: { texte: string }, ack: (r: Reponse) => void) => void;
+  'salon:reglages': (p: ReglagesSalon, ack: (r: Reponse) => void) => void;
   'jeu:action': (p: ActionJeu, ack: (r: Reponse) => void) => void;
 }
 

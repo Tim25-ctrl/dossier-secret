@@ -16,7 +16,7 @@ import { vuePour } from '../engine/vue';
 import type { ConfigPartie } from '../engine/config';
 import type { EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import { ErreurJeu, GestionnaireSalons } from './salons';
-import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaRetirer } from './validation';
+import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRetirer } from './validation';
 
 export interface OptionsServeur {
   port?: number;
@@ -333,6 +333,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       }
     });
     actionSalon('salon:message', (code, id, p) => gestionnaire.message(code, id, schemaMessage.parse(p).texte));
+    actionSalon('salon:reglages', (code, id, p) => gestionnaire.reglerDureeTour(code, id, schemaReglages.parse(p).dureeTourS));
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 
     socket.on('disconnect', () => detacher(socket));

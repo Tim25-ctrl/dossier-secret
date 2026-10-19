@@ -140,7 +140,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
               <summary>Historique complet</summary>
               <ul className="journal" style={{ marginTop: 8 }}>
                 {vue.historique.map((ev, i) => {
-                  const t = texteEvenement(ev, nom, moi, vue.mesHypothesesFalsifiees);
+                  const t = texteEvenement(ev, nom, moi);
                   return t ? (
                     <li key={i} className={t.classe}>
                       {t.contenu}

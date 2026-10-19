@@ -8,6 +8,7 @@
 import {
   ARMES,
   LIEUX,
+  SANS_LIMITE,
   SUSPECTS,
   categorieDe,
   elementsDuTriplet,
@@ -194,7 +195,7 @@ export function creerPartie(params: {
     indexTour: 0,
     pointsAction: config.pointsAction,
     hypothesesCeTour: 0,
-    echeanceTour: now + config.delaiTourMs,
+    echeanceTour: config.delaiTourMs === null ? SANS_LIMITE : now + config.delaiTourMs,
     etape: 'tour',
     hypotheses: [],
     accusations: [],
@@ -251,6 +252,13 @@ function tripletValide(t: { suspect: unknown; lieu: unknown; arme: unknown }): t
 
 function delaiPour(etat: EtatPartie, joueur: string, normal: number): number {
   return etat.joueurs[joueur].connecte ? normal : Math.min(normal, etat.config.delaiDeconnecteMs);
+}
+
+/** Échéance du tour qui commence à `t` pour ce joueur (tour sans limite : aucune échéance s'il est connecté). */
+function echeanceDeTour(etat: EtatPartie, joueur: string, t: number): number {
+  const delai = etat.config.delaiTourMs;
+  if (delai === null) return etat.joueurs[joueur].connecte ? SANS_LIMITE : t + etat.config.delaiDeconnecteMs;
+  return t + delaiPour(etat, joueur, delai);
 }
 
 export function enqueteursPouvantAccuser(etat: EtatPartie): string[] {
@@ -430,8 +438,6 @@ function decisionFalsification(
 function publierHypothese(etat: EtatPartie, h: HypotheseInterne, t: number) {
   h.etape = 'interrogation';
   publier(etat, { t, type: 'hypothese', id: h.id, auteur: h.auteur, triplet: { ...h.publique }, interroges: [...h.interroges] });
-  if (!memeTriplet(h.original, h.publique))
-    noter(etat, h.auteur, { t, type: 'hypothese_falsifiee', hypothese: h.id, publique: { ...h.publique } });
   h.index = 0;
   h.echeance = t + delaiPour(etat, h.interroges[0], etat.config.delaiReponseMs);
 }
@@ -580,7 +586,7 @@ function terminerTour(etat: EtatPartie, now: number, raison: 'volontaire' | 'tem
   etat.pointsAction = etat.config.pointsAction;
   etat.hypothesesCeTour = 0;
   const actif = joueurActif(etat);
-  etat.echeanceTour = now + delaiPour(etat, actif, etat.config.delaiTourMs);
+  etat.echeanceTour = echeanceDeTour(etat, actif, now);
   publier(etat, { t: now, type: 'debut_tour', joueur: actif, manche: etat.manche });
 }
 
@@ -673,7 +679,9 @@ export function avancer(etat: EtatPartie, now: number, rng?: Rng): boolean {
  */
 export function recalerEcheances(etat: EtatPartie, now: number) {
   if (etat.etape === 'terminee') return;
-  etat.echeanceTour = Math.max(etat.echeanceTour, now + etat.config.delaiTourMs);
+  // Tour sans limite : le joueur actif dispose de 2 minutes pour revenir, puis la partie continue.
+  etat.echeanceTour =
+    etat.config.delaiTourMs === null ? Math.min(etat.echeanceTour, now + 120_000) : Math.max(etat.echeanceTour, now + etat.config.delaiTourMs);
   if (etat.hypothese) {
     const delai = etat.hypothese.etape === 'falsification' ? etat.config.delaiFalsificationMs : etat.config.delaiReponseMs;
     etat.hypothese.echeance = Math.max(etat.hypothese.echeance, now + delai);
@@ -702,7 +710,11 @@ export function definirConnexion(etat: EtatPartie, joueur: string, connecte: boo
     if (concerneReponse) etat.hypothese!.echeance = Math.min(etat.hypothese!.echeance, limite);
   } else {
     // De retour (page rechargée, réseau rétabli) : on lui rend un délai raisonnable.
-    if (concerneTour) etat.echeanceTour = Math.max(etat.echeanceTour, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiTourMs));
+    if (concerneTour)
+      etat.echeanceTour =
+        etat.config.delaiTourMs === null
+          ? SANS_LIMITE
+          : Math.max(etat.echeanceTour, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiTourMs));
     if (concerneReponse) etat.hypothese!.echeance = Math.max(etat.hypothese!.echeance, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiReponseMs));
   }
   etat.version++;

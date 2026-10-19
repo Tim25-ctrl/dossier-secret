@@ -11,6 +11,9 @@ export type ArmeId = (typeof ARMES)[number];
 export type ElementId = SuspectId | LieuId | ArmeId;
 export type Categorie = 'suspect' | 'lieu' | 'arme';
 
+/** Échéance « infinie » (tour sans limite de temps). Valeur sûre en JSON. */
+export const SANS_LIMITE = Number.MAX_SAFE_INTEGER;
+
 export const TOUS_ELEMENTS: readonly ElementId[] = [...SUSPECTS, ...LIEUX, ...ARMES];
 
 export function categorieDe(id: string): Categorie | null {
@@ -153,7 +156,6 @@ export type EntreePrivee = { t: number } & (
   | { type: 'role'; role: Role; meurtrier?: SuspectId }
   | { type: 'main'; cartes: ElementId[] }
   | { type: 'hypothese_originale'; hypothese: string; triplet: Triplet }
-  | { type: 'hypothese_falsifiee'; hypothese: string; publique: Triplet }
   | { type: 'carte_vue'; hypothese: string; de: string; carte: ElementId }
   | { type: 'aucune_carte_vue'; hypothese: string }
   | { type: 'carte_montree'; hypothese: string; a: string; carte: ElementId; auto: boolean }
@@ -185,7 +187,7 @@ export interface HypotheseEnCoursVue {
   reponses: { joueur: string; statut: StatutReponse }[];
   repondantActuel?: string;
   /** Uniquement pour l'auteur. */
-  auteurPrive?: { original: Triplet; publiqueDifferente?: Triplet };
+  auteurPrive?: { original: Triplet };
   /** Uniquement pour la personne qui doit répondre maintenant. */
   aRepondre?: { cartesCorrespondantes: ElementId[]; peutMentir: boolean };
   /** Uniquement pour le complice, s'il peut encore falsifier cette hypothèse. */
@@ -230,6 +232,8 @@ export interface VueJoueur {
     nbInterroges: number;
     hypothesesMaxParTour: number;
     delaiFalsificationMs: number;
+    /** Durée d'un tour en ms ; null = sans limite. */
+    dureeTourMs: number | null;
   };
   manche: number;
   joueurActif: string;
@@ -243,7 +247,5 @@ export interface VueJoueur {
   archives: { dossier: number; categorie: CategorieIndice; disponibleDesManche: number; disponible: boolean; consulte: boolean }[];
   historique: EvenementPublic[];
   hypotheseEnCours?: HypotheseEnCoursVue;
-  /** Hypothèses de l'auteur dont la version publique diffère : id -> version publique. */
-  mesHypothesesFalsifiees: Record<string, Triplet>;
   resultat?: ResultatPartie;
 }

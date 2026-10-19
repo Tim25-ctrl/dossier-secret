@@ -6,7 +6,7 @@
 import { INDICES_PAR_ID } from '../shared/data/indices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../shared/data/manoir';
 import { ceQueLIndiceEcarte, combinaisonsPossibles } from '../shared/logique';
-import { memeTriplet, type HypotheseEnCoursVue, type ResultatPartie, type StatutReponse, type Triplet, type VueJoueur } from '../shared/types';
+import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
 import { nbInterroges } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
 import { cartesCorrespondantes, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
@@ -16,15 +16,11 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
   if (!moi) throw new Error('Joueur inconnu');
   const estComplice = moi.role === 'complice';
 
-  // Historique public ; l'auteur d'une hypothèse y voit toujours SA version originale.
+  // Historique public ; l'auteur d'une hypothèse y voit toujours SA version originale,
+  // sans aucun indice qu'elle a pu être falsifiée pour les autres.
   const mesHypotheses = new Map(etat.hypotheses.filter((h) => h.auteur === joueurId).map((h) => [h.id, h]));
-  const mesHypothesesFalsifiees: Record<string, Triplet> = {};
   const historique = etat.historique.map((ev) => {
-    if (ev.type === 'hypothese' && mesHypotheses.has(ev.id)) {
-      const h = mesHypotheses.get(ev.id)!;
-      if (!memeTriplet(h.original, h.publique)) mesHypothesesFalsifiees[h.id] = { ...h.publique };
-      return { ...ev, triplet: { ...h.original } };
-    }
+    if (ev.type === 'hypothese' && mesHypotheses.has(ev.id)) return { ...ev, triplet: { ...mesHypotheses.get(ev.id)!.original } };
     return ev;
   });
 
@@ -49,6 +45,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       nbInterroges: nbInterroges(etat.ordre.length),
       hypothesesMaxParTour: etat.config.hypothesesMaxParTour,
       delaiFalsificationMs: etat.config.delaiFalsificationMs,
+      dureeTourMs: etat.config.delaiTourMs,
     },
     manche: etat.manche,
     joueurActif: joueurActif(etat),
@@ -70,7 +67,6 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       consulte: moi.dossiersConsultes.includes(a.dossier),
     })),
     historique,
-    mesHypothesesFalsifiees,
   };
 
   if (estComplice) {
@@ -99,10 +95,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       enCours.triplet = h.auteur === joueurId ? { ...h.original } : { ...h.publique };
       enCours.repondantActuel = repondant ?? undefined;
     }
-    if (h.auteur === joueurId) {
-      enCours.auteurPrive = { original: { ...h.original } };
-      if (h.etape === 'interrogation' && !memeTriplet(h.original, h.publique)) enCours.auteurPrive.publiqueDifferente = { ...h.publique };
-    }
+    if (h.auteur === joueurId) enCours.auteurPrive = { original: { ...h.original } };
     if (repondant === joueurId) {
       enCours.aRepondre = {
         cartesCorrespondantes: cartesCorrespondantes(etat, joueurId, h.original),

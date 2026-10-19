@@ -213,12 +213,6 @@ export function SuiviHypothese({ vue, nom, decalage, delaiFalsification }: { vue
           <Prive>
             <p style={{ marginBottom: 6 }}>Votre version originale :</p>
             <TripletVue t={h.auteurPrive.original} />
-            {h.auteurPrive.publiqueDifferente && (
-              <p style={{ marginTop: 8, color: 'var(--or-clair)' }}>
-                ⚠ Les autres joueurs voient une version différente : votre hypothèse a été falsifiée par le complice ! Les réponses restent calculées sur votre
-                version originale.
-              </p>
-            )}
             {carteVue && carteVue.type === 'carte_vue' && (
               <p style={{ marginTop: 8 }}>
                 {nom(carteVue.de)} vous montre : <Carte id={carteVue.carte} taille="mini" />
@@ -282,11 +276,6 @@ export function ModaleReponse({ vue, nom, decalage, onErreur }: { vue: VueJoueur
             )}
           </>
         )}
-        {h.triplet && a.cartesCorrespondantes.some((c) => ![h.triplet!.suspect, h.triplet!.lieu, h.triplet!.arme].includes(c as never)) && (
-          <p className="petit" style={{ marginTop: 10, color: 'var(--or-clair)' }}>
-            Étrange : une carte demandée ne figure pas dans l'hypothèse annoncée. Les cartes sont toujours vérifiées sur la version originale de l'enquêteur…
-          </p>
-        )}
       </Prive>
     </Modale>
   );
@@ -321,8 +310,8 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
         ) : (
           <>
             <p className="petit">
-              Vous pouvez modifier <strong>un seul</strong> élément avant l'annonce publique (1 fois par partie). L'auteur verra sa version originale ; les réponses
-              seront calculées sur l'original.
+              Vous pouvez modifier <strong>un seul</strong> élément avant l'annonce publique (1 fois par partie). L'auteur continuera de voir sa version
+              originale, sans être prévenu ; les réponses seront calculées sur l'original.
             </p>
             <div className="ligne" role="radiogroup" aria-label="Élément à modifier">
               {(['suspect', 'lieu', 'arme'] as const).map((c) => (

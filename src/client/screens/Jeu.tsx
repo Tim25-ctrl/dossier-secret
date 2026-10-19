@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LIBELLES_CATEGORIE_INDICE } from '../../shared/data/indices';
 import { nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
-import type { VueJoueur } from '../../shared/types';
+import { SANS_LIMITE, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
 import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification } from '../components/Commun';
 import { Icone } from '../components/Emblemes';
@@ -105,7 +105,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
         {vue.etape === 'tour' && (
           <div className="indicateur">
             <small>Fin du tour</small>
-            <Chrono echeance={vue.echeanceTour} decalage={decalage} />
+            {vue.echeanceTour >= SANS_LIMITE ? <strong>sans limite</strong> : <Chrono echeance={vue.echeanceTour} decalage={decalage} />}
           </div>
         )}
         <span className="espace" />
@@ -264,7 +264,7 @@ function PanneauRole({ vue }: { vue: VueJoueur }) {
             </Aide>
             <span className="etiquette etiquette-rouge">Falsification : {vue.moi.falsificationsRestantes}/1</span>
             <Aide libelle="Aide sur la falsification">
-              Juste après l'hypothèse d'un autre joueur, modifiez un de ses trois éléments avant l'annonce publique. Son auteur verra l'original.
+              Juste après l'hypothèse d'un autre joueur, modifiez un de ses trois éléments avant l'annonce publique. Son auteur continuera de voir l'original, sans être prévenu.
             </Aide>
           </div>
         </>
@@ -342,7 +342,7 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
 
 function Journal({ vue, nom, limite }: { vue: VueJoueur; nom: Noms; limite?: number }) {
   const lignes = vue.historique
-    .map((ev, i) => ({ i, r: texteEvenement(ev, nom, vue.moi.id, vue.mesHypothesesFalsifiees) }))
+    .map((ev, i) => ({ i, r: texteEvenement(ev, nom, vue.moi.id) }))
     .filter((x) => x.r !== null)
     .reverse();
   const affichees = limite ? lignes.slice(0, limite) : lignes;

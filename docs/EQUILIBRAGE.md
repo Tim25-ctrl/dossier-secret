@@ -125,3 +125,22 @@ La réserve de ruses à 3 joueurs passe de 3 à 2 pour compenser.
 | 6 | 76 % / 50 % | 45–46 % |
 
 Les bots « experts » (qui raisonnent sur les cartes) sont peu affectés ; les bots « occasionnels » trouvent un peu moins souvent, car les indices demandent désormais d'être combinés avec les cartes.
+
+## Mise à jour : indices « pas X avec Y » uniquement (20/10/2026)
+
+**Problème signalé** : un indice « Si Éléonore est coupable, le crime a eu lieu dans la bibliothèque » donne le lieu dès qu'on connaît le coupable.
+
+**Correction** : seuls les indices « pas X avec Y » sont tirés (ex. « si le crime a eu lieu dans la cave, ce n'était pas avec le revolver »). Chacun n'écarte qu'une ou deux paires : il n'écarte jamais un élément seul et ne déduit jamais un élément d'un autre (test automatique sur 200 affaires). 23 indices de ce type sont rédigés ; 108 modèles de faux indices « pas X avec Y » (une par paire) servent uniquement à la ruse « Dossier trafiqué ».
+
+**Effet mesuré (150–200 parties par taille, hypothèse à 2 PA conservée par décision du 20/10/2026)** :
+
+| Joueurs | Enquêteurs gagnent (expert / occasionnel) | Sans pouvoirs du complice (expert / occasionnel) | Complice démasqué |
+|---:|---:|---:|---:|
+| 3 | 50 % / 22 % | 100 % / 36 % | 56 % |
+| 4 | 48 % / 27 % | 96 % / 37 % | 65 % |
+| 5 | 54 % / 19 % | 100 % / 31 % | 60–63 % |
+| 6 | 58 % / 30 % | 100 % / 45 % | 48–49 % |
+
+L'enquête est désormais **exigeante** : les indices ne valent que combinés aux cartes. Un joueur qui raisonne sur les mains des autres (profil expert) gagne environ une partie sur deux ; un joueur qui se contente de cocher ce qu'il voit gagne rarement.
+
+Pistes testées si les parties s'avèrent trop dures en vrai : hypothèse à 1 PA (enquêteurs 60–80 %, testé mais non retenu), ou plus d'indices (peu d'effet : chaque indice « pas X avec Y » apporte peu).

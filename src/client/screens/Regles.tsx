@@ -171,6 +171,11 @@ export function ContenuRegles() {
         Des indices sont versés au dossier public au début de la partie et en cours de partie. D'autres dorment dans les archives. Tous les indices sont vrais et
         cohérents entre eux : aucun n'exclut la vraie solution.
       </p>
+      <p>
+        Chaque indice relie deux éléments : « si le crime a eu lieu dans la cave, ce n'était pas avec le revolver », « si Gabriel est coupable, ce n'est pas avec le
+        chandelier »… Un indice n'innocente jamais à lui seul un suspect, un lieu ou une arme : il ne devient décisif qu'en le croisant avec les cartes que vous
+        connaissez.
+      </p>
     </div>
   );
 }

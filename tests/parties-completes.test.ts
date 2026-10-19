@@ -50,16 +50,21 @@ function surveiller() {
 }
 
 describe('Parties complètes simulées (bots)', () => {
+  for (const mode of ['classique', 'ruse'] as const)
   for (const n of [3, 4, 5, 6]) {
-    it(`${n} joueurs : 25 parties de bout en bout sans violation de règle`, () => {
+    it(`mode ${mode}, ${n} joueurs : 25 parties de bout en bout sans violation de règle`, () => {
       let lies = 0;
       let falsif = 0;
       let victoiresEnq = 0;
       let reveles = 0;
+      let emprunts = 0;
+      let trafics = 0;
+      let empreintes = 0;
+      let denonciations = 0;
       for (let seed = 1; seed <= 25; seed++) {
         const s = surveiller();
         const profil = seed % 2 ? PROFIL_PAR_DEFAUT : PROFIL_OCCASIONNEL;
-        const { etat, refus } = simulerPartie({ nbJoueurs: n, seed: seed * 101 + n, profil, apresAction: s.verifier });
+        const { etat, refus } = simulerPartie({ nbJoueurs: n, seed: seed * 101 + n, profil, apresAction: s.verifier, config: { modeComplice: mode } });
         expect(s.violations).toEqual([]);
         expect(refus).toEqual([]);
         expect(etat.etape).toBe('terminee');
@@ -78,13 +83,27 @@ describe('Parties complètes simulées (bots)', () => {
         lies += etat.hypotheses.filter((h) => h.reponses.some((r) => r.resultat === 'mensonge')).length;
         falsif += etat.hypotheses.filter((h) => h.falsification).length;
         reveles += etat.hypotheses.filter((h) => h.carteMontree).length;
-        // Aucune carte révélée n'appartient à la solution.
-        for (const h of etat.hypotheses) if (h.carteMontree) expect(elementsDuTriplet(etat.affaire.solution)).not.toContain(h.carteMontree.carte);
+        // Aucune carte montrée HONNÊTEMENT n'appartient à la solution (une carte empruntée, elle, peut tromper).
+        for (const h of etat.hypotheses)
+          for (const r of h.reponses) if (r.resultat === 'carte_montree') expect(elementsDuTriplet(etat.affaire.solution)).not.toContain(r.carte);
+        emprunts += etat.hypotheses.flatMap((h) => h.reponses).filter((r) => r.resultat === 'emprunt').length;
+        trafics += etat.trafics?.length ?? 0;
+        empreintes += etat.historique.filter((e) => e.type === 'empreinte').length;
+        denonciations += etat.denonciations?.length ?? 0;
+        // Les empreintes publiées sont toujours vraies.
+        for (const e of etat.historique) if (e.type === 'empreinte') expect(e.innocente).not.toBe(etat.complice);
+        if (mode === 'classique') expect(emprunts + trafics + empreintes + denonciations).toBe(0);
       }
       expect(lies).toBeGreaterThan(0);
       expect(falsif).toBeGreaterThan(0);
       expect(reveles).toBeGreaterThan(0);
       expect(victoiresEnq).toBeGreaterThan(0);
+      if (mode === 'ruse') {
+        expect(emprunts).toBeGreaterThan(0);
+        expect(trafics).toBeGreaterThan(0);
+        expect(empreintes).toBeGreaterThan(0);
+        expect(denonciations).toBeGreaterThan(0);
+      }
     });
   }
 

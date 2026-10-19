@@ -266,7 +266,9 @@ export function ModaleReponse({ vue, nom, decalage, onErreur }: { vue: VueJoueur
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--or-sombre)' }}>
                 <div className="ligne">
                   <button className="btn btn-danger" disabled={envoi} onClick={() => void envoyer({ type: 'mentir' })}>
-                    Utiliser « Mensonge » ({vue.moi.mensongesRestants} restant{(vue.moi.mensongesRestants ?? 0) > 1 ? 's' : ''})
+                    {vue.regles.modeComplice === 'ruse'
+                      ? `Ruse « Mensonge » (${vue.regles.coutRuses.mensonge} ruse — reste ${vue.moi.rusesRestantes})`
+                      : `Utiliser « Mensonge » (${vue.moi.mensongesRestants} restant${(vue.moi.mensongesRestants ?? 0) > 1 ? 's' : ''})`}
                   </button>
                   <Aide libelle="Aide sur le pouvoir Mensonge">
                     Pouvoir du complice : vous ne montrez aucune carte et tout le monde croit que vous n'en avez pas. L'interrogation continue avec le joueur suivant.
@@ -277,7 +279,74 @@ export function ModaleReponse({ vue, nom, decalage, onErreur }: { vue: VueJoueur
             )}
           </>
         )}
+        {a.cartesEmpruntables.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--or-sombre)' }}>
+            <div className="ligne" style={{ marginBottom: 6 }}>
+              <strong>Ruse « Carte empruntée »</strong> <span className="petit">({vue.regles.coutRuses.emprunt} ruses — reste {vue.moi.rusesRestantes})</span>
+              <Aide libelle="Aide sur la carte empruntée">
+                Montrez une carte de l'hypothèse que vous n'avez PAS : l'enquêteur la croira innocente. Attention : vous ignorez le lieu et l'arme du crime, la carte
+                montrée peut donc être innocente… ou faire partie de la solution. Si son vrai détenteur la montre aussi, la supercherie peut être découverte.
+              </Aide>
+            </div>
+            <div className="ligne">
+              {a.cartesEmpruntables.map((c) => (
+                <button key={c} className="btn btn-danger btn-petit" disabled={envoi} onClick={() => void envoyer({ type: 'emprunter', carte: c })}>
+                  Montrer « {nomElement(c)} » sans l'avoir
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </Prive>
+    </Modale>
+  );
+}
+
+/** Dénoncer le complice (mode « rusé ») : 1 PA, une fois par partie. */
+export function ModaleDenonciation({ vue, nom, onFermer, onErreur }: { vue: VueJoueur; nom: Noms; onFermer: () => void; onErreur: (e: string) => void }) {
+  const [cible, setCible] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+  const envoyer = async () => {
+    if (!cible) return;
+    setEnvoi(true);
+    const r = await connexion.action({ type: 'denoncer', joueur: cible });
+    setEnvoi(false);
+    if (r.ok) onFermer();
+    else onErreur(r.erreur);
+  };
+  return (
+    <Modale
+      titre="Dénoncer le complice (1 PA)"
+      onFermer={onFermer}
+      pied={
+        <>
+          <button className="btn btn-discret" onClick={onFermer}>
+            Annuler
+          </button>
+          <button className="btn btn-danger" disabled={!cible || envoi} onClick={() => void envoyer()}>
+            Dénoncer {cible ? nom(cible) : '…'}
+          </button>
+        </>
+      }
+    >
+      <p>Qui est le complice ? Une seule dénonciation par joueur et par partie.</p>
+      <ul className="petit" style={{ paddingLeft: '1.1em' }}>
+        <li>
+          <strong>Si vous avez raison</strong>, le complice est démasqué devant tous et perd toutes ses ruses.
+        </li>
+        <li>
+          <strong>Si vous vous trompez</strong>, vous perdez votre prochain tour.
+        </li>
+      </ul>
+      <div className="ligne">
+        {vue.joueurs
+          .filter((j) => j.id !== vue.moi.id)
+          .map((j) => (
+            <button key={j.id} className={`btn ${cible === j.id ? 'btn-danger' : ''}`} aria-pressed={cible === j.id} onClick={() => setCible(j.id)}>
+              {nom(j.id)}
+            </button>
+          ))}
+      </div>
     </Modale>
   );
 }
@@ -311,8 +380,9 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
         ) : (
           <>
             <p className="petit">
-              Vous pouvez modifier <strong>un seul</strong> élément avant l'annonce publique (1 fois par partie). L'auteur continuera de voir sa version
-              originale, sans être prévenu ; les réponses seront calculées sur l'original.
+              Vous pouvez modifier <strong>un seul</strong> élément avant l'annonce publique (
+              {vue.regles.modeComplice === 'ruse' ? `${vue.regles.coutRuses.falsification} ruse — il vous en reste ${vue.moi.rusesRestantes}` : `reste : ${vue.moi.falsificationsRestantes}`}
+              ). L'auteur continuera de voir sa version originale, sans être prévenu ; les réponses seront calculées sur l'original.
             </p>
             <div className="ligne" role="radiogroup" aria-label="Élément à modifier">
               {(['suspect', 'lieu', 'arme'] as const).map((c) => (

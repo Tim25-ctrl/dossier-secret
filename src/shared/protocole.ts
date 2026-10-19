@@ -1,6 +1,6 @@
 // Protocole WebSocket entre le navigateur et le serveur (types uniquement).
 
-import type { ActionJeu, VueJoueur } from './types';
+import type { ActionJeu, ModeComplice, VueJoueur } from './types';
 
 export const LONGUEUR_CODE = 6;
 export const ALPHABET_CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -30,6 +30,8 @@ export const DUREES_TOUR: (number | null)[] = [60, 120, 180, 300, 600, null];
 export interface ReglagesSalon {
   /** Durée d'un tour en secondes ; null = sans limite. */
   dureeTourS: number | null;
+  /** Pouvoirs du complice. */
+  modeComplice: ModeComplice;
 }
 
 export interface SalonVue {
@@ -71,7 +73,7 @@ export interface EvenementsClient {
   'salon:ajouterBot': (p: object, ack: (r: Reponse) => void) => void;
   'salon:retirer': (p: { joueurId: string }, ack: (r: Reponse) => void) => void;
   'salon:message': (p: { texte: string }, ack: (r: Reponse) => void) => void;
-  'salon:reglages': (p: ReglagesSalon, ack: (r: Reponse) => void) => void;
+  'salon:reglages': (p: Partial<ReglagesSalon>, ack: (r: Reponse) => void) => void;
   'jeu:action': (p: ActionJeu, ack: (r: Reponse) => void) => void;
 }
 

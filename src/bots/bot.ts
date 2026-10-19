@@ -4,7 +4,7 @@
 
 import { pick, shuffle, type Rng } from '../engine/rng';
 import { SUSPECTS, elementsDuTriplet, type ActionJeu, type SuspectId, type Triplet, type VueJoueur } from '../shared/types';
-import { deduireRobuste, deduireSimple, type Connaissance } from './deduction';
+import { candidatsComplice, deduireRobuste, deduireSimple, type Connaissance } from './deduction';
 
 export interface ProfilBot {
   /** Probabilité de mentir quand c'est possible et utile. */
@@ -17,10 +17,25 @@ export interface ProfilBot {
   attention: number;
   /** 'expert' : propagation logique complète ; 'simple' : éliminations directes seulement. */
   deduction: 'expert' | 'simple';
+  /** Mode « rusé » : probabilité d'emprunter une carte quand on n'en a aucune à montrer. */
+  emprunt: number;
+  /** Mode « rusé » : probabilité de trafiquer un dossier lu. */
+  trafic: number;
+  /** Mode « rusé » : l'enquêteur dénonce-t-il quand un seul suspect reste possible ? */
+  denonce: boolean;
 }
 
 /** Profil « expert » : mémoire et déduction parfaites (borne haute de la force des enquêteurs). */
-export const PROFIL_PAR_DEFAUT: ProfilBot = { mensonge: 0.6, falsificationOpportuniste: 0.25, pouvoirs: true, attention: 1, deduction: 'expert' };
+export const PROFIL_PAR_DEFAUT: ProfilBot = {
+  mensonge: 0.6,
+  falsificationOpportuniste: 0.25,
+  pouvoirs: true,
+  attention: 1,
+  deduction: 'expert',
+  emprunt: 0.35,
+  trafic: 0.5,
+  denonce: true,
+};
 /** Profil « joueur attentif » : propagation complète mais ne retient qu'une partie des réponses des autres. */
 export const PROFIL_ATTENTIF: ProfilBot = { ...PROFIL_PAR_DEFAUT, attention: 0.35 };
 /** Profil « joueur occasionnel » : coche son carnet avec ce qu'il voit directement, sans plus. */
@@ -37,6 +52,10 @@ export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL
   // 2. Réponse à une interrogation.
   if (h?.aRepondre && h.repondantActuel === moi) {
     const cartes = h.aRepondre.cartesCorrespondantes;
+    const empruntables = h.aRepondre.cartesEmpruntables ?? [];
+    // Carte empruntée : faire croire qu'on détient une carte (mode « rusé »).
+    if (cartes.length === 0 && empruntables.length > 0 && profil.pouvoirs && rng.int(1000) < profil.emprunt * 1000)
+      return { type: 'emprunter', carte: pick(rng, empruntables) };
     if (cartes.length === 0) return { type: 'repondre', carte: null };
     if (h.aRepondre.peutMentir && profil.pouvoirs && vue.moi.meurtrier) {
       const t = h.triplet!;
@@ -50,7 +69,7 @@ export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL
 
   // 3. Mon tour.
   if (vue.etape !== 'tour' || vue.joueurActif !== moi) return null;
-  return vue.moi.role === 'complice' ? tourComplice(vue, rng) : tourEnqueteur(vue, rng, profil);
+  return vue.moi.role === 'complice' ? tourComplice(vue, rng, profil) : tourEnqueteur(vue, rng, profil);
 }
 
 function decisionFalsification(vue: VueJoueur, original: Triplet, rng: Rng, profil: ProfilBot): ActionJeu {
@@ -92,6 +111,11 @@ function tourEnqueteur(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
   const derniereManche = vue.manche >= vue.regles.manchesMax;
 
   if (vue.moi.peutAccuser && k.combinaisons.length === 1) return { type: 'accuser', ...k.combinaisons[0] };
+  // Mode « rusé » : dénoncer dès qu'un seul joueur peut être le complice.
+  if (profil.denonce && vue.moi.peutDenoncer && vue.pointsAction >= 1 && !vue.compliceDemasque) {
+    const suspects = candidatsComplice(vue);
+    if (suspects.length === 1) return { type: 'denoncer', joueur: suspects[0] };
+  }
 
   const peutHypothese = vue.pointsAction >= vue.regles.coutHypothese && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
   if (peutHypothese && k.combinaisons.length > 0 && !preferArchives(vue, rng)) {
@@ -110,7 +134,7 @@ function choisirHypothese(k: Connaissance, rng: Rng): Triplet {
   return pick(rng, k.combinaisons);
 }
 
-function tourComplice(vue: VueJoueur, rng: Rng): ActionJeu {
+function tourComplice(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
   const meurtrier = vue.moi.meurtrier as SuspectId;
   const peutHypothese = vue.pointsAction >= vue.regles.coutHypothese && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
   if (peutHypothese && !preferArchives(vue, rng)) {
@@ -122,7 +146,12 @@ function tourComplice(vue: VueJoueur, rng: Rng): ActionJeu {
     return { type: 'hypothese', ...t, interroges: choisirInterroges(vue, t, null, rng) };
   }
   const dossier = dossierDisponible(vue);
-  if (vue.pointsAction >= 1 && dossier !== null) return { type: 'consulterArchive', dossier };
+  if (vue.pointsAction >= 1 && dossier !== null) {
+    // Dossier trafiqué : les prochains lecteurs liront un faux indice (mode « rusé »).
+    const estIndice = vue.archives.find((a) => a.dossier === dossier)?.categorie !== 'piece';
+    const trafiquer = profil.pouvoirs && estIndice && (vue.moi.rusesRestantes ?? 0) > 0 && rng.int(1000) < profil.trafic * 1000;
+    return { type: 'consulterArchive', dossier, ...(trafiquer ? { trafiquer: true } : {}) };
+  }
   return { type: 'finTour' };
 }
 

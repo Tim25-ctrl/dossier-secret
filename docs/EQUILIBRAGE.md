@@ -52,3 +52,51 @@ Aucune action refusée par le moteur sur l'ensemble des simulations, et aucune v
 - Réduire le nombre d'indices publics ou de dossiers d'archives.
 
 Chaque piste se mesure en quelques minutes avec `npm run simulate`.
+
+---
+
+# Mode « Complice rusé » (par défaut depuis le 19/10/2026)
+
+## Les règles du mode
+
+Objectif : des pouvoirs **invisibles sur le moment**, mais qui laissent des **traces recoupables**, pour que le complice soit facile à jouer tout en restant démasquable.
+
+| Élément | Règle |
+|---|---|
+| Réserve de ruses | 3 (3 joueurs), 4 (4 joueurs), 5 (5 ou 6 joueurs) |
+| Mensonge — 1 ruse | Interrogé, répondre « aucune carte » alors qu'on en a une |
+| Carte empruntée — 2 ruses | Interrogé, montrer une carte de l'hypothèse qu'on n'a pas (jamais celle du meurtrier). Le complice ignorant le lieu et l'arme, la carte peut faire partie de la solution |
+| Hypothèse falsifiée — 1 ruse | Inchangée |
+| Dossier trafiqué — 1 ruse | En lisant un dossier, le complice le remplace par un faux indice (toujours faux pour cette solution, présenté sous la même catégorie) pour tous les lecteurs suivants |
+| Empreintes | Une ruse laisse une empreinte avec une probabilité de 35 % (3 j.), 50 % (4 j.), 60 % (5 j.), 70 % (6 j.). Publiée 1 ou 2 manches plus tard : « L'empreinte n'appartient pas à X » (toujours vraie, X tiré au hasard) |
+| Dénonciation — 1 PA | Une fois par partie et par joueur. Juste : complice démasqué publiquement, ruses perdues. Fausse : le dénonciateur perd son prochain tour |
+
+Le mode « Classique » (mensonges + falsifications, sans empreintes ni dénonciation) reste disponible dans le salon d'attente.
+
+## Comment le complice peut être trouvé
+
+- **Mensonge** : il montre plus tard une carte qu'il prétendait ne pas avoir.
+- **Carte empruntée** : deux joueurs ont montré la même carte, ou la taille d'une main devient impossible, ou toutes les possibilités d'une catégorie sont éliminées.
+- **Dossier trafiqué** : le faux indice finit par contredire les cartes et les autres indices ; l'historique dit qui avait ouvert ce dossier avant soi.
+- **Empreintes** : chacune innocente un joueur ; recoupées, elles isolent le complice.
+
+## Réglage par simulation (200 parties par taille)
+
+Les bots enquêteurs utilisent les empreintes, dénoncent quand un seul suspect reste possible, et — comme un humain prudent — ne se méfient des informations d'un joueur qu'en cas de contradiction.
+
+| Joueurs | Enquêteurs gagnent (expert / occasionnel) | Complice démasqué | Mode classique, pour comparaison (expert / occasionnel) |
+|---:|---:|---:|---:|
+| 3 | 53 % / 47 % | 72 % | 71 % / 59 % |
+| 4 | 56 % / 65 % | 61 % | 88 % / 81 % |
+| 5 | 74 % / 59 % | 57–61 % | 83 % / 79 % |
+| 6 | 78 % / 71 % | 43–44 % | 98 % / 84 % |
+
+Étapes du réglage (toutes mesurées) :
+1. Première version (empreinte à chaque ruse, « assis à côté de X ») : complice démasqué dans ~100 % des parties → trop facile.
+2. Empreintes « parmi A, B » : un joueur cité avec un seul autre identifiait aussitôt le complice → encore ~95 %.
+3. Empreintes « n'appartient pas à X », probabilité selon la taille de table → 43 à 72 % : trouvable mais pas automatique.
+4. Coûts : la carte empruntée passe à 2 ruses ; une 6ᵉ ruse à 6 joueurs n'aidait pas le complice (seulement plus d'empreintes) → non retenue.
+
+Contribution mesurée de chaque ruse (bots occasionnels, 3/4/5/6 joueurs) : sans le **dossier trafiqué**, les enquêteurs gagnent environ 20 points de plus — c'est la ruse la plus forte ; la **carte empruntée** pèse peu dans ce modèle de bots.
+
+Les enquêteurs restent favoris à 5 et 6 joueurs ; à 3 et 4 joueurs la partie est proche de l'équilibre. Comme toujours, ces chiffres viennent de bots : la discussion entre humains peut faire pencher la balance dans les deux sens.

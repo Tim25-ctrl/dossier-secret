@@ -117,6 +117,11 @@ export interface CarteIndice {
 // ---------------------------------------------------------------------------
 
 export type Role = 'enqueteur' | 'complice';
+
+/** Mode du complice : pouvoirs historiques, ou réserve de ruses + empreintes + dénonciation. */
+export type ModeComplice = 'classique' | 'ruse';
+/** Les ruses du complice (mode « rusé »). Chacune coûte 1 ruse et laisse une empreinte. */
+export type TypeRuse = 'mensonge' | 'falsification' | 'emprunt' | 'trafic';
 export type Marque = 'inconnu' | 'ecarte' | 'probable' | 'certain';
 
 export interface Carnet {
@@ -130,7 +135,9 @@ export type ActionJeu =
   | { type: 'passerFalsification' }
   | { type: 'repondre'; carte: ElementId | null }
   | { type: 'mentir' }
-  | { type: 'consulterArchive'; dossier: number }
+  | { type: 'consulterArchive'; dossier: number; trafiquer?: boolean }
+  | { type: 'emprunter'; carte: ElementId }
+  | { type: 'denoncer'; joueur: string }
   | { type: 'accuser'; suspect: SuspectId; lieu: LieuId; arme: ArmeId }
   | { type: 'finTour' }
   | { type: 'carnet'; marques?: Partial<Record<ElementId, Marque>>; notes?: string };
@@ -143,7 +150,7 @@ export type EvenementPublic = { t: number } & (
   | { type: 'debut_partie'; joueurs: string[] }
   | { type: 'debut_manche'; manche: number }
   | { type: 'debut_tour'; joueur: string; manche: number }
-  | { type: 'fin_tour'; joueur: string; raison: 'volontaire' | 'temps_ecoule' }
+  | { type: 'fin_tour'; joueur: string; raison: 'volontaire' | 'temps_ecoule' | 'tour_perdu' }
   | { type: 'hypothese'; id: string; auteur: string; triplet: Triplet; interroges: string[] }
   | { type: 'reponse'; hypothese: string; joueur: string; resultat: 'aucune_carte' | 'carte_montree'; auto: boolean }
   | { type: 'fin_hypothese'; hypothese: string; montreePar: string | null }
@@ -152,6 +159,9 @@ export type EvenementPublic = { t: number } & (
   | { type: 'accusation'; joueur: string; triplet: Triplet; correcte: boolean }
   | { type: 'connexion'; joueur: string; connecte: boolean }
   | { type: 'depart'; joueur: string }
+  /** Empreinte laissée par une ruse : elle innocente un joueur (indice VRAI et anonyme). */
+  | { type: 'empreinte'; innocente: string; manche: number }
+  | { type: 'denonciation'; joueur: string; cible: string; correcte: boolean }
   | { type: 'fin_partie'; vainqueur: Vainqueur; raison: RaisonFin }
 );
 
@@ -163,11 +173,12 @@ export type EntreePrivee = { t: number } & (
   | { type: 'carte_vue'; hypothese: string; de: string; carte: ElementId }
   | { type: 'aucune_carte_vue'; hypothese: string }
   | { type: 'carte_montree'; hypothese: string; a: string; carte: ElementId; auto: boolean }
-  | { type: 'archive_lue'; dossier: number; indice: string }
+  | { type: 'archive_lue'; dossier: number; indice: string; categorie?: CategorieIndice }
   | { type: 'piece_lue'; dossier: number; carte: ElementId }
   | { type: 'mensonge'; hypothese: string; restants: number }
   | { type: 'falsification'; hypothese: string; champ: ChampTriplet; de: ElementId; vers: ElementId }
   | { type: 'accusation'; triplet: Triplet; correcte: boolean }
+  | { type: 'ruse'; ruse: TypeRuse; restants: number; hypothese?: string; dossier?: number; carte?: ElementId; indiceFaux?: string }
 );
 
 export interface JoueurPublic {
@@ -196,7 +207,7 @@ export interface HypotheseEnCoursVue {
   /** Uniquement pour l'auteur. */
   auteurPrive?: { original: Triplet };
   /** Uniquement pour la personne qui doit répondre maintenant. */
-  aRepondre?: { cartesCorrespondantes: ElementId[]; peutMentir: boolean };
+  aRepondre?: { cartesCorrespondantes: ElementId[]; peutMentir: boolean; cartesEmpruntables: ElementId[] };
   /** Uniquement pour le complice, s'il peut encore falsifier cette hypothèse. */
   falsification?: { original: Triplet; decide: boolean };
 }
@@ -214,7 +225,10 @@ export interface ResultatPartie {
   usagesPouvoirs: {
     mensonges: { hypothese: string; manche: number }[];
     falsifications: { hypothese: string; champ: ChampTriplet; de: ElementId; vers: ElementId; manche: number }[];
+    emprunts: { hypothese: string; carte: ElementId; manche: number }[];
+    trafics: { dossier: number; indiceFaux: string; manche: number }[];
   };
+  denonciations: { joueur: string; cible: string; correcte: boolean }[];
   accusations: { joueur: string; triplet: Triplet; correcte: boolean }[];
   manchesJouees: number;
   nbHypotheses: number;
@@ -231,9 +245,14 @@ export interface VueJoueur {
     meurtrier?: SuspectId;
     mensongesRestants?: number;
     falsificationsRestantes?: number;
+    /** Mode « rusé » : ruses restantes (complice uniquement). */
+    rusesRestantes?: number;
+    /** Mode « rusé » : ce joueur peut encore dénoncer le complice. */
+    peutDenoncer: boolean;
     carnet: Carnet;
     journal: EntreePrivee[];
-    indicesConsultes: { dossier: number; indice: string }[];
+    /** `categorie` : catégorie affichée (celle annoncée pour le dossier). */
+    indicesConsultes: { dossier: number; indice: string; categorie?: CategorieIndice }[];
     piecesConsultees: { dossier: number; carte: ElementId }[];
   };
   regles: {
@@ -247,6 +266,10 @@ export interface VueJoueur {
     coutHypothese: number;
     mensonges: number;
     falsifications: number;
+    modeComplice: ModeComplice;
+    /** Mode « rusé » : nombre total de ruses du complice. */
+    ruses: number;
+    coutRuses: Record<TypeRuse, number>;
   };
   manche: number;
   joueurActif: string;
@@ -260,5 +283,7 @@ export interface VueJoueur {
   archives: { dossier: number; categorie: CategorieDossier; disponibleDesManche: number; disponible: boolean; consulte: boolean }[];
   historique: EvenementPublic[];
   hypotheseEnCours?: HypotheseEnCoursVue;
+  /** Le complice a été démasqué par une dénonciation : son identité est publique. */
+  compliceDemasque: string | null;
   resultat?: ResultatPartie;
 }

@@ -333,7 +333,7 @@ describe('Interrogation : une seule carte révélée', () => {
     act(etat, auteur, hyp(SOLUTION, cibles), h.avance(1)); // la solution n'est détenue par personne
     passerFalsification(etat, h);
     for (const c of cibles) {
-      expect(vuePour(etat, c).hypotheseEnCours?.aRepondre).toEqual({ cartesCorrespondantes: [], peutMentir: false });
+      expect(vuePour(etat, c).hypotheseEnCours?.aRepondre).toEqual({ cartesCorrespondantes: [], peutMentir: false, cartesEmpruntables: [] });
       expect(act(etat, c, { type: 'repondre', carte: null }, h.avance(1)).ok).toBe(true);
     }
     expect(etat.hypothese).toBeUndefined();

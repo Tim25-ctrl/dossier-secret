@@ -336,7 +336,11 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       }
     });
     actionSalon('salon:message', (code, id, p) => gestionnaire.message(code, id, schemaMessage.parse(p).texte));
-    actionSalon('salon:reglages', (code, id, p) => gestionnaire.reglerDureeTour(code, id, schemaReglages.parse(p).dureeTourS));
+    actionSalon('salon:reglages', (code, id, p) => {
+      const r = schemaReglages.parse(p);
+      if (r.dureeTourS !== undefined) gestionnaire.reglerDureeTour(code, id, r.dureeTourS);
+      if (r.modeComplice !== undefined) gestionnaire.reglerModeComplice(code, id, r.modeComplice);
+    });
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 
     socket.on('disconnect', () => detacher(socket));

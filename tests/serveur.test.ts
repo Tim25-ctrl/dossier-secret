@@ -223,8 +223,10 @@ describe('Partie en ligne : sécurité et synchronisation', () => {
     expect(apres.moi.role).toBe(avant.moi.role);
     expect(apres.moi.main).toEqual(avant.moi.main);
     expect(apres.moi.meurtrier).toBe(avant.moi.meurtrier);
-    expect(apres.moi.mensongesRestants).toBe(2);
-    expect(apres.moi.falsificationsRestantes).toBe(1);
+    expect(apres.moi.mensongesRestants).toBe(avant.moi.mensongesRestants);
+    expect(apres.moi.rusesRestantes).toBe(avant.moi.rusesRestantes);
+    expect(apres.moi.rusesRestantes).toBe(apres.regles.ruses); // mode rusé par défaut : réserve intacte
+    expect(apres.moi.falsificationsRestantes).toBe(avant.moi.falsificationsRestantes);
     expect(apres.moi.carnet.notes).toBe('Le docteur ment.');
     // Un jeton forgé ne permet pas de prendre la place de quelqu'un.
     const pirate = await new Joueur().pret();
@@ -333,6 +335,22 @@ describe('Carnet en ligne', () => {
     await attendre(() => hote.etat!.partie!.moi.carnet.marques.poison === 'certain');
     expect(hote.etat!.partie!.moi.carnet).toEqual({ marques: { victor: 'ecarte', cave: 'probable', poison: 'certain' }, notes: 'à vérifier' });
     expect((await hote.emit('jeu:action', { type: 'carnet', marques: { intrus: 'ecarte' } })).ok).toBe(false);
+    tous.forEach((x) => x.fermer());
+  });
+});
+
+describe('Mode du complice dans le salon', () => {
+  it("l'hôte choisit le mode ; la partie démarre dans ce mode", async () => {
+    const { hote, autres, tous, code } = await salonAvec(3);
+    expect(hote.etat!.salon.reglages.modeComplice).toBe('ruse');
+    expect((await autres[0].emit('salon:reglages', { modeComplice: 'classique' })).ok).toBe(false);
+    expect((await hote.emit('salon:reglages', { modeComplice: 'n-importe-quoi' })).ok).toBe(false);
+    expect((await hote.emit('salon:reglages', { modeComplice: 'classique' })).ok).toBe(true);
+    await attendre(() => tous.every((j) => j.etat!.salon.reglages.modeComplice === 'classique'));
+    expect((await hote.emit('salon:demarrer', {})).ok).toBe(true);
+    await attendre(() => hote.etat?.partie != null);
+    expect(hote.etat!.partie!.regles.modeComplice).toBe('classique');
+    expect(serveur.gestionnaire.salons.get(code)!.partie!.config.modeComplice).toBe('classique');
     tous.forEach((x) => x.fermer());
   });
 });

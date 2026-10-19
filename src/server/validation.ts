@@ -17,7 +17,9 @@ export const schemaAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('passerFalsification') }).strict(),
   z.object({ type: z.literal('repondre'), carte: element.nullable() }).strict(),
   z.object({ type: z.literal('mentir') }).strict(),
-  z.object({ type: z.literal('consulterArchive'), dossier: z.number().int().min(1).max(20) }).strict(),
+  z.object({ type: z.literal('consulterArchive'), dossier: z.number().int().min(1).max(20), trafiquer: z.boolean().optional() }).strict(),
+  z.object({ type: z.literal('emprunter'), carte: element }).strict(),
+  z.object({ type: z.literal('denoncer'), joueur: idJoueur }).strict(),
   z.object({ type: z.literal('accuser'), suspect, lieu, arme }).strict(),
   z.object({ type: z.literal('finTour') }).strict(),
   z
@@ -35,7 +37,9 @@ export const schemaRejoindre = z.object({ code: z.string().max(20), nom: z.strin
 export const schemaReprendre = z.object({ code: z.string().max(20), jeton: z.string().max(100) });
 export const schemaMessage = z.object({ texte: z.string().max(1000) });
 export const schemaRetirer = z.object({ joueurId: idJoueur });
-export const schemaReglages = z.object({ dureeTourS: z.number().int().min(30).max(3600).nullable() }).strict();
+export const schemaReglages = z
+  .object({ dureeTourS: z.number().int().min(30).max(3600).nullable().optional(), modeComplice: z.enum(['classique', 'ruse']).optional() })
+  .strict();
 
 export function lireAction(brut: unknown): ActionJeu {
   const r = schemaAction.safeParse(brut);

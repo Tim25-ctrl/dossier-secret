@@ -50,7 +50,34 @@ function retenu(cle: string, attention: number): boolean {
  * @param attention part des réponses aux hypothèses DES AUTRES dont le joueur tient compte
  *        (1 = mémoire parfaite ; un humain réel retient bien moins que tout).
  */
-export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention = 1): Connaissance {
+export interface OptionsDeduction {
+  /** Ignorer les réponses « aucune carte » des autres (un mensonge les rend douteuses). */
+  sansAucuneCarte?: boolean;
+  /** Joueurs dont on ignore toutes les réponses et les cartes montrées (complice soupçonné). */
+  ignorer?: Set<string>;
+  /** Indices lus écartés (soupçonnés d'être faux). */
+  indicesExclus?: Set<string>;
+}
+
+/**
+ * Qui peut être le complice, d'après les informations publiques du mode « rusé » :
+ * démasquage, empreintes (« pas X », « à côté de X ») et dénonciations fausses.
+ */
+export function candidatsComplice(vue: VueJoueur): string[] {
+  const ordre = vue.joueurs.map((j) => j.id);
+  if (vue.compliceDemasque) return [vue.compliceDemasque];
+  let candidats = ordre.filter((id) => id !== vue.moi.id);
+  if (vue.moi.role === 'complice') return candidats;
+  for (const e of vue.historique) {
+    if (e.type === 'empreinte') candidats = candidats.filter((c) => c !== e.innocente);
+    if (e.type === 'denonciation' && !e.correcte) candidats = candidats.filter((c) => c !== e.cible);
+  }
+  return candidats;
+}
+
+export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention = 1, options: OptionsDeduction = {}): Connaissance {
+  const ignorer = options.ignorer ?? new Set<string>();
+  if (options.sansAucuneCarte) confianceAucuneCarte = false;
   const moi = vue.moi.id;
   const joueurs = vue.joueurs.map((j) => j.id);
   const tailles = new Map(vue.joueurs.map((j) => [j.id, j.nbCartes]));
@@ -83,7 +110,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   const auMoinsUne: Contrainte[] = [];
   // Cartes vues directement.
   for (const e of vue.moi.journal) {
-    if (e.type === 'carte_vue') fixer(e.carte, e.de, true);
+    if (e.type === 'carte_vue' && !ignorer.has(e.de)) fixer(e.carte, e.de, true);
   }
   // Hypothèses publiques et leurs réponses (pour mes propres hypothèses, je vois l'original).
   const hypotheses = new Map<string, Triplet>();
@@ -96,7 +123,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
     }
   }
   for (const ev of vue.historique) {
-    if (ev.type !== 'reponse' || ev.joueur === moi) continue;
+    if (ev.type !== 'reponse' || ev.joueur === moi || ignorer.has(ev.joueur)) continue;
     const t = hypotheses.get(ev.hypothese);
     if (!t) continue;
     const auteur = vue.historique.find((x) => x.type === 'hypothese' && x.id === ev.hypothese);
@@ -163,7 +190,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
 
   const indices = [
     ...vue.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]),
-    ...vue.moi.indicesConsultes.map((i) => INDICES_PAR_ID[i.indice]),
+    ...vue.moi.indicesConsultes.filter((i) => !options.indicesExclus?.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
   ];
   // Une accusation publique incorrecte élimine sa combinaison.
   const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
@@ -181,25 +208,69 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
  * les cartes qu'on lui a montrées, les indices lus et les accusations ratées.
  * Aucun raisonnement sur les mains des autres.
  */
+/**
+ * Méfiance envers le complice identifié : ignorer ses réponses et ses cartes montrées,
+ * et soupçonner les dossiers qu'il a ouverts AVANT nous (il a pu les trafiquer).
+ */
+export function optionsMefiance(vue: VueJoueur): OptionsDeduction {
+  const suspects = candidatsComplice(vue);
+  if (vue.moi.role !== 'enqueteur' || suspects.length !== 1) return {};
+  const complice = suspects[0];
+  const exclus = new Set<string>();
+  for (const lu of vue.moi.indicesConsultes) {
+    const ouvertures = vue.historique.filter((e) => e.type === 'archive' && e.dossier === lu.dossier);
+    const premierComplice = ouvertures.findIndex((e) => e.type === 'archive' && e.joueur === complice);
+    const moi = ouvertures.findIndex((e) => e.type === 'archive' && e.joueur === vue.moi.id);
+    if (premierComplice >= 0 && premierComplice < moi) exclus.add(lu.indice);
+  }
+  return { ignorer: new Set([complice]), indicesExclus: exclus };
+}
+
 export function deduireSimple(vue: VueJoueur): Triplet[] {
-  const connues = new Set<ElementId>([...vue.moi.main, ...vue.cartesPubliques, ...vue.moi.piecesConsultees.map((p) => p.carte)]);
-  for (const e of vue.moi.journal) if (e.type === 'carte_vue') connues.add(e.carte);
-  const indices = [
-    ...vue.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]),
-    ...vue.moi.indicesConsultes.map((i) => INDICES_PAR_ID[i.indice]),
+  const base: OptionsDeduction = {};
+  const essai = (o: OptionsDeduction) => {
+    const connues = new Set<ElementId>([...vue.moi.main, ...vue.cartesPubliques, ...vue.moi.piecesConsultees.map((p) => p.carte)]);
+    for (const e of vue.moi.journal) if (e.type === 'carte_vue' && !o.ignorer?.has(e.de)) connues.add(e.carte);
+    const indices = [
+      ...vue.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]),
+      ...vue.moi.indicesConsultes.filter((i) => !o.indicesExclus?.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
+    ];
+    const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
+    return combinaisonsPossibles(indices, connues).filter(
+      (t) => !faussesAccusations.some((f) => f.suspect === t.suspect && f.lieu === t.lieu && f.arme === t.arme),
+    );
+  };
+  // Si les informations se contredisent (ruse du complice), on écarte la source douteuse.
+  for (const o of variantes(vue, base)) {
+    const c = essai(o);
+    if (c.length > 0) return c;
+  }
+  return [];
+}
+
+/** Hypothèses de « méfiance » successives quand les informations se contredisent. */
+function variantes(vue: VueJoueur, base: OptionsDeduction): OptionsDeduction[] {
+  const autres = vue.joueurs.map((j) => j.id).filter((id) => id !== vue.moi.id);
+  // On fait confiance à tout le monde tant que rien ne se contredit ; en cas de contradiction,
+  // on soupçonne d'abord le complice identifié (ses réponses et les dossiers ouverts avant nous).
+  const mefiance = optionsMefiance(vue);
+  return [
+    base,
+    ...(mefiance.ignorer ? [mefiance] : []),
+    { ...base, sansAucuneCarte: true },
+    ...autres.map((p) => ({ ...base, sansAucuneCarte: true, ignorer: new Set([...(base.ignorer ?? []), p]) })),
+    ...vue.moi.indicesConsultes.map((i) => ({ ...base, sansAucuneCarte: true, indicesExclus: new Set([...(base.indicesExclus ?? []), i.indice]) })),
   ];
-  const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
-  return combinaisonsPossibles(indices, connues).filter(
-    (t) => !faussesAccusations.some((f) => f.suspect === t.suspect && f.lieu === t.lieu && f.arme === t.arme),
-  );
 }
 
 /** Déduction robuste : si un mensonge a rendu la base incohérente, on retire les « aucune carte ». */
 export function deduireRobuste(vue: VueJoueur, attention = 1): Connaissance {
-  const k = deduire(vue, true, attention);
-  if (k.coherent && k.combinaisons.length > 0) return k;
-  const k2 = deduire(vue, false, attention);
-  if (k2.combinaisons.length > 0) return k2;
-  // Dernier recours : uniquement main, cartes vues, cartes publiques et indices.
-  return k2;
+  const base: OptionsDeduction = {};
+  let dernier: Connaissance | null = null;
+  for (const o of variantes(vue, base)) {
+    const k = deduire(vue, true, attention, o);
+    if (k.coherent && k.combinaisons.length > 0) return k;
+    if (k.combinaisons.length > 0 && !dernier) dernier = k;
+  }
+  return dernier ?? deduire(vue, false, attention, base);
 }

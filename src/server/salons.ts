@@ -120,7 +120,7 @@ export class GestionnaireSalons {
 
   private reglagesParDefaut(): ReglagesSalon {
     const ms = this.configPartie.delaiTourMs;
-    return { dureeTourS: ms === null ? null : Math.round((ms ?? 180_000) / 1000) };
+    return { dureeTourS: ms === null ? null : Math.round((ms ?? 180_000) / 1000), modeComplice: this.configPartie.modeComplice ?? 'ruse' };
   }
 
   salon(code: string): Salon {
@@ -266,6 +266,16 @@ export class GestionnaireSalons {
     this.toucher(s);
   }
 
+  /** L'hôte choisit les pouvoirs du complice (dans le salon d'attente uniquement). */
+  reglerModeComplice(code: string, id: string, valeur: unknown) {
+    const s = this.salon(code);
+    if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut modifier les réglages.");
+    if (s.statut !== 'lobby') throw new ErreurJeu('Les réglages ne peuvent plus changer une fois la partie lancée.');
+    if (valeur !== 'classique' && valeur !== 'ruse') throw new ErreurJeu('Mode de complice invalide.');
+    s.reglages = { ...s.reglages, modeComplice: valeur };
+    this.toucher(s);
+  }
+
   /** L'hôte règle la durée d'un tour (dans le salon d'attente uniquement). */
   reglerDureeTour(code: string, id: string, valeur: unknown) {
     const s = this.salon(code);
@@ -291,7 +301,11 @@ export class GestionnaireSalons {
       joueurs: s.joueurs.map((j) => ({ id: j.id, nom: j.nom, bot: j.bot })),
       rng: this.rng,
       now: this.now(),
-      config: { ...this.configPartie, delaiTourMs: s.reglages.dureeTourS === null ? null : s.reglages.dureeTourS * 1000 },
+      config: {
+        ...this.configPartie,
+        delaiTourMs: s.reglages.dureeTourS === null ? null : s.reglages.dureeTourS * 1000,
+        modeComplice: s.reglages.modeComplice ?? 'ruse',
+      },
     });
     s.statut = 'partie';
     this.toucher(s);
@@ -433,10 +447,11 @@ export class GestionnaireSalons {
           if (s.partie?.joueurs[j.id]) s.partie.joueurs[j.id].connecte = false;
         }
       }
-      s.reglages ??= this.reglagesParDefaut(); // sauvegardes antérieures aux réglages
+      s.reglages = { ...this.reglagesParDefaut(), ...s.reglages }; // sauvegardes antérieures aux réglages
       if (s.partie) {
         // Parties sauvegardées par une version antérieure : elles gardent les règles avec lesquelles elles ont commencé.
         s.partie.config = { ...CONFIG_PAR_DEFAUT, ...REGLES_INITIALES, ...s.partie.config };
+        if (!s.partie.graine) s.partie.config.modeComplice = 'classique';
         recalerEcheances(s.partie, t);
       }
       this.salons.set(s.code, s);

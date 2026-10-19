@@ -119,7 +119,42 @@ export function ContenuRegles() {
           Les cartes à montrer restent calculées sur la version originale.
         </li>
       </ul>
-      <p>Une accusation finale ne peut jamais être falsifiée.</p>
+      <p>Une accusation finale ne peut jamais être falsifiée. Ces pouvoirs sont ceux du mode « Classique ».</p>
+
+      <h3>Mode « Complice rusé » (recommandé)</h3>
+      <p>
+        L'hôte choisit le mode dans le salon d'attente. En mode rusé, le complice dispose d'une <strong>réserve de ruses</strong> (3 à 3 joueurs, 4 à 4 joueurs,
+        5 à 5 ou 6 joueurs). Chaque ruse a un coût :
+      </p>
+      <ul>
+        <li>
+          <strong>Mensonge (1)</strong> — interrogé, il répond « aucune carte » alors qu'il en a une.
+        </li>
+        <li>
+          <strong>Carte empruntée (2)</strong> — interrogé, il montre une carte de l'hypothèse qu'il ne possède pas (jamais celle du meurtrier). Comme il ignore le
+          lieu et l'arme, la carte peut être innocente… ou faire partie de la solution.
+        </li>
+        <li>
+          <strong>Hypothèse falsifiée (1)</strong> — comme en mode classique.
+        </li>
+        <li>
+          <strong>Dossier trafiqué (1)</strong> — en consultant un dossier d'archives, il lit le vrai indice mais le remplace par un faux pour tous ceux qui
+          l'ouvriront ensuite. Le faux indice est toujours faux : il finit par contredire les autres informations.
+        </li>
+      </ul>
+      <p>
+        <strong>Les empreintes.</strong> Une ruse peut laisser une empreinte, publiée une ou deux manches plus tard : « L'empreinte n'appartient pas à X ». Une
+        empreinte est toujours vraie et innocente un joueur. En les recoupant, on peut identifier le complice. Elles sont plus rares à 3 et 4 joueurs.
+      </p>
+      <p>
+        <strong>Dénoncer le complice (1 PA).</strong> Chaque joueur peut, une fois par partie et pendant son tour, désigner le complice. Si c'est juste, le complice est
+        démasqué devant tous et perd toutes ses ruses (il continue de jouer et répond honnêtement). Si c'est faux, le dénonciateur perd son prochain tour. La victoire
+        reste la même : trouver le meurtrier, le lieu et l'arme.
+      </p>
+      <p className="muet">
+        Indices de supercherie : deux joueurs qui montrent la même carte, un indice qui contredit tous les autres, une hypothèse dont les réponses semblent
+        incohérentes… Croisez vos informations dans la discussion !
+      </p>
 
       <h3>L'accusation finale</h3>
       <p>

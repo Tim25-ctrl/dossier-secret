@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { INDICES_PAR_ID, LIBELLES_CATEGORIE_INDICE } from '../../shared/data/indices';
 import { nomCourt, nomElement } from '../../shared/data/manoir';
 import { ceQueLIndiceEcarte, precision } from '../../shared/logique';
-import { categorieDe, type ElementId, type Triplet } from '../../shared/types';
+import { categorieDe, type CarteIndice as CarteIndiceType, type ElementId, type Triplet } from '../../shared/types';
 import { Embleme, Icone } from './Emblemes';
 
 export const LIBELLE_CATEGORIE = { suspect: 'Suspect', lieu: 'Lieu', arme: 'Arme' } as const;
@@ -68,14 +68,14 @@ export function texteTriplet(t: Triplet) {
   return `${nomElement(t.suspect)} · ${nomElement(t.lieu)} · ${nomElement(t.arme)}`;
 }
 
-export function CarteIndice({ id, dossier, ouvert = true }: { id: string; dossier?: number; ouvert?: boolean }) {
+export function CarteIndice({ id, dossier, ouvert = true, categorie }: { id: string; dossier?: number; ouvert?: boolean; categorie?: CarteIndiceType['categorie'] }) {
   const c = INDICES_PAR_ID[id];
   const [details, setDetails] = useState(ouvert);
   if (!c) return null;
   return (
     <article className="indice">
       <div className="meta">
-        <span>{LIBELLES_CATEGORIE_INDICE[c.categorie]}</span>
+        <span>{LIBELLES_CATEGORIE_INDICE[categorie ?? c.categorie]}</span>
         {dossier !== undefined && <span>Dossier n° {dossier}</span>}
         <span>Précision {precision(c)}</span>
       </div>

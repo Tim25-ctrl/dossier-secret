@@ -23,10 +23,12 @@ import {
   type RaisonFin,
   type Role,
   type Triplet,
+  type TypeRuse,
   type Vainqueur,
 } from '../shared/types';
-import { INDICES_PAR_ID } from '../shared/data/indices';
-import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, nbInterroges, pouvoirsPour, type ConfigPartie } from './config';
+import { INDICES, INDICES_PAR_ID } from '../shared/data/indices';
+import { indiceValide } from '../shared/logique';
+import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, coutRuse, nbInterroges, pouvoirsPour, rusesPour, type ConfigPartie } from './config';
 import {
   choisirComplice,
   distribuerCartes,
@@ -35,7 +37,7 @@ import {
   validerDistribution,
   type Affaire,
 } from './generateur';
-import { pick, shuffle, type Rng } from './rng';
+import { pick, seededRng, shuffle, type Rng } from './rng';
 
 export interface EtatJoueur {
   id: string;
@@ -52,11 +54,17 @@ export interface EtatJoueur {
   connecte: boolean;
   /** A quitté volontairement la partie. */
   parti?: boolean;
+  /** Mode « rusé » : ruses restantes (complice). */
+  rusesRestantes?: number;
+  /** Mode « rusé » : peut encore dénoncer le complice (une fois par partie). */
+  peutDenoncer?: boolean;
+  /** A dénoncé à tort : son prochain tour est passé. */
+  tourPerdu?: boolean;
 }
 
 export interface ReponseInterne {
   joueur: string;
-  resultat: 'aucune_carte' | 'carte_montree' | 'mensonge';
+  resultat: 'aucune_carte' | 'carte_montree' | 'mensonge' | 'emprunt';
   carte?: ElementId;
   auto: boolean;
 }
@@ -114,6 +122,15 @@ export interface EtatPartie {
   compteurHypotheses: number;
   /** Incrémenté à chaque changement d'état (utile pour la synchronisation). */
   version: number;
+  /** Graine de l'aléa utilisé en cours de partie (empreintes, faux indices). */
+  graine?: number;
+  compteurAlea?: number;
+  /** Mode « rusé » : empreintes à publier au début d'une manche. */
+  empreintesPrevues?: { manche: number; innocente: string }[];
+  /** Mode « rusé » : dossiers trafiqués par le complice. */
+  trafics?: { dossier: number; par: string; indiceFaux: string; manche: number }[];
+  denonciations?: { joueur: string; cible: string; correcte: boolean; manche: number }[];
+  compliceDemasque?: boolean;
 }
 
 export type ResultatAction = { ok: true } | { ok: false; erreur: string };
@@ -171,6 +188,7 @@ export function creerPartie(params: {
       }))
     : [];
   const pouvoirs = pouvoirsPour(config, joueurs.length);
+  const modeRuse = config.modeComplice === 'ruse';
 
   const etatJoueurs: Record<string, EtatJoueur> = {};
   for (const j of joueurs) {
@@ -182,8 +200,10 @@ export function creerPartie(params: {
       role,
       main: distribution.mains[j.id],
       peutAccuser: true,
-      mensongesRestants: role === 'complice' ? pouvoirs.mensonges : 0,
-      falsificationsRestantes: role === 'complice' ? pouvoirs.falsifications : 0,
+      mensongesRestants: role === 'complice' && !modeRuse ? pouvoirs.mensonges : 0,
+      falsificationsRestantes: role === 'complice' && !modeRuse ? pouvoirs.falsifications : 0,
+      rusesRestantes: role === 'complice' && modeRuse ? rusesPour(config, joueurs.length) : 0,
+      peutDenoncer: modeRuse,
       carnet: { marques: {}, notes: '' },
       journal: [
         role === 'complice'
@@ -219,6 +239,12 @@ export function creerPartie(params: {
     audit: [],
     compteurHypotheses: 0,
     version: 1,
+    // Tirée en dernier pour ne pas modifier la séquence aléatoire de la mise en place.
+    graine: rng.int(2 ** 31),
+    compteurAlea: 0,
+    empreintesPrevues: [],
+    trafics: [],
+    denonciations: [],
   };
   publier(etat, { t: now, type: 'debut_partie', joueurs: [...ordre] });
   for (const indice of affaire.indicesPublicsDepart) publier(etat, { t: now, type: 'indice_public', indice, manche: 1 });
@@ -283,6 +309,59 @@ function echeanceDeTour(etat: EtatPartie, joueur: string, t: number): number {
   return t + delaiPour(etat, joueur, delai);
 }
 
+/** Aléa déterministe et reproductible en cours de partie (sauvegardé avec l'état). */
+function alea(etat: EtatPartie, max: number): number {
+  etat.compteurAlea = (etat.compteurAlea ?? 0) + 1;
+  return seededRng(((etat.graine ?? 0) + etat.compteurAlea * 7919) >>> 0).int(max);
+}
+
+const modeRuse = (etat: EtatPartie) => etat.config.modeComplice === 'ruse';
+
+/** Le complice peut-il utiliser cette ruse / ce pouvoir ? (décision 100 % serveur) */
+export function rusePossible(etat: EtatPartie, joueur: string, ruse: TypeRuse): boolean {
+  const j = etat.joueurs[joueur];
+  if (!j || j.role !== 'complice' || etat.compliceDemasque) return false;
+  if (modeRuse(etat)) return (j.rusesRestantes ?? 0) >= coutRuse(etat.config, ruse);
+  if (ruse === 'mensonge') return j.mensongesRestants > 0;
+  if (ruse === 'falsification') return j.falsificationsRestantes > 0;
+  return false; // emprunt et trafic n'existent qu'en mode « rusé »
+}
+
+/** Consomme une ruse ; en mode « rusé », planifie l'empreinte correspondante. Retourne les ruses restantes. */
+function consommerRuse(etat: EtatPartie, joueur: string, ruse: TypeRuse): number {
+  const j = etat.joueurs[joueur];
+  if (!modeRuse(etat)) {
+    if (ruse === 'mensonge') return --j.mensongesRestants;
+    return --j.falsificationsRestantes;
+  }
+  j.rusesRestantes = (j.rusesRestantes ?? 0) - coutRuse(etat.config, ruse);
+  const proba = etat.config.probaEmpreinte?.[etat.ordre.length] ?? 0.6;
+  if (alea(etat, 1000) < proba * 1000) planifierEmpreinte(etat, joueur);
+  return j.rusesRestantes;
+}
+
+/**
+ * Empreinte : un indice VRAI et anonyme sur l'identité du complice, publié 1 ou 2 manches
+ * plus tard (le délai empêche de relier l'empreinte à une action précise).
+ * Elle innocente un joueur tiré au hasard parmi ceux qui ne le sont pas encore :
+ * une empreinte seule ne suffit pas, c'est en les recoupant qu'on démasque le complice.
+ */
+function planifierEmpreinte(etat: EtatPartie, complice: string) {
+  const prevues = (etat.empreintesPrevues ??= []);
+  const deja = new Set(prevues.map((e) => e.innocente));
+  const innocentables = etat.ordre.filter((id) => id !== complice && !deja.has(id));
+  if (innocentables.length === 0) return;
+  prevues.push({ manche: etat.manche + 1 + alea(etat, 2), innocente: innocentables[alea(etat, innocentables.length)] });
+}
+
+/** Cartes que le complice peut « emprunter » : éléments de l'hypothèse originale qu'il n'a pas, hors meurtrier. */
+export function cartesEmpruntables(etat: EtatPartie, joueur: string): ElementId[] {
+  const h = etat.hypothese;
+  if (!h || repondantActuel(etat) !== joueur || !modeRuse(etat) || !rusePossible(etat, joueur, 'emprunt')) return [];
+  const main = etat.joueurs[joueur].main;
+  return elementsDuTriplet(h.original).filter((e) => !main.includes(e) && e !== etat.affaire.solution.suspect);
+}
+
 export function enqueteursPouvantAccuser(etat: EtatPartie): string[] {
   return etat.ordre.filter((id) => etat.joueurs[id].role === 'enqueteur' && etat.joueurs[id].peutAccuser);
 }
@@ -334,9 +413,12 @@ function traiter(etat: EtatPartie, joueur: string, action: ActionJeu, now: numbe
       return decisionFalsification(etat, joueur, action, now);
     case 'repondre':
     case 'mentir':
+    case 'emprunter':
       return repondre(etat, joueur, action, now);
     case 'consulterArchive':
-      return consulterArchive(etat, joueur, action.dossier, now);
+      return consulterArchive(etat, joueur, action.dossier, now, !!action.trafiquer);
+    case 'denoncer':
+      return denoncer(etat, joueur, action.joueur, now);
     case 'accuser':
       return accuser(etat, joueur, action, now);
     case 'finTour':
@@ -418,7 +500,7 @@ export function peutFalsifier(etat: EtatPartie, joueur: string): boolean {
     h.etape === 'falsification' &&
     j.role === 'complice' &&
     h.auteur !== joueur &&
-    j.falsificationsRestantes > 0 &&
+    rusePossible(etat, joueur, 'falsification') &&
     !h.decisionFalsificationPrise
   );
 }
@@ -451,9 +533,9 @@ function decisionFalsification(
   const publique = { ...h.original, [champ]: action.valeur } as Triplet;
   h.publique = publique;
   h.falsification = { par: joueur, champ, de: h.original[champ], vers: action.valeur };
-  const j = etat.joueurs[joueur];
-  j.falsificationsRestantes -= 1;
+  const restants = consommerRuse(etat, joueur, 'falsification');
   noter(etat, joueur, { t: now, type: 'falsification', hypothese: h.id, champ, de: h.original[champ], vers: action.valeur });
+  if (modeRuse(etat)) noter(etat, joueur, { t: now, type: 'ruse', ruse: 'falsification', restants, hypothese: h.id });
   return { ok: true };
 }
 
@@ -476,13 +558,13 @@ export function peutMentir(etat: EtatPartie, joueur: string): boolean {
   const h = etat.hypothese;
   const j = etat.joueurs[joueur];
   if (!h || !j || repondantActuel(etat) !== joueur) return false;
-  return j.role === 'complice' && j.mensongesRestants > 0 && cartesCorrespondantes(etat, joueur, h.original).length > 0;
+  return rusePossible(etat, joueur, 'mensonge') && cartesCorrespondantes(etat, joueur, h.original).length > 0;
 }
 
 function repondre(
   etat: EtatPartie,
   joueur: string,
-  action: Extract<ActionJeu, { type: 'repondre' } | { type: 'mentir' }>,
+  action: Extract<ActionJeu, { type: 'repondre' } | { type: 'mentir' } | { type: 'emprunter' }>,
   now: number,
 ): ResultatAction {
   const h = etat.hypothese;
@@ -493,10 +575,18 @@ function repondre(
 
   if (action.type === 'mentir') {
     if (!peutMentir(etat, joueur)) return refus("Le pouvoir « Mensonge » n'est pas utilisable ici.");
-    const j = etat.joueurs[joueur];
-    j.mensongesRestants -= 1;
-    noter(etat, joueur, { t: now, type: 'mensonge', hypothese: h.id, restants: j.mensongesRestants });
+    const restants = consommerRuse(etat, joueur, 'mensonge');
+    noter(etat, joueur, { t: now, type: 'mensonge', hypothese: h.id, restants });
     enregistrerReponse(etat, h, { joueur, resultat: 'mensonge', auto: false }, now);
+    return { ok: true };
+  }
+
+  if (action.type === 'emprunter') {
+    // Carte empruntée : le complice montre une carte qu'il n'a PAS (mode « rusé »).
+    if (!cartesEmpruntables(etat, joueur).includes(action.carte)) return refus('Vous ne pouvez pas montrer cette carte.');
+    const restants = consommerRuse(etat, joueur, 'emprunt');
+    noter(etat, joueur, { t: now, type: 'ruse', ruse: 'emprunt', restants, hypothese: h.id, carte: action.carte });
+    enregistrerReponse(etat, h, { joueur, resultat: 'emprunt', carte: action.carte, auto: false }, now);
     return { ok: true };
   }
 
@@ -517,11 +607,11 @@ function enregistrerReponse(etat: EtatPartie, h: HypotheseInterne, r: ReponseInt
     type: 'reponse',
     hypothese: h.id,
     joueur: r.joueur,
-    // Un mensonge apparaît publiquement comme une absence de carte.
-    resultat: r.resultat === 'carte_montree' ? 'carte_montree' : 'aucune_carte',
+    // Un mensonge apparaît comme une absence de carte ; un emprunt comme une carte montrée.
+    resultat: r.resultat === 'carte_montree' || r.resultat === 'emprunt' ? 'carte_montree' : 'aucune_carte',
     auto: r.auto,
   });
-  if (r.resultat === 'carte_montree' && r.carte) {
+  if ((r.resultat === 'carte_montree' || r.resultat === 'emprunt') && r.carte) {
     h.carteMontree = { par: r.joueur, carte: r.carte };
     noter(etat, h.auteur, { t, type: 'carte_vue', hypothese: h.id, de: r.joueur, carte: r.carte });
     noter(etat, r.joueur, { t, type: 'carte_montree', hypothese: h.id, a: h.auteur, carte: r.carte, auto: r.auto });
@@ -550,7 +640,21 @@ function cloturerHypothese(etat: EtatPartie, h: HypotheseInterne, t: number) {
 // Archives, accusation, fin de tour
 // ---------------------------------------------------------------------------
 
-function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now: number): ResultatAction {
+/** Faux indice pour un dossier trafiqué : FAUX pour cette solution, absent de l'affaire, de la même catégorie si possible. */
+function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
+  const dansAffaire = new Set([
+    ...etat.affaire.indicesPublicsDepart,
+    ...etat.affaire.indicesPublicsDifferes.map((d) => d.indice),
+    ...etat.affaire.archives.map((d) => d.indice),
+    ...(etat.trafics ?? []).map((t) => t.indiceFaux),
+  ]);
+  const faux = INDICES.filter((c) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution));
+  const memeCategorie = faux.filter((c) => c.categorie === INDICES_PAR_ID[indiceVrai].categorie);
+  const choix = memeCategorie.length ? memeCategorie : faux;
+  return choix[alea(etat, choix.length)].id;
+}
+
+function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now: number, trafiquer = false): ResultatAction {
   const e = verifierTourActif(etat, joueur);
   if (e) return e;
   if (etat.pointsAction < 1) return refus("Vous n'avez plus de point d'action.");
@@ -561,14 +665,61 @@ function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now
   if (ouverture > etat.manche) return refus(`Ce dossier ne sera consultable qu'à partir de la manche ${ouverture}.`);
   const j = etat.joueurs[joueur];
   if (j.dossiersConsultes.includes(dossier)) return refus('Vous avez déjà consulté ce dossier.');
+  const trafic = (etat.trafics ?? []).find((t) => t.dossier === dossier);
+  if (trafiquer) {
+    if (!d) return refus('Une pièce à conviction ne peut pas être trafiquée.');
+    if (trafic) return refus('Ce dossier a déjà été trafiqué.');
+    if (!modeRuse(etat) || !rusePossible(etat, joueur, 'trafic')) return refus('Vous ne pouvez pas trafiquer ce dossier.');
+  }
   etat.pointsAction -= 1;
   j.dossiersConsultes.push(dossier);
   if (d) {
-    noter(etat, joueur, { t: now, type: 'archive_lue', dossier, indice: d.indice });
+    // Un dossier trafiqué montre le faux indice à tous ceux qui le lisent APRÈS le trafic.
+    const lu = trafic && trafic.par !== joueur ? trafic.indiceFaux : d.indice;
+    // Le faux indice est présenté sous la catégorie annoncée du dossier : rien ne le distingue.
+    const categorie = lu !== d.indice ? INDICES_PAR_ID[d.indice].categorie : undefined;
+    noter(etat, joueur, { t: now, type: 'archive_lue', dossier, indice: lu, ...(categorie ? { categorie } : {}) });
+    if (trafiquer) {
+      const indiceFaux = choisirFauxIndice(etat, d.indice);
+      (etat.trafics ??= []).push({ dossier, par: joueur, indiceFaux, manche: etat.manche });
+      const restants = consommerRuse(etat, joueur, 'trafic');
+      noter(etat, joueur, { t: now, type: 'ruse', ruse: 'trafic', restants, dossier, indiceFaux });
+    }
     publier(etat, { t: now, type: 'archive', joueur, dossier, categorie: INDICES_PAR_ID[d.indice].categorie });
   } else {
     noter(etat, joueur, { t: now, type: 'piece_lue', dossier, carte: piece!.carte });
     publier(etat, { t: now, type: 'archive', joueur, dossier, categorie: 'piece' });
+  }
+  return { ok: true };
+}
+
+/**
+ * Dénoncer le complice (mode « rusé », 1 PA, une fois par partie et par joueur).
+ * Juste : le complice est démasqué publiquement et perd toutes ses ruses.
+ * Fausse : le dénonciateur perd son prochain tour.
+ */
+function denoncer(etat: EtatPartie, joueur: string, cible: string, now: number): ResultatAction {
+  const e = verifierTourActif(etat, joueur);
+  if (e) return e;
+  if (!modeRuse(etat)) return refus("La dénonciation n'existe que dans le mode « complice rusé ».");
+  const j = etat.joueurs[joueur];
+  if (!j.peutDenoncer) return refus('Vous avez déjà dénoncé quelqu’un.');
+  if (etat.compliceDemasque) return refus('Le complice a déjà été démasqué.');
+  if (etat.pointsAction < 1) return refus("Vous n'avez plus de point d'action.");
+  if (!etat.joueurs[cible] || cible === joueur) return refus('Choisissez un autre joueur.');
+  etat.pointsAction -= 1;
+  j.peutDenoncer = false;
+  const correcte = cible === etat.complice;
+  (etat.denonciations ??= []).push({ joueur, cible, correcte, manche: etat.manche });
+  publier(etat, { t: now, type: 'denonciation', joueur, cible, correcte });
+  if (correcte) {
+    etat.compliceDemasque = true;
+    const c = etat.joueurs[etat.complice];
+    c.rusesRestantes = 0;
+    c.mensongesRestants = 0;
+    c.falsificationsRestantes = 0;
+  } else {
+    j.tourPerdu = true;
   }
   return { ok: true };
 }
@@ -595,14 +746,14 @@ function accuser(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { 
   return { ok: true };
 }
 
-function terminerTour(etat: EtatPartie, now: number, raison: 'volontaire' | 'temps_ecoule') {
-  publier(etat, { t: now, type: 'fin_tour', joueur: joueurActif(etat), raison });
+/** Passe au siège suivant (et à la manche suivante si besoin). Retourne false si la partie est finie. */
+function avancerSiege(etat: EtatPartie, now: number): boolean {
   etat.indexTour += 1;
   if (etat.indexTour >= etat.ordre.length) {
     etat.indexTour = 0;
     if (etat.manche >= etat.config.manchesMax) {
       terminerPartie(etat, now, 'complice', 'manches_ecoulees');
-      return;
+      return false;
     }
     etat.manche += 1;
     publier(etat, { t: now, type: 'debut_manche', manche: etat.manche });
@@ -612,6 +763,23 @@ function terminerTour(etat: EtatPartie, now: number, raison: 'volontaire' | 'tem
         publier(etat, { t: now, type: 'indice_public', indice: d.indice, manche: d.manche });
       }
     }
+    for (const e of etat.empreintesPrevues ?? []) {
+      if (e.manche === etat.manche) publier(etat, { t: now, type: 'empreinte', innocente: e.innocente, manche: etat.manche });
+    }
+  }
+  return true;
+}
+
+function terminerTour(etat: EtatPartie, now: number, raison: 'volontaire' | 'temps_ecoule') {
+  publier(etat, { t: now, type: 'fin_tour', joueur: joueurActif(etat), raison });
+  for (let garde = 0; garde <= etat.ordre.length * 2; garde++) {
+    if (!avancerSiege(etat, now)) return;
+    const suivant = etat.joueurs[joueurActif(etat)];
+    if (!suivant.tourPerdu) break;
+    // Dénonciation fausse : ce tour est perdu.
+    suivant.tourPerdu = false;
+    publier(etat, { t: now, type: 'debut_tour', joueur: suivant.id, manche: etat.manche });
+    publier(etat, { t: now, type: 'fin_tour', joueur: suivant.id, raison: 'tour_perdu' });
   }
   etat.pointsAction = etat.config.pointsAction;
   etat.hypothesesCeTour = 0;

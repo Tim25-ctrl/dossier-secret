@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { INDICES_PAR_ID } from '../../shared/data/indices';
 import { nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
 import { Carte, CarteIndice, TripletVue, useNotification } from '../components/Commun';
@@ -85,15 +86,23 @@ export function Fin({ etat }: { etat: EtatClient }) {
             <p>
               <strong>{nom(r.complice)}</strong> savait depuis le début que le coupable était {nomElement(r.solution.suspect)}.
             </p>
+            {vue.regles.modeComplice === 'ruse' && (
+              <p className="petit muet">
+                Mode « complice rusé » : {vue.regles.ruses} ruses au départ.
+                {r.denonciations.some((d) => d.correcte) ? ' Il a été démasqué en cours de partie.' : " Il n'a pas été démasqué."}
+              </p>
+            )}
             <ul>
               <li>
-                Mensonges utilisés : {r.usagesPouvoirs.mensonges.length} / {vue.regles.mensonges}
+                Mensonges : {r.usagesPouvoirs.mensonges.length}
+                {vue.regles.modeComplice !== 'ruse' && ` / ${vue.regles.mensonges}`}
                 {r.usagesPouvoirs.mensonges.map((m) => (
                   <span key={m.hypothese} className="muet"> (manche {m.manche})</span>
                 ))}
               </li>
               <li>
-                Hypothèses falsifiées : {r.usagesPouvoirs.falsifications.length} / {vue.regles.falsifications}
+                Hypothèses falsifiées : {r.usagesPouvoirs.falsifications.length}
+                {vue.regles.modeComplice !== 'ruse' && ` / ${vue.regles.falsifications}`}
                 {r.usagesPouvoirs.falsifications.map((f) => (
                   <span key={f.hypothese} className="muet">
                     {' '}
@@ -101,7 +110,41 @@ export function Fin({ etat }: { etat: EtatClient }) {
                   </span>
                 ))}
               </li>
+              {vue.regles.modeComplice === 'ruse' && (
+                <>
+                  <li>
+                    Cartes empruntées : {r.usagesPouvoirs.emprunts.length}
+                    {r.usagesPouvoirs.emprunts.map((e) => (
+                      <span key={e.hypothese} className="muet">
+                        {' '}
+                        (manche {e.manche} : « {nomElement(e.carte)} »)
+                      </span>
+                    ))}
+                  </li>
+                  <li>
+                    Dossiers trafiqués : {r.usagesPouvoirs.trafics.length}
+                    {r.usagesPouvoirs.trafics.map((t) => (
+                      <span key={t.dossier} className="muet">
+                        {' '}
+                        (dossier n° {t.dossier}, manche {t.manche} : faux indice « {INDICES_PAR_ID[t.indiceFaux]?.titre} »)
+                      </span>
+                    ))}
+                  </li>
+                </>
+              )}
             </ul>
+            {r.denonciations.length > 0 && (
+              <>
+                <h4>Dénonciations</h4>
+                <ul className="journal">
+                  {r.denonciations.map((d, i) => (
+                    <li key={i}>
+                      {nom(d.joueur)} a dénoncé {nom(d.cible)} — {d.correcte ? 'juste' : 'fausse'}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
           <section className="panneau">
             <h2>Accusations</h2>

@@ -4,6 +4,8 @@
 //  - une hypothèse coûte 2 PA ;
 //  - les pouvoirs du complice dépendent du nombre de joueurs.
 
+import type { ModeComplice, TypeRuse } from '../shared/types';
+
 export interface ConfigPartie {
   manchesMax: number;
   pointsAction: number;
@@ -17,6 +19,15 @@ export interface ConfigPartie {
   cartesRestantes: 'publiques' | 'archives';
   /** Manches d'ouverture des pièces à conviction (une par carte restante). */
   ouverturePieces: number[];
+  /** « classique » : mensonges + falsifications ; « ruse » : réserve de ruses, empreintes, dénonciation. */
+  modeComplice: ModeComplice;
+  /** Mode « rusé » : nombre de ruses selon le nombre de joueurs. */
+  ruses: Record<number, number>;
+  /** Mode « rusé » : coût de chaque ruse (en ruses). */
+  coutRuses: Record<TypeRuse, number>;
+  /** Mode « rusé » : probabilité qu'une ruse laisse une empreinte, selon la taille de la table. */
+  probaEmpreinte: Record<number, number>;
+
 
   /** Durée fixe de l'étape de falsification (identique pour chaque hypothèse, pour ne rien trahir). */
   delaiFalsificationMs: number;
@@ -51,6 +62,11 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   },
   cartesRestantes: 'archives',
   ouverturePieces: [2, 4, 6],
+  modeComplice: 'ruse',
+  ruses: { 3: 3, 4: 4, 5: 5, 6: 5 },
+  coutRuses: { mensonge: 1, falsification: 1, emprunt: 2, trafic: 1 },
+  // Peu de suspects à 3 ou 4 joueurs : une seule empreinte y pèse lourd, elles y sont donc plus rares.
+  probaEmpreinte: { 3: 0.35, 4: 0.5, 5: 0.6, 6: 0.7 },
 
   delaiFalsificationMs: 8_000,
   delaiReponseMs: 60_000,
@@ -80,6 +96,7 @@ export function pouvoirsPour(config: ConfigPartie, nbJoueurs: number) {
 
 /** Règles d'avant les corrections d'équilibrage (pour comparaison dans les simulations). */
 export const REGLES_INITIALES: Partial<ConfigPartie> = {
+  modeComplice: 'classique',
   coutHypothese: 1,
   cartesRestantes: 'publiques',
   pouvoirs: {
@@ -89,6 +106,16 @@ export const REGLES_INITIALES: Partial<ConfigPartie> = {
     6: { mensonges: 2, falsifications: 1 },
   },
 };
+
+/** Nombre de ruses du complice pour une table de cette taille (mode « rusé »). */
+export function rusesPour(config: ConfigPartie, nbJoueurs: number): number {
+  return config.ruses?.[nbJoueurs] ?? 3;
+}
+
+/** Coût d'une ruse (mode « rusé »). */
+export function coutRuse(config: ConfigPartie, ruse: TypeRuse): number {
+  return config.coutRuses?.[ruse] ?? 1;
+}
 
 export function nbInterroges(nbJoueurs: number): number {
   const n = NB_INTERROGES[nbJoueurs];

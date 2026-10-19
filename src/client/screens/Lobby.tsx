@@ -138,6 +138,26 @@ export function Lobby({ etat }: { etat: EtatClient }) {
                   : "À la fin du temps, le tour passe automatiquement au joueur suivant."}
               </span>
             </div>
+            <div className="champ" style={{ marginTop: 14, marginBottom: 0 }}>
+              <label htmlFor="mode-complice">Pouvoirs du complice</label>
+              {estHote ? (
+                <select
+                  id="mode-complice"
+                  value={salon.reglages.modeComplice}
+                  onChange={(e) => void agir(() => connexion.reglerModeComplice(e.target.value as 'classique' | 'ruse'))}
+                >
+                  <option value="ruse">Complice rusé (recommandé)</option>
+                  <option value="classique">Classique</option>
+                </select>
+              ) : (
+                <strong id="mode-complice">{salon.reglages.modeComplice === 'ruse' ? 'Complice rusé' : 'Classique'}</strong>
+              )}
+              <span className="petit muet">
+                {salon.reglages.modeComplice === 'ruse'
+                  ? 'Le complice dispose de ruses discrètes (mensonge, carte empruntée, hypothèse falsifiée, dossier trafiqué). Chaque ruse peut laisser une empreinte, et chacun peut tenter de le dénoncer une fois.'
+                  : 'Le complice peut mentir et falsifier des hypothèses un nombre limité de fois. Pas d’empreintes ni de dénonciation.'}
+              </span>
+            </div>
             <div style={{ marginTop: 14 }}>
               {estHote ? (
                 <>
@@ -171,7 +191,7 @@ export function Lobby({ etat }: { etat: EtatClient }) {
               <li>Un joueur secret est complice : il connaît le meurtrier.</li>
               <li>2 points d'action par tour (hypothèse : 2 PA, archive : 1 PA), 12 manches maximum.</li>
               <li>Hypothèse : le premier joueur interrogé qui a une carte correspondante vous en montre une, en secret.</li>
-              <li>Le complice peut mentir 2 fois et falsifier 1 hypothèse (3 et 2 fois à 5 ou 6 joueurs).</li>
+              <li>Le complice utilise des ruses discrètes… qui laissent parfois des empreintes. Démasquez-le !</li>
               <li>Une seule accusation finale par joueur.</li>
             </ul>
           </section>

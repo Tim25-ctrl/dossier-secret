@@ -7,9 +7,9 @@ import { INDICES_PAR_ID } from '../shared/data/indices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../shared/data/manoir';
 import { ceQueLIndiceEcarte, combinaisonsPossibles } from '../shared/logique';
 import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
-import { nbInterroges, pouvoirsPour } from './config';
+import { coutRuse, nbInterroges, pouvoirsPour, rusesPour } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
-import { cartesCorrespondantes, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
+import { cartesCorrespondantes, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
 
 export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
   const moi = etat.joueurs[joueurId];
@@ -34,14 +34,15 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       peutAccuser: moi.peutAccuser,
       carnet: { marques: { ...moi.carnet.marques }, notes: moi.carnet.notes },
       journal: moi.journal.map((e) => ({ ...e })),
-      indicesConsultes: moi.dossiersConsultes.flatMap((dossier) => {
-        const a = etat.affaire.archives.find((x) => x.dossier === dossier);
-        return a ? [{ dossier, indice: a.indice }] : [];
-      }),
+      // Ce que le joueur a RÉELLEMENT lu (un dossier trafiqué montre le faux indice).
+      indicesConsultes: moi.journal.flatMap((e) =>
+        e.type === 'archive_lue' ? [{ dossier: e.dossier, indice: e.indice, ...(e.categorie ? { categorie: e.categorie } : {}) }] : [],
+      ),
       piecesConsultees: moi.dossiersConsultes.flatMap((dossier) => {
         const p = (etat.pieces ?? []).find((x) => x.dossier === dossier);
         return p ? [{ dossier, carte: p.carte }] : [];
       }),
+      peutDenoncer: !!moi.peutDenoncer && !etat.compliceDemasque,
     },
     regles: {
       manchesMax: etat.config.manchesMax,
@@ -53,6 +54,9 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       coutHypothese: etat.config.coutHypothese,
       mensonges: pouvoirsPour(etat.config, etat.ordre.length).mensonges,
       falsifications: pouvoirsPour(etat.config, etat.ordre.length).falsifications,
+      modeComplice: etat.config.modeComplice ?? 'classique',
+      ruses: rusesPour(etat.config, etat.ordre.length),
+      coutRuses: { mensonge: coutRuse(etat.config, 'mensonge'), falsification: coutRuse(etat.config, 'falsification'), emprunt: coutRuse(etat.config, 'emprunt'), trafic: coutRuse(etat.config, 'trafic') },
     },
     manche: etat.manche,
     joueurActif: joueurActif(etat),
@@ -71,12 +75,14 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       ...(etat.pieces ?? []).map((p) => ({ dossier: p.dossier, categorie: 'piece' as const, disponibleDesManche: p.disponibleDesManche })),
     ].map((a) => ({ ...a, disponible: a.disponibleDesManche <= etat.manche, consulte: moi.dossiersConsultes.includes(a.dossier) })),
     historique,
+    compliceDemasque: etat.compliceDemasque ? etat.complice : null,
   };
 
   if (estComplice) {
     vue.moi.meurtrier = etat.affaire.solution.suspect;
     vue.moi.mensongesRestants = moi.mensongesRestants;
     vue.moi.falsificationsRestantes = moi.falsificationsRestantes;
+    if (etat.config.modeComplice === 'ruse') vue.moi.rusesRestantes = moi.rusesRestantes ?? 0;
   }
 
   const h = etat.hypothese;
@@ -84,7 +90,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
     const repondant = repondantActuel(etat);
     const statuts = h.interroges.map((joueur): { joueur: string; statut: StatutReponse } => {
       const r = h.reponses.find((x) => x.joueur === joueur);
-      if (r) return { joueur, statut: r.resultat === 'carte_montree' ? 'carte_montree' : 'aucune_carte' };
+      if (r) return { joueur, statut: r.resultat === 'carte_montree' || r.resultat === 'emprunt' ? 'carte_montree' : 'aucune_carte' };
       return { joueur, statut: 'attente' };
     });
     const enCours: HypotheseEnCoursVue = {
@@ -104,6 +110,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       enCours.aRepondre = {
         cartesCorrespondantes: cartesCorrespondantes(etat, joueurId, h.original),
         peutMentir: peutMentir(etat, joueurId),
+        cartesEmpruntables: cartesEmpruntables(etat, joueurId),
       };
     }
     if (peutFalsifier(etat, joueurId) || (estComplice && h.etape === 'falsification' && h.decisionFalsificationPrise && h.auteur !== joueurId)) {
@@ -162,7 +169,12 @@ export function resultatPartie(etat: EtatPartie): ResultatPartie {
       falsifications: etat.hypotheses
         .filter((h) => h.falsification)
         .map((h) => ({ hypothese: h.id, manche: h.manche, champ: h.falsification!.champ, de: h.falsification!.de, vers: h.falsification!.vers })),
+      emprunts: etat.hypotheses.flatMap((h) =>
+        h.reponses.filter((x) => x.resultat === 'emprunt').map((x) => ({ hypothese: h.id, manche: h.manche, carte: x.carte! })),
+      ),
+      trafics: (etat.trafics ?? []).map((t) => ({ dossier: t.dossier, indiceFaux: t.indiceFaux, manche: t.manche })),
     },
+    denonciations: (etat.denonciations ?? []).map((d) => ({ joueur: d.joueur, cible: d.cible, correcte: d.correcte })),
     accusations: etat.accusations.map((a) => ({ joueur: a.joueur, triplet: { ...a.triplet }, correcte: a.correcte })),
     manchesJouees: etat.manche,
     nbHypotheses: etat.hypotheses.length,

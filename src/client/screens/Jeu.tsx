@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LIBELLES_CATEGORIE_DOSSIER } from '../../shared/data/indices';
+import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../shared/data/indices';
 import { nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
 import { SANS_LIMITE, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
 import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification } from '../components/Commun';
 import { Icone } from '../components/Emblemes';
-import { ModaleAccusation, ModaleFalsification, ModaleHypothese, ModaleReponse, SuiviHypothese } from '../components/jeu/Actions';
+import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
@@ -19,7 +19,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   const vue = etat.partie!;
   const moi = vue.moi.id;
   const [onglet, setOnglet] = useState<Onglet>('enquete');
-  const [modale, setModale] = useState<'hypothese' | 'accusation' | 'regles' | null>(null);
+  const [modale, setModale] = useState<'hypothese' | 'accusation' | 'denonciation' | 'regles' | null>(null);
   const { afficher, vue: notification } = useNotification();
   const noms = useMemo(() => new Map(vue.joueurs.map((j) => [j.id, j.nom])), [vue.joueurs]);
   const nom: Noms = useCallback((id: string) => noms.get(id) ?? '?', [noms]);
@@ -48,7 +48,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   }, [monTour, doitRepondre]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!monTour && (modale === 'hypothese' || modale === 'accusation')) {
+    if (!monTour && (modale === 'hypothese' || modale === 'accusation' || modale === 'denonciation')) {
       setModale(null);
       if (vue.joueurActif !== moi) afficher("Votre tour est terminé.", true);
     }
@@ -147,6 +147,12 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
                 )}
                 {!vue.moi.peutAccuser && <span className="etiquette etiquette-rouge">Vous ne pouvez plus accuser</span>}
               </div>
+              {vue.compliceDemasque && (
+                <div className="info" role="status">
+                  🎭 <strong>{vue.compliceDemasque === moi ? 'Vous avez été démasqué' : `${nom(vue.compliceDemasque)} est le complice`}</strong> : ses ruses sont
+                  épuisées. Il continue à jouer et doit répondre honnêtement.
+                </div>
+              )}
 
               <div className="actions">
                 <button className="btn btn-or" disabled={!monTour || !!raisonHypothese} onClick={() => setModale('hypothese')}>
@@ -158,6 +164,16 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
                 <button className="btn btn-danger" disabled={!monTour || !vue.moi.peutAccuser} onClick={() => setModale('accusation')}>
                   Accusation finale
                 </button>
+                {vue.regles.modeComplice === 'ruse' && (
+                  <button
+                    className="btn"
+                    disabled={!monTour || !vue.moi.peutDenoncer || vue.pointsAction < 1}
+                    onClick={() => setModale('denonciation')}
+                    title={vue.compliceDemasque ? 'Le complice est déjà démasqué.' : !vue.moi.peutDenoncer ? 'Vous avez déjà dénoncé quelqu’un.' : undefined}
+                  >
+                    🎭 Dénoncer le complice (1 PA)
+                  </button>
+                )}
                 <button className="btn" disabled={!monTour} onClick={() => void agir({ type: 'finTour' })}>
                   Terminer mon tour
                 </button>
@@ -237,6 +253,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
 
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'accusation' && <ModaleAccusation sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
+      {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'regles' && <ModaleRegles vue={vue} onFermer={() => setModale(null)} />}
       {doitRepondre && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {peutFalsifier && !doitRepondre && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
@@ -255,16 +272,45 @@ function PanneauRole({ vue }: { vue: VueJoueur }) {
             Le meurtrier est <strong>{nomElement(vue.moi.meurtrier!)}</strong>. Vous ignorez le lieu et l'arme. Empêchez les enquêteurs de trouver avant la fin de la 12ᵉ
             manche.
           </p>
-          <div className="ligne petit" style={{ marginBottom: 8 }}>
-            <span className="etiquette etiquette-rouge">Mensonge : {vue.moi.mensongesRestants}/{vue.regles.mensonges}</span>
-            <Aide libelle="Aide sur Mensonge">
-              Quand vous êtes interrogé et possédez une carte correspondante, vous pouvez prétendre n'en avoir aucune. L'interrogation passe au joueur suivant.
-            </Aide>
-            <span className="etiquette etiquette-rouge">Falsification : {vue.moi.falsificationsRestantes}/{vue.regles.falsifications}</span>
-            <Aide libelle="Aide sur la falsification">
-              Juste après l'hypothèse d'un autre joueur, modifiez un de ses trois éléments avant l'annonce publique. Son auteur continuera de voir l'original, sans être prévenu.
-            </Aide>
-          </div>
+          {vue.regles.modeComplice === 'ruse' ? (
+            <div className="petit" style={{ marginBottom: 8 }}>
+              <div className="ligne" style={{ marginBottom: 6 }}>
+                <span className="etiquette etiquette-rouge">
+                  Ruses : {vue.moi.rusesRestantes}/{vue.regles.ruses}
+                </span>
+                <Aide libelle="Aide sur les ruses">
+                  Chaque ruse peut laisser, une ou deux manches plus tard, une empreinte publique qui innocente un autre joueur : abusez-en et vous serez démasqué.
+                </Aide>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.1em' }}>
+                <li>
+                  <strong>Mensonge</strong> ({vue.regles.coutRuses.mensonge}) : interrogé, répondre « aucune carte » alors que vous en avez une.
+                </li>
+                <li>
+                  <strong>Carte empruntée</strong> ({vue.regles.coutRuses.emprunt}) : interrogé, montrer une carte de l'hypothèse que vous n'avez pas.
+                </li>
+                <li>
+                  <strong>Hypothèse falsifiée</strong> ({vue.regles.coutRuses.falsification}) : changer un élément de l'hypothèse d'un autre avant son annonce.
+                </li>
+                <li>
+                  <strong>Dossier trafiqué</strong> ({vue.regles.coutRuses.trafic}) : en lisant un dossier d'archives, le remplacer par un faux indice pour les
+                  lecteurs suivants.
+                </li>
+              </ul>
+            </div>
+          ) : (
+            <div className="ligne petit" style={{ marginBottom: 8 }}>
+              <span className="etiquette etiquette-rouge">Mensonge : {vue.moi.mensongesRestants}/{vue.regles.mensonges}</span>
+              <Aide libelle="Aide sur Mensonge">
+                Quand vous êtes interrogé et possédez une carte correspondante, vous pouvez prétendre n'en avoir aucune. L'interrogation passe au joueur suivant.
+              </Aide>
+              <span className="etiquette etiquette-rouge">Falsification : {vue.moi.falsificationsRestantes}/{vue.regles.falsifications}</span>
+              <Aide libelle="Aide sur la falsification">
+                Juste après l'hypothèse d'un autre joueur, modifiez un de ses trois éléments avant l'annonce publique. Son auteur continuera de voir l'original, sans être
+                prévenu.
+              </Aide>
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -299,6 +345,7 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
               </span>
             </span>
             <span className="espace" />
+            {j.id === vue.compliceDemasque && <span className="etiquette etiquette-rouge">complice démasqué</span>}
             {j.id === vue.joueurActif && <span className="etiquette etiquette-or">son tour</span>}
           </li>
         ))}
@@ -307,8 +354,10 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
   );
 }
 
-function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; onAgir: (a: { type: 'consulterArchive'; dossier: number }) => Promise<void> }) {
-  const consultes = new Map(vue.moi.indicesConsultes.map((i) => [i.dossier, i.indice]));
+function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; onAgir: (a: { type: 'consulterArchive'; dossier: number; trafiquer?: boolean }) => Promise<void> }) {
+  const consultes = new Map(vue.moi.indicesConsultes.map((i) => [i.dossier, i]));
+  const mesTrafics = new Map(vue.moi.journal.flatMap((e) => (e.type === 'ruse' && e.ruse === 'trafic' ? [[e.dossier!, e.indiceFaux!] as const] : [])));
+  const peutTrafiquer = vue.regles.modeComplice === 'ruse' && (vue.moi.rusesRestantes ?? 0) >= vue.regles.coutRuses.trafic;
   const pieces = new Map(vue.moi.piecesConsultees.map((p) => [p.dossier, p.carte]));
   return (
     <div className="indices">
@@ -326,7 +375,12 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
           </Prive>
         ) : consultes.has(a.dossier) ? (
           <Prive key={a.dossier} titre={`Dossier n° ${a.dossier} — lu par vous seul`}>
-            <CarteIndice id={consultes.get(a.dossier)!} dossier={a.dossier} />
+            <CarteIndice id={consultes.get(a.dossier)!.indice} dossier={a.dossier} categorie={consultes.get(a.dossier)!.categorie} />
+            {mesTrafics.has(a.dossier) && (
+              <p className="petit" style={{ marginTop: 8, color: 'var(--rouge)' }}>
+                🎭 Vous avez trafiqué ce dossier : les prochains lecteurs y liront « {INDICES_PAR_ID[mesTrafics.get(a.dossier)!]?.titre} ».
+              </p>
+            )}
           </Prive>
         ) : (
           <section key={a.dossier} className="panneau ligne">
@@ -340,6 +394,16 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
             <button className="btn btn-or btn-petit" disabled={!monTour || !a.disponible || vue.pointsAction < 1} onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier })}>
               Consulter (1 PA)
             </button>
+            {peutTrafiquer && a.categorie !== 'piece' && (
+              <button
+                className="btn btn-danger btn-petit"
+                disabled={!monTour || !a.disponible || vue.pointsAction < 1}
+                onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier, trafiquer: true })}
+                title="Vous lisez le vrai indice ; les joueurs qui ouvriront ce dossier après vous liront un faux indice."
+              >
+                🎭 Consulter et trafiquer (1 PA + {vue.regles.coutRuses.trafic} ruse)
+              </button>
+            )}
           </section>
         ),
       )}

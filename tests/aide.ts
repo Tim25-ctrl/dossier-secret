@@ -15,6 +15,8 @@ export const CONFIG_TEST: Partial<ConfigPartie> = {
   delaiTourMs: 60_000,
   delaiDeconnecteMs: 5_000,
   delaiRepriseTourMs: 20_000,
+  // Les tests historiques portent sur le mode classique ; le mode « rusé » a ses propres tests.
+  modeComplice: 'classique',
 };
 
 export function nouvellePartie(n: number, opts: { seed?: number; solution?: Triplet; complice?: string; config?: Partial<ConfigPartie> } = {}) {

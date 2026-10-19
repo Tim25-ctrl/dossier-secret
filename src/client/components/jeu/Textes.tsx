@@ -26,6 +26,8 @@ export function texteEvenement(
     case 'debut_tour':
       return { contenu: ev.joueur === moi ? "C'est votre tour." : `Au tour de ${nom(ev.joueur)}.` };
     case 'fin_tour':
+      if (ev.raison === 'tour_perdu')
+        return { contenu: `${qui(ev.joueur)} ${ev.joueur === moi ? 'perdez votre' : 'perd son'} tour (dénonciation fausse).` };
       return { contenu: `${qui(ev.joueur)} ${ev.joueur === moi ? 'terminez' : 'termine'} ${ev.joueur === moi ? 'votre' : 'son'} tour${ev.raison === 'temps_ecoule' ? ' (temps écoulé)' : ''}.` };
     case 'hypothese':
       return {
@@ -57,6 +59,30 @@ export function texteEvenement(
           <>
             {qui(ev.joueur)} {ev.joueur === moi ? 'accusez' : 'accuse'} : <TripletVue t={ev.triplet} />{' '}
             {ev.correcte ? <strong style={{ color: 'var(--vert)' }}>— accusation juste !</strong> : <strong style={{ color: 'var(--rouge)' }}>— accusation fausse.</strong>}
+          </>
+        ),
+      };
+    case 'empreinte':
+      return {
+        classe: 'important',
+        contenu: (
+          <>
+            🔍 <strong>Empreinte relevée</strong> sur les lieux d'une manigance : elle n'appartient pas à <strong>{ev.innocente === moi ? 'vous' : nom(ev.innocente)}</strong>.
+          </>
+        ),
+      };
+    case 'denonciation':
+      return {
+        classe: 'important',
+        contenu: ev.correcte ? (
+          <>
+            {qui(ev.joueur)} {ev.joueur === moi ? 'dénoncez' : 'dénonce'} {ev.cible === moi ? 'vous' : nom(ev.cible)} : <strong style={{ color: 'var(--vert)' }}>c'est bien le complice !</strong> Il
+            perd ses ruses.
+          </>
+        ) : (
+          <>
+            {qui(ev.joueur)} {ev.joueur === moi ? 'dénoncez' : 'dénonce'} {ev.cible === moi ? 'vous' : nom(ev.cible)} comme complice :{' '}
+            <strong style={{ color: 'var(--rouge)' }}>dénonciation fausse</strong>, {ev.joueur === moi ? 'vous perdrez votre' : 'il perdra son'} prochain tour.
           </>
         ),
       };
@@ -111,7 +137,13 @@ export function texteEntreePrivee(e: EntreePrivee, nom: Noms): ReactNode {
         </>
       );
     case 'mensonge':
-      return `Vous avez utilisé le pouvoir Mensonge (il en reste ${e.restants}).`;
+      return `Vous avez menti : « aucune carte » (restant : ${e.restants}).`;
+    case 'ruse':
+      if (e.ruse === 'emprunt') return `Ruse « Carte empruntée » : vous avez montré « ${nomElement(e.carte!)} » sans l'avoir (ruses restantes : ${e.restants}).`;
+      if (e.ruse === 'trafic')
+        return `Ruse « Dossier trafiqué » : le dossier n° ${e.dossier} montrera désormais « ${INDICES_PAR_ID[e.indiceFaux!]?.titre} » (ruses restantes : ${e.restants}).`;
+      if (e.ruse === 'falsification') return `Ruse « Hypothèse falsifiée » (ruses restantes : ${e.restants}).`;
+      return null;
     case 'falsification':
       return `Vous avez falsifié une hypothèse : ${nomElement(e.de)} → ${nomElement(e.vers)}.`;
     case 'accusation':

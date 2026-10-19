@@ -1,0 +1,19 @@
+# Déploiement sur Render (https://render.com) — offre gratuite.
+# Render > New > Blueprint > choisir ce dépôt GitHub : ce fichier est lu automatiquement.
+services:
+  - type: web
+    name: dossier-secret
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/sante
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ENABLE_BOTS
+        value: "true"
+      # Le disque de l'offre gratuite est effacé à chaque redémarrage : la sauvegarde
+      # ne protège donc les parties que tant que le service ne redémarre pas.
+      - key: DATA_DIR
+        value: ./data

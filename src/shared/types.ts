@@ -93,6 +93,9 @@ export interface FaitChronologique {
 
 export type Precision = 'faible' | 'moyenne' | 'forte';
 
+/** Catégorie d'un dossier d'archives : un indice, ou une pièce à conviction (carte non distribuée). */
+export type CategorieDossier = CategorieIndice | 'piece';
+
 export interface CarteIndice {
   id: string;
   titre: string;
@@ -144,10 +147,11 @@ export type EvenementPublic = { t: number } & (
   | { type: 'hypothese'; id: string; auteur: string; triplet: Triplet; interroges: string[] }
   | { type: 'reponse'; hypothese: string; joueur: string; resultat: 'aucune_carte' | 'carte_montree'; auto: boolean }
   | { type: 'fin_hypothese'; hypothese: string; montreePar: string | null }
-  | { type: 'archive'; joueur: string; dossier: number; categorie: CategorieIndice }
+  | { type: 'archive'; joueur: string; dossier: number; categorie: CategorieDossier }
   | { type: 'indice_public'; indice: string; manche: number }
   | { type: 'accusation'; joueur: string; triplet: Triplet; correcte: boolean }
   | { type: 'connexion'; joueur: string; connecte: boolean }
+  | { type: 'depart'; joueur: string }
   | { type: 'fin_partie'; vainqueur: Vainqueur; raison: RaisonFin }
 );
 
@@ -160,6 +164,7 @@ export type EntreePrivee = { t: number } & (
   | { type: 'aucune_carte_vue'; hypothese: string }
   | { type: 'carte_montree'; hypothese: string; a: string; carte: ElementId; auto: boolean }
   | { type: 'archive_lue'; dossier: number; indice: string }
+  | { type: 'piece_lue'; dossier: number; carte: ElementId }
   | { type: 'mensonge'; hypothese: string; restants: number }
   | { type: 'falsification'; hypothese: string; champ: ChampTriplet; de: ElementId; vers: ElementId }
   | { type: 'accusation'; triplet: Triplet; correcte: boolean }
@@ -172,6 +177,8 @@ export interface JoueurPublic {
   peutAccuser: boolean;
   nbCartes: number;
   bot: boolean;
+  /** Le joueur a quitté la partie : ses tours sont passés automatiquement. */
+  parti: boolean;
 }
 
 export type StatutReponse = 'attente' | 'aucune_carte' | 'carte_montree' | 'non_interroge';
@@ -200,6 +207,8 @@ export interface ResultatPartie {
   solution: Triplet;
   complice: string;
   mains: Record<string, ElementId[]>;
+  /** Cartes non distribuées (publiques ou pièces à conviction). */
+  cartesRestantes: ElementId[];
   explication: string[];
   indicesDecisifs: { indice: string; explication: string }[];
   usagesPouvoirs: {
@@ -225,6 +234,7 @@ export interface VueJoueur {
     carnet: Carnet;
     journal: EntreePrivee[];
     indicesConsultes: { dossier: number; indice: string }[];
+    piecesConsultees: { dossier: number; carte: ElementId }[];
   };
   regles: {
     manchesMax: number;
@@ -234,6 +244,9 @@ export interface VueJoueur {
     delaiFalsificationMs: number;
     /** Durée d'un tour en ms ; null = sans limite. */
     dureeTourMs: number | null;
+    coutHypothese: number;
+    mensonges: number;
+    falsifications: number;
   };
   manche: number;
   joueurActif: string;
@@ -244,7 +257,7 @@ export interface VueJoueur {
   joueurs: JoueurPublic[];
   cartesPubliques: ElementId[];
   indicesPublics: { indice: string; manche: number }[];
-  archives: { dossier: number; categorie: CategorieIndice; disponibleDesManche: number; disponible: boolean; consulte: boolean }[];
+  archives: { dossier: number; categorie: CategorieDossier; disponibleDesManche: number; disponible: boolean; consulte: boolean }[];
   historique: EvenementPublic[];
   hypotheseEnCours?: HypotheseEnCoursVue;
   resultat?: ResultatPartie;

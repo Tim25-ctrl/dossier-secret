@@ -26,7 +26,7 @@ import {
   type Vainqueur,
 } from '../shared/types';
 import { INDICES_PAR_ID } from '../shared/data/indices';
-import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, nbInterroges, type ConfigPartie } from './config';
+import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, nbInterroges, pouvoirsPour, type ConfigPartie } from './config';
 import {
   choisirComplice,
   distribuerCartes,
@@ -50,6 +50,8 @@ export interface EtatJoueur {
   journal: EntreePrivee[];
   dossiersConsultes: number[];
   connecte: boolean;
+  /** A quitté volontairement la partie. */
+  parti?: boolean;
 }
 
 export interface ReponseInterne {
@@ -94,6 +96,8 @@ export interface EtatPartie {
   ordre: string[];
   joueurs: Record<string, EtatJoueur>;
   cartesPubliques: ElementId[];
+  /** Pièces à conviction : cartes non distribuées rangées dans les archives. */
+  pieces?: { dossier: number; carte: ElementId; disponibleDesManche: number }[];
   indicesPublics: { indice: string; manche: number }[];
   manche: number;
   indexTour: number;
@@ -157,6 +161,17 @@ export function creerPartie(params: {
   const erreursDistribution = validerDistribution(distribution, affaire.solution, ordre);
   if (erreursDistribution.length) throw new Error(`Distribution invalide : ${erreursDistribution.join(' ; ')}`);
 
+  // Cartes non distribuées : publiques, ou pièces à conviction dans les archives.
+  const enArchives = config.cartesRestantes === 'archives';
+  const pieces = enArchives
+    ? distribution.cartesPubliques.map((carte, i) => ({
+        dossier: affaire.archives.length + i + 1,
+        carte,
+        disponibleDesManche: config.ouverturePieces[i] ?? 1,
+      }))
+    : [];
+  const pouvoirs = pouvoirsPour(config, joueurs.length);
+
   const etatJoueurs: Record<string, EtatJoueur> = {};
   for (const j of joueurs) {
     const role: Role = j.id === complice ? 'complice' : 'enqueteur';
@@ -167,8 +182,8 @@ export function creerPartie(params: {
       role,
       main: distribution.mains[j.id],
       peutAccuser: true,
-      mensongesRestants: role === 'complice' ? config.mensonges : 0,
-      falsificationsRestantes: role === 'complice' ? config.falsifications : 0,
+      mensongesRestants: role === 'complice' ? pouvoirs.mensonges : 0,
+      falsificationsRestantes: role === 'complice' ? pouvoirs.falsifications : 0,
       carnet: { marques: {}, notes: '' },
       journal: [
         role === 'complice'
@@ -189,7 +204,8 @@ export function creerPartie(params: {
     complice,
     ordre,
     joueurs: etatJoueurs,
-    cartesPubliques: distribution.cartesPubliques,
+    cartesPubliques: enArchives ? [] : distribution.cartesPubliques,
+    pieces,
     indicesPublics: affaire.indicesPublicsDepart.map((indice) => ({ indice, manche: 1 })),
     manche: 1,
     indexTour: 0,
@@ -250,13 +266,19 @@ function tripletValide(t: { suspect: unknown; lieu: unknown; arme: unknown }): t
   );
 }
 
+/** Un joueur qui a quitté la partie voit ses tours et ses réponses passés presque immédiatement. */
+const DELAI_PARTI_MS = 2_000;
+
 function delaiPour(etat: EtatPartie, joueur: string, normal: number): number {
-  return etat.joueurs[joueur].connecte ? normal : Math.min(normal, etat.config.delaiDeconnecteMs);
+  const j = etat.joueurs[joueur];
+  if (j.parti) return Math.min(normal, DELAI_PARTI_MS);
+  return j.connecte ? normal : Math.min(normal, etat.config.delaiDeconnecteMs);
 }
 
 /** Échéance du tour qui commence à `t` pour ce joueur (tour sans limite : aucune échéance s'il est connecté). */
 function echeanceDeTour(etat: EtatPartie, joueur: string, t: number): number {
   const delai = etat.config.delaiTourMs;
+  if (etat.joueurs[joueur].parti) return t + DELAI_PARTI_MS;
   if (delai === null) return etat.joueurs[joueur].connecte ? SANS_LIMITE : t + etat.config.delaiDeconnecteMs;
   return t + delaiPour(etat, joueur, delai);
 }
@@ -345,7 +367,8 @@ function formulerHypothese(
 ): ResultatAction {
   const e = verifierTourActif(etat, joueur);
   if (e) return e;
-  if (etat.pointsAction < 1) return refus("Vous n'avez plus de point d'action.");
+  if (etat.pointsAction < etat.config.coutHypothese)
+    return refus(`Une hypothèse coûte ${etat.config.coutHypothese} points d'action : il ne vous en reste que ${etat.pointsAction}.`);
   if (etat.hypothesesCeTour >= etat.config.hypothesesMaxParTour)
     return refus(`Vous ne pouvez formuler que ${etat.config.hypothesesMaxParTour} hypothèse(s) par tour.`);
   const triplet = { suspect: action.suspect, lieu: action.lieu, arme: action.arme };
@@ -359,7 +382,7 @@ function formulerHypothese(
   if (interroges.includes(joueur)) return refus('Vous ne pouvez pas vous interroger vous-même.');
   if (interroges.some((id) => !etat.joueurs[id])) return refus("Un joueur interrogé ne fait pas partie de la partie.");
 
-  etat.pointsAction -= 1;
+  etat.pointsAction -= etat.config.coutHypothese;
   etat.hypothesesCeTour += 1;
   etat.compteurHypotheses += 1;
   const h: HypotheseInterne = {
@@ -532,14 +555,21 @@ function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now
   if (e) return e;
   if (etat.pointsAction < 1) return refus("Vous n'avez plus de point d'action.");
   const d = etat.affaire.archives.find((a) => a.dossier === dossier);
-  if (!d) return refus("Ce dossier d'archives n'existe pas.");
-  if (d.disponibleDesManche > etat.manche) return refus(`Ce dossier ne sera consultable qu'à partir de la manche ${d.disponibleDesManche}.`);
+  const piece = (etat.pieces ?? []).find((p) => p.dossier === dossier);
+  const ouverture = d?.disponibleDesManche ?? piece?.disponibleDesManche;
+  if (ouverture === undefined) return refus("Ce dossier d'archives n'existe pas.");
+  if (ouverture > etat.manche) return refus(`Ce dossier ne sera consultable qu'à partir de la manche ${ouverture}.`);
   const j = etat.joueurs[joueur];
   if (j.dossiersConsultes.includes(dossier)) return refus('Vous avez déjà consulté ce dossier.');
   etat.pointsAction -= 1;
   j.dossiersConsultes.push(dossier);
-  noter(etat, joueur, { t: now, type: 'archive_lue', dossier, indice: d.indice });
-  publier(etat, { t: now, type: 'archive', joueur, dossier, categorie: INDICES_PAR_ID[d.indice].categorie });
+  if (d) {
+    noter(etat, joueur, { t: now, type: 'archive_lue', dossier, indice: d.indice });
+    publier(etat, { t: now, type: 'archive', joueur, dossier, categorie: INDICES_PAR_ID[d.indice].categorie });
+  } else {
+    noter(etat, joueur, { t: now, type: 'piece_lue', dossier, carte: piece!.carte });
+    publier(etat, { t: now, type: 'archive', joueur, dossier, categorie: 'piece' });
+  }
   return { ok: true };
 }
 
@@ -692,11 +722,28 @@ export function recalerEcheances(etat: EtatPartie, now: number) {
 // Présence
 // ---------------------------------------------------------------------------
 
+/** Le joueur quitte volontairement la partie : il est considéré absent et ses tours passent aussitôt. */
+export function abandonner(etat: EtatPartie, joueur: string, now: number) {
+  const j = etat.joueurs[joueur];
+  if (!j || j.parti) return;
+  j.parti = true;
+  j.connecte = false;
+  publier(etat, { t: now, type: 'depart', joueur });
+  if (etat.etape !== 'terminee') {
+    const limite = now + DELAI_PARTI_MS;
+    if (etat.etape === 'tour' && joueurActif(etat) === joueur) etat.echeanceTour = Math.min(etat.echeanceTour, limite);
+    if (etat.etape === 'hypothese' && etat.hypothese?.etape === 'interrogation' && repondantActuel(etat) === joueur)
+      etat.hypothese.echeance = Math.min(etat.hypothese.echeance, limite);
+  }
+  etat.version++;
+}
+
 /** Met à jour l'état de connexion ; raccourcit les délais d'un joueur absent. */
 export function definirConnexion(etat: EtatPartie, joueur: string, connecte: boolean, now: number) {
   const j = etat.joueurs[joueur];
   if (!j || j.connecte === connecte) return;
   j.connecte = connecte;
+  if (connecte) j.parti = false; // revenu avec son jeton : il reprend sa place
   publier(etat, { t: now, type: 'connexion', joueur, connecte });
   if (etat.etape === 'terminee') {
     etat.version++;

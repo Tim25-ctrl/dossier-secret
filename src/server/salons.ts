@@ -2,8 +2,8 @@
 // démarrage des parties, reconnexion. Aucune dépendance réseau : testable seul.
 
 import { createHash, randomBytes } from 'node:crypto';
-import { JOUEURS_MAX, JOUEURS_MIN, type ConfigPartie } from '../engine/config';
-import { appliquerAction, avancer, creerPartie, definirConnexion, recalerEcheances, type EtatPartie } from '../engine/partie';
+import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, REGLES_INITIALES, type ConfigPartie } from '../engine/config';
+import { abandonner, appliquerAction, avancer, creerPartie, definirConnexion, recalerEcheances, type EtatPartie } from '../engine/partie';
 import { cryptoRng, type Rng } from '../engine/rng';
 import { vuePour } from '../engine/vue';
 import { ALPHABET_CODE, LONGUEUR_CODE, MESSAGE_MAX, PSEUDO_MAX, type EtatClient, type MessageChat, type ReglagesSalon, type SalonVue } from '../shared/protocole';
@@ -19,6 +19,8 @@ export interface JoueurSalon {
   connecte: boolean;
   rejointLe: number;
   deconnecteLe: number | null;
+  /** A quitté volontairement la partie en cours. */
+  parti?: boolean;
 }
 
 export interface Salon {
@@ -195,31 +197,45 @@ export class GestionnaireSalons {
     if (!j || j.connecte === connecte) return;
     j.connecte = connecte;
     j.deconnecteLe = connecte ? null : this.now();
+    if (connecte) j.parti = false;
     if (s.partie) definirConnexion(s.partie, id, connecte, this.now());
     this.toucher(s);
   }
 
-  quitter(code: string, id: string) {
+  /** Humains encore présents dans le salon (connectés et pas partis), hors `sauf`. */
+  humainsPresents(s: Salon, sauf?: string): JoueurSalon[] {
+    return s.joueurs.filter((j) => !j.bot && !j.parti && j.connecte && j.id !== sauf);
+  }
+
+  /**
+   * Le joueur quitte le salon. Retourne `{ ferme: true }` si c'était le dernier joueur
+   * présent : le salon est alors fermé (et la partie éventuelle terminée).
+   */
+  quitter(code: string, id: string): { ferme: boolean } {
     const s = this.salon(code);
     const j = this.joueur(s, id);
+    const dernier = this.humainsPresents(s, id).length === 0;
+    if (dernier) {
+      this.salons.delete(s.code);
+      return { ferme: true };
+    }
     if (s.statut === 'lobby') {
       s.joueurs = s.joueurs.filter((x) => x.id !== id);
-      if (s.joueurs.filter((x) => !x.bot).length === 0) {
-        this.salons.delete(s.code);
-        return;
-      }
     } else {
-      // En cours de partie, la place est conservée : le joueur pourra revenir.
+      // En cours de partie, la place est conservée (cartes et rôle intacts),
+      // mais ses tours et ses réponses passent automatiquement.
       j.connecte = false;
+      j.parti = true;
       j.deconnecteLe = this.now();
-      if (s.partie) definirConnexion(s.partie, id, false, this.now());
+      if (s.partie) abandonner(s.partie, id, this.now());
     }
     if (s.hote === id) this.transfererHote(s);
     this.toucher(s);
+    return { ferme: false };
   }
 
   private transfererHote(s: Salon) {
-    const candidats = s.joueurs.filter((j) => !j.bot && j.id !== s.hote);
+    const candidats = s.joueurs.filter((j) => !j.bot && !j.parti && j.id !== s.hote);
     const suivant = candidats.find((j) => j.connecte) ?? candidats[0];
     if (suivant) s.hote = suivant.id;
   }
@@ -339,7 +355,7 @@ export class GestionnaireSalons {
       code: s.code,
       statut: s.statut,
       hote: s.hote,
-      joueurs: s.joueurs.map((j) => ({ id: j.id, nom: j.nom, connecte: j.connecte, bot: j.bot, hote: j.id === s.hote })),
+      joueurs: s.joueurs.map((j) => ({ id: j.id, nom: j.nom, connecte: j.connecte, bot: j.bot, hote: j.id === s.hote, parti: !!j.parti })),
       messages: s.messages.slice(-80),
       botsAutorises: this.botsAutorises,
       reglages: { ...s.reglages },
@@ -368,7 +384,7 @@ export class GestionnaireSalons {
     const modifies: string[] = [];
     for (const s of [...this.salons.values()]) {
       let change = false;
-      const humains = s.joueurs.filter((j) => !j.bot);
+      const humains = s.joueurs.filter((j) => !j.bot && !j.parti);
       if (humains.every((j) => !j.connecte && j.deconnecteLe !== null && t - j.deconnecteLe > this.opts.suppressionSalonMs) || humains.length === 0) {
         this.salons.delete(s.code);
         continue;
@@ -381,7 +397,7 @@ export class GestionnaireSalons {
       const hote = s.joueurs.find((j) => j.id === s.hote);
       if (!hote || (!hote.connecte && hote.deconnecteLe !== null && t - hote.deconnecteLe > this.opts.graceHoteMs)) {
         const avantHote = s.hote;
-        const suivant = s.joueurs.find((j) => !j.bot && j.connecte);
+        const suivant = s.joueurs.find((j) => !j.bot && !j.parti && j.connecte);
         if (suivant && suivant.id !== avantHote) {
           s.hote = suivant.id;
           change = true;
@@ -418,7 +434,11 @@ export class GestionnaireSalons {
         }
       }
       s.reglages ??= this.reglagesParDefaut(); // sauvegardes antérieures aux réglages
-      if (s.partie) recalerEcheances(s.partie, t);
+      if (s.partie) {
+        // Parties sauvegardées par une version antérieure : elles gardent les règles avec lesquelles elles ont commencé.
+        s.partie.config = { ...CONFIG_PAR_DEFAUT, ...REGLES_INITIALES, ...s.partie.config };
+        recalerEcheances(s.partie, t);
+      }
       this.salons.set(s.code, s);
     }
   }

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { INDICES_PAR_ID, LIBELLES_CATEGORIE_INDICE } from '../../shared/data/indices';
 import { nomCourt, nomElement } from '../../shared/data/manoir';
 import { ceQueLIndiceEcarte, precision } from '../../shared/logique';
@@ -114,7 +115,9 @@ export function Modale({ titre, onFermer, children, pied }: { titre: ReactNode; 
       precedent?.focus?.();
     };
   }, []);
-  return (
+  // Rendu à la racine du document : une fenêtre ne doit jamais être prisonnière de son parent
+  // (ex. la barre du haut, dont le flou d’arrière-plan crée un nouveau repère d’affichage).
+  return createPortal(
     <div className="voile" onMouseDown={(e) => e.target === e.currentTarget && onFermer?.()}>
       <div className="modale" role="dialog" aria-modal="true" aria-labelledby={idTitre} tabIndex={-1} ref={ref}>
         <div className="modale-entete">
@@ -130,7 +133,8 @@ export function Modale({ titre, onFermer, children, pied }: { titre: ReactNode; 
         {children}
         {pied && <div className="modale-pied">{pied}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

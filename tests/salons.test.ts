@@ -116,3 +116,78 @@ describe('Gestionnaire de salons', () => {
     expect(g2.reprendre(salon.code, jeton).joueur.id).toBe(hote.id);
   });
 });
+
+describe('Quitter et fermer le salon', () => {
+  it('quitter en cours de partie : la place est conservée, le joueur est marqué parti', () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    const { joueur: b } = g.rejoindre(salon.code, 'B');
+    g.rejoindre(salon.code, 'C');
+    g.demarrer(salon.code, hote.id);
+    expect(g.quitter(salon.code, b.id)).toEqual({ ferme: false });
+    expect(salon.joueurs).toHaveLength(3);
+    expect(salon.partie!.joueurs[b.id].parti).toBe(true);
+    expect(g.vueSalon(salon).joueurs.find((j) => j.id === b.id)).toMatchObject({ parti: true, connecte: false });
+  });
+
+  it("l'hôte qui quitte transmet son rôle à un joueur encore présent", () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    const { joueur: b } = g.rejoindre(salon.code, 'B');
+    const { joueur: c } = g.rejoindre(salon.code, 'C');
+    g.demarrer(salon.code, hote.id);
+    g.quitter(salon.code, b.id);
+    g.quitter(salon.code, hote.id);
+    expect(salon.hote).toBe(c.id);
+  });
+
+  it('le dernier joueur présent qui quitte ferme le salon (partie en cours ou salon d’attente)', () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    const { joueur: b } = g.rejoindre(salon.code, 'B');
+    g.ajouterBot(salon.code, hote.id);
+    g.demarrer(salon.code, hote.id);
+    expect(g.quitter(salon.code, b.id)).toEqual({ ferme: false });
+    expect(g.quitter(salon.code, hote.id)).toEqual({ ferme: true });
+    expect(g.salons.has(salon.code)).toBe(false);
+
+    const { salon: s2, joueur: h2 } = g.creer('Seul');
+    g.ajouterBot(s2.code, h2.id);
+    expect(g.quitter(s2.code, h2.id)).toEqual({ ferme: true });
+    expect(g.salons.has(s2.code)).toBe(false);
+  });
+
+  it('un joueur simplement déconnecté ne compte pas comme présent', () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    const { joueur: b } = g.rejoindre(salon.code, 'B');
+    g.rejoindre(salon.code, 'C');
+    g.demarrer(salon.code, hote.id);
+    g.definirConnexion(salon.code, b.id, false);
+    g.quitter(salon.code, salon.joueurs[2].id);
+    expect(g.quitter(salon.code, hote.id)).toEqual({ ferme: true });
+  });
+});
+
+describe('Compatibilité des sauvegardes', () => {
+  it('une partie sauvegardée par une version antérieure se recharge avec ses règles d’origine', () => {
+    const { g } = gestionnaire();
+    const { salon, joueur: hote } = g.creer('Hôte');
+    g.rejoindre(salon.code, 'B');
+    g.rejoindre(salon.code, 'C');
+    g.demarrer(salon.code, hote.id);
+    const ancien = JSON.parse(g.serialiser());
+    const cfg = ancien.salons[0].partie.config;
+    delete cfg.pouvoirs;
+    delete cfg.coutHypothese;
+    delete cfg.cartesRestantes;
+    delete cfg.ouverturePieces;
+    delete ancien.salons[0].reglages;
+    const { g: g2 } = gestionnaire();
+    g2.charger(JSON.stringify(ancien));
+    const s = g2.salons.get(salon.code)!;
+    expect(s.partie!.config.coutHypothese).toBe(1);
+    expect(() => g2.etatClient(s, hote.id)).not.toThrow();
+    expect(s.reglages.dureeTourS).toBe(180);
+  });
+});

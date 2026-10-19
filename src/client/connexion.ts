@@ -143,7 +143,7 @@ class Connexion {
   }
 
   async quitter() {
-    const r = await this.envoyer('salon:quitter', {});
+    const r = await this.envoyer<{ ferme: boolean }>('salon:quitter', {});
     ecrire(sessionStorage, CLE_SESSION, null);
     ecrire(localStorage, CLE_DERNIERE, null);
     this.maj({ session: null, etat: null, expulsion: null });

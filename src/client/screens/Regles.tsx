@@ -30,14 +30,14 @@ export function ContenuRegles() {
       <h3>Les cartes</h3>
       <p>
         Les 18 cartes (suspects, lieux, armes) moins les trois de la solution sont distribuées. Chaque carte que vous possédez est innocente : elle ne fait
-        pas partie de la solution. S'il en reste, elles sont posées face visible pour tous.
+        pas partie de la solution. S'il en reste (à 4 et 6 joueurs), elles deviennent des « pièces à conviction » rangées dans les archives : chacun peut les consulter (1 PA) pour les écarter.
       </p>
       <table>
         <thead>
           <tr>
             <th>Joueurs</th>
             <th>Cartes par joueur</th>
-            <th>Cartes publiques</th>
+            <th>Pièces à conviction</th>
             <th>Joueurs interrogés</th>
           </tr>
         </thead>
@@ -75,7 +75,7 @@ export function ContenuRegles() {
       </p>
       <ul>
         <li>
-          <strong>Formuler une hypothèse</strong> — 1 PA, une fois par tour.
+          <strong>Formuler une hypothèse</strong> — 2 PA (tout votre tour), une fois par tour.
         </li>
         <li>
           <strong>Consulter un dossier d'archives</strong> — 1 PA. Vous seul lisez l'indice ; les autres voient seulement que vous avez consulté un dossier. Certains
@@ -105,11 +105,11 @@ export function ContenuRegles() {
       <h3>Les pouvoirs du complice</h3>
       <ul>
         <li>
-          <strong>Mensonge (2 fois par partie)</strong> — quand il est interrogé et qu'il possède une carte correspondante, le complice peut faire comme s'il n'en avait
+          <strong>Mensonge (2 fois par partie, 3 fois à 5 ou 6 joueurs)</strong> — quand il est interrogé et qu'il possède une carte correspondante, le complice peut faire comme s'il n'en avait
           aucune. Pour tous, cela ressemble à « aucune carte ». L'interrogation continue alors avec le joueur suivant.
         </li>
         <li>
-          <strong>Hypothèse falsifiée (1 fois par partie)</strong> — juste après l'hypothèse d'un autre joueur, le complice peut modifier un seul de ses trois éléments
+          <strong>Hypothèse falsifiée (1 fois par partie, 2 fois à 5 ou 6 joueurs)</strong> — juste après l'hypothèse d'un autre joueur, le complice peut modifier un seul de ses trois éléments
           avant qu'elle soit annoncée. Les autres joueurs voient la version modifiée ; l'auteur, lui, voit toujours sa version originale et n'est pas prévenu.
           Les cartes à montrer restent calculées sur la version originale.
         </li>

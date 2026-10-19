@@ -13,6 +13,7 @@ export interface JoueurSalonVue {
   connecte: boolean;
   bot: boolean;
   hote: boolean;
+  parti: boolean;
 }
 
 export interface MessageChat {
@@ -64,7 +65,7 @@ export interface EvenementsClient {
   'salon:creer': (p: { nom: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
   'salon:rejoindre': (p: { code: string; nom: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
   'salon:reprendre': (p: { code: string; jeton: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
-  'salon:quitter': (p: object, ack: (r: Reponse) => void) => void;
+  'salon:quitter': (p: object, ack: (r: Reponse<{ ferme: boolean }>) => void) => void;
   'salon:demarrer': (p: object, ack: (r: Reponse) => void) => void;
   'salon:rejouer': (p: object, ack: (r: Reponse) => void) => void;
   'salon:ajouterBot': (p: object, ack: (r: Reponse) => void) => void;

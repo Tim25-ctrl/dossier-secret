@@ -5,8 +5,8 @@
 // personne). Les pourcentages donnent une TENDANCE, pas une mesure fiable.
 
 import { simulerPartie } from '../src/bots/simulation';
-import { PROFIL_ATTENTIF, PROFIL_OCCASIONNEL, PROFIL_PAR_DEFAUT, type ProfilBot } from '../src/bots/bot';
-import type { ConfigPartie } from '../src/engine/config';
+import { PROFIL_OCCASIONNEL, PROFIL_PAR_DEFAUT, type ProfilBot } from '../src/bots/bot';
+import { CONFIG_PAR_DEFAUT, REGLES_INITIALES, type ConfigPartie } from '../src/engine/config';
 
 const argParties = process.argv.indexOf('--parties');
 const N = argParties > 0 ? Number(process.argv[argParties + 1]) : 300;
@@ -61,16 +61,16 @@ function tableau(titre: string, config: Partial<ConfigPartie>, profil: ProfilBot
 
 const t0 = Date.now();
 const variantes: [string, Partial<ConfigPartie>][] = [
-  ['Réglages par défaut (1 public + 6 dossiers + 1 différé)', {}],
-  ['2 hypothèses par tour', { hypothesesMaxParTour: 2 }],
-  ["Beaucoup d'indices (2 publics + 8 dossiers + 2 différés)", { nbIndicesPublicsDepart: 2, nbDossiersArchives: 8, manchesIndicesPublics: [5, 9], ouvertureDossiers: [1, 1, 1, 1, 3, 3, 6, 6] }],
-  ['Indices rares (1 public + 5 dossiers étalés)', { nbIndicesPublicsDepart: 1, manchesIndicesPublics: [], nbDossiersArchives: 5, ouvertureDossiers: [1, 3, 5, 7, 9] }],
+  ['Règles actuelles (corrections 1 + 3 + 4)', {}],
+  ['Règles initiales (avant corrections)', REGLES_INITIALES],
+  ['Correction 1 seule : cartes restantes en pièces à conviction', { ...REGLES_INITIALES, cartesRestantes: 'archives' }],
+  ['Correction 3 seule : hypothèse à 2 PA', { ...REGLES_INITIALES, coutHypothese: 2 }],
+  ['Correction 4 seule : pouvoirs 3 mensonges / 2 falsifications à 5-6 joueurs', { ...REGLES_INITIALES, pouvoirs: CONFIG_PAR_DEFAUT.pouvoirs }],
 ];
 const idx = process.argv.indexOf('--variante');
 const filtre = idx > 0 ? [variantes[Number(process.argv[idx + 1])]] : process.argv.includes('--rapide') ? variantes.slice(0, 1) : variantes;
 for (const [nom, config] of filtre) {
   tableau(`${nom} — bots EXPERTS (mémoire parfaite)`, config, PROFIL_PAR_DEFAUT);
-  tableau(`${nom} — bots ATTENTIFS (retiennent 35 % des réponses des autres)`, config, PROFIL_ATTENTIF);
   tableau(`${nom} — bots OCCASIONNELS (éliminations directes uniquement)`, config, PROFIL_OCCASIONNEL);
 }
 console.log(`\nDurée : ${((Date.now() - t0) / 1000).toFixed(1)} s`);

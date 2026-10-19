@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LIBELLES_CATEGORIE_INDICE } from '../../shared/data/indices';
+import { LIBELLES_CATEGORIE_DOSSIER } from '../../shared/data/indices';
 import { nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
 import { SANS_LIMITE, type VueJoueur } from '../../shared/types';
@@ -12,6 +12,7 @@ import { Dossier } from '../components/jeu/Dossier';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
+import { BoutonQuitter } from '../components/Quitter';
 
 type Onglet = 'enquete' | 'cartes' | 'dossier' | 'archives' | 'carnet' | 'historique' | 'discussion';
 
@@ -62,8 +63,8 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
 
   const raisonHypothese = !monTour
     ? null
-    : vue.pointsAction < 1
-      ? 'Plus de point d’action.'
+    : vue.pointsAction < vue.regles.coutHypothese
+      ? `Il faut ${vue.regles.coutHypothese} points d’action (il vous en reste ${vue.pointsAction}).`
       : vue.hypothesesCeTour >= vue.regles.hypothesesMaxParTour
         ? 'Une seule hypothèse par tour.'
         : null;
@@ -115,6 +116,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
         <button className="btn btn-discret btn-petit" onClick={() => setModale('regles')}>
           <Icone nom="livre" /> Règles
         </button>
+        <BoutonQuitter etat={etat} classe="btn btn-discret btn-petit" />
       </header>
 
       <div className="disposition">
@@ -150,7 +152,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
 
               <div className="actions">
                 <button className="btn btn-or" disabled={!monTour || !!raisonHypothese} onClick={() => setModale('hypothese')}>
-                  <Icone nom="loupe" /> Hypothèse (1 PA)
+                  <Icone nom="loupe" /> Hypothèse ({vue.regles.coutHypothese} PA)
                 </button>
                 <button className="btn" disabled={!monTour || !!raisonArchive} onClick={() => setOnglet('archives')}>
                   <Icone nom="livre" /> Consulter les archives (1 PA)
@@ -258,11 +260,11 @@ function PanneauRole({ vue }: { vue: VueJoueur }) {
             manche.
           </p>
           <div className="ligne petit" style={{ marginBottom: 8 }}>
-            <span className="etiquette etiquette-rouge">Mensonge : {vue.moi.mensongesRestants}/2</span>
+            <span className="etiquette etiquette-rouge">Mensonge : {vue.moi.mensongesRestants}/{vue.regles.mensonges}</span>
             <Aide libelle="Aide sur Mensonge">
               Quand vous êtes interrogé et possédez une carte correspondante, vous pouvez prétendre n'en avoir aucune. L'interrogation passe au joueur suivant.
             </Aide>
-            <span className="etiquette etiquette-rouge">Falsification : {vue.moi.falsificationsRestantes}/1</span>
+            <span className="etiquette etiquette-rouge">Falsification : {vue.moi.falsificationsRestantes}/{vue.regles.falsifications}</span>
             <Aide libelle="Aide sur la falsification">
               Juste après l'hypothèse d'un autre joueur, modifiez un de ses trois éléments avant l'annonce publique. Son auteur continuera de voir l'original, sans être prévenu.
             </Aide>
@@ -295,7 +297,7 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
             <span style={{ minWidth: 0 }}>
               <strong>{j.id === vue.moi.id ? `${nom(j.id)} (vous)` : nom(j.id)}</strong>
               <span className="petit muet" style={{ display: 'block' }}>
-                {j.nbCartes} cartes{!j.connecte && ' · déconnecté'}
+                {j.nbCartes} cartes{j.parti ? ' · a quitté la partie' : !j.connecte && ' · déconnecté'}
                 {!j.peutAccuser && ' · ne peut plus accuser'}
                 {j.bot && ' · bot'}
               </span>
@@ -311,22 +313,31 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
 
 function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; onAgir: (a: { type: 'consulterArchive'; dossier: number }) => Promise<void> }) {
   const consultes = new Map(vue.moi.indicesConsultes.map((i) => [i.dossier, i.indice]));
+  const pieces = new Map(vue.moi.piecesConsultees.map((p) => [p.dossier, p.carte]));
   return (
     <div className="indices">
       <p className="muet petit" style={{ margin: 0 }}>
         Consulter un dossier coûte 1 point d'action pendant votre tour. Vous seul lisez son contenu ; les autres voient seulement que vous l'avez consulté.
+        Les pièces à conviction sont des cartes que personne n'a reçues : elles sont donc hors de cause.
       </p>
       {vue.archives.map((a) =>
-        consultes.has(a.dossier) ? (
+        pieces.has(a.dossier) ? (
+          <Prive key={a.dossier} titre={`Pièce à conviction n° ${a.dossier} — vue par vous seul`}>
+            <div className="ligne">
+              <Carte id={pieces.get(a.dossier)!} />
+              <p style={{ margin: 0, maxWidth: 360 }}>Cette carte n'a été distribuée à personne : elle ne fait pas partie de la solution.</p>
+            </div>
+          </Prive>
+        ) : consultes.has(a.dossier) ? (
           <Prive key={a.dossier} titre={`Dossier n° ${a.dossier} — lu par vous seul`}>
             <CarteIndice id={consultes.get(a.dossier)!} dossier={a.dossier} />
           </Prive>
         ) : (
           <section key={a.dossier} className="panneau ligne">
             <div>
-              <h4 style={{ margin: 0 }}>Dossier scellé n° {a.dossier}</h4>
+              <h4 style={{ margin: 0 }}>{a.categorie === 'piece' ? 'Pièce à conviction' : 'Dossier scellé'} n° {a.dossier}</h4>
               <span className="muet petit">
-                {LIBELLES_CATEGORIE_INDICE[a.categorie]} · {a.disponible ? 'consultable' : `s'ouvre à la manche ${a.disponibleDesManche}`}
+                {LIBELLES_CATEGORIE_DOSSIER[a.categorie]} · {a.disponible ? 'consultable' : `s'ouvre à la manche ${a.disponibleDesManche}`}
               </span>
             </div>
             <span className="espace" />

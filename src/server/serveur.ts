@@ -299,9 +299,12 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
         sockets.delete(`${code}|${joueurId}`);
         socket.data.code = undefined;
         socket.data.joueurId = undefined;
-        gestionnaire.quitter(code, joueurId);
-        if (!gestionnaire.salons.has(code)) nettoyerSalon(code);
-        else diffuser(code);
+        const { ferme } = gestionnaire.quitter(code, joueurId);
+        if (ferme) {
+          log(`Salon ${code} fermé par le dernier joueur.`);
+          nettoyerSalon(code);
+        } else diffuser(code);
+        return { ferme };
       }),
     );
 

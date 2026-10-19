@@ -5,6 +5,7 @@ import { useNotification } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
+import { BoutonQuitter } from '../components/Quitter';
 
 export function libelleDuree(s: number | null): string {
   if (s === null) return 'Sans limite';
@@ -52,9 +53,7 @@ export function Lobby({ etat }: { etat: EtatClient }) {
         <button className="btn btn-discret" onClick={() => setRegles(true)}>
           <Icone nom="livre" /> Règles
         </button>
-        <button className="btn btn-discret" onClick={() => void connexion.quitter()}>
-          Quitter le salon
-        </button>
+        <BoutonQuitter etat={etat} />
       </div>
 
       <div className="deux-colonnes">
@@ -170,9 +169,9 @@ export function Lobby({ etat }: { etat: EtatClient }) {
             <ul style={{ paddingLeft: '1.1em', margin: 0 }}>
               <li>Trouvez le meurtrier, le lieu et l'arme.</li>
               <li>Un joueur secret est complice : il connaît le meurtrier.</li>
-              <li>2 points d'action par tour, 12 manches maximum.</li>
+              <li>2 points d'action par tour (hypothèse : 2 PA, archive : 1 PA), 12 manches maximum.</li>
               <li>Hypothèse : le premier joueur interrogé qui a une carte correspondante vous en montre une, en secret.</li>
-              <li>Le complice peut mentir 2 fois et falsifier 1 hypothèse.</li>
+              <li>Le complice peut mentir 2 fois et falsifier 1 hypothèse (3 et 2 fois à 5 ou 6 joueurs).</li>
               <li>Une seule accusation finale par joueur.</li>
             </ul>
           </section>

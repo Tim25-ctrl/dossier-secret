@@ -173,12 +173,12 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
 
 /**
  * Règle de distribution : les 15 cartes qui ne font pas partie de la solution
- * sont mélangées. Chaque joueur reçoit floor(15 / N) cartes ; le reste est posé
- * face visible (cartes publiques).
- *   3 joueurs : 5 cartes chacun, 0 publique
- *   4 joueurs : 3 cartes chacun, 3 publiques
- *   5 joueurs : 3 cartes chacun, 0 publique
- *   6 joueurs : 2 cartes chacun, 3 publiques
+ * sont mélangées. Chaque joueur reçoit floor(15 / N) cartes ; le reste devient des
+ * pièces à conviction rangées dans les archives (ou des cartes publiques, selon la config).
+ *   3 joueurs : 5 cartes chacun, 0 restante
+ *   4 joueurs : 3 cartes chacun, 3 restantes
+ *   5 joueurs : 3 cartes chacun, 0 restante
+ *   6 joueurs : 2 cartes chacun, 3 restantes
  */
 export function distribuerCartes(rng: Rng, solution: Triplet, joueurs: string[]): Distribution {
   if (joueurs.length < JOUEURS_MIN || joueurs.length > JOUEURS_MAX) throw new Error('Nombre de joueurs invalide.');

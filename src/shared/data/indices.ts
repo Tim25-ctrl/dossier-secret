@@ -424,3 +424,9 @@ export const LIBELLES_CATEGORIE_INDICE: Record<CarteIndice['categorie'], string>
   trace: 'Trace',
   contradiction: 'Contradiction',
 };
+
+/** Libellés des dossiers d'archives (indices + pièces à conviction). */
+export const LIBELLES_CATEGORIE_DOSSIER: Record<CarteIndice['categorie'] | 'piece', string> = {
+  ...LIBELLES_CATEGORIE_INDICE,
+  piece: 'Pièce à conviction',
+};

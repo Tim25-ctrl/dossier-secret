@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avancer, cartesCorrespondantes, definirConnexion, type EtatPartie } from '../src/engine/partie';
+import { abandonner, avancer, cartesCorrespondantes, definirConnexion, type EtatPartie } from '../src/engine/partie';
 import { vuePour } from '../src/engine/vue';
 import { categorieDe, elementsDuTriplet, type ElementId, type Triplet } from '../src/shared/types';
 import {
@@ -36,8 +36,10 @@ describe('Attribution des rôles', () => {
         const vueC = vuePour(etat, etat.complice);
         expect(vueC.moi.role).toBe('complice');
         expect(vueC.moi.meurtrier).toBe(etat.affaire.solution.suspect);
-        expect(vueC.moi.mensongesRestants).toBe(2);
-        expect(vueC.moi.falsificationsRestantes).toBe(1);
+        // Pouvoirs selon la taille de la table : 2/1 à 3-4 joueurs, 3/2 à 5-6 joueurs.
+        expect(vueC.moi.mensongesRestants).toBe(n >= 5 ? 3 : 2);
+        expect(vueC.moi.falsificationsRestantes).toBe(n >= 5 ? 2 : 1);
+        expect(vueC.regles).toMatchObject({ mensonges: n >= 5 ? 3 : 2, falsifications: n >= 5 ? 2 : 1 });
         // Le complice ne reçoit ni le lieu ni l'arme.
         const json = JSON.stringify({ ...vueC, historique: [], indicesPublics: [] });
         expect(json).not.toContain('"solution"');
@@ -67,7 +69,7 @@ describe('Attribution des rôles', () => {
       const autresCartes = autres(etat, id).flatMap((o) => etat.joueurs[o].main);
       expect(v.moi.main).toEqual(etat.joueurs[id].main);
       expect(JSON.stringify(v.moi)).not.toMatch(new RegExp(autresCartes.map((c) => `"${c}"`).join('|')));
-      for (const j of v.joueurs) expect(Object.keys(j).sort()).toEqual(['bot', 'connecte', 'id', 'nbCartes', 'nom', 'peutAccuser']);
+      for (const j of v.joueurs) expect(Object.keys(j).sort()).toEqual(['bot', 'connecte', 'id', 'nbCartes', 'nom', 'parti', 'peutAccuser']);
     }
   });
 
@@ -116,7 +118,7 @@ describe('Tours et points d\'action', () => {
     expect(r1.ok).toBe(true);
     expect(r2.ok).toBe(false);
     expect(r3.ok).toBe(false);
-    expect(etat.pointsAction).toBe(1);
+    expect(etat.pointsAction).toBe(2 - etat.config.coutHypothese);
     expect(etat.hypotheses).toHaveLength(1);
   });
 
@@ -383,7 +385,10 @@ describe('Pouvoir du complice : le Mensonge', () => {
     // Publiquement : « aucune carte », exactement comme un joueur honnête sans carte.
     const rep = etat.historique.filter((e) => e.type === 'reponse');
     expect(rep.at(-1)).toMatchObject({ joueur: c, resultat: 'aucune_carte', auto: false });
-    for (const o of autres(etat, c)) expect(JSON.stringify(vuePour(etat, o))).not.toContain('mensonge');
+    for (const o of autres(etat, c)) {
+      const v = vuePour(etat, o);
+      expect(JSON.stringify([v.historique, v.moi, v.hypotheseEnCours])).not.toContain('mensonge');
+    }
     // L'interrogation passe au suivant, qui peut révéler normalement.
     expect(vuePour(etat, suivant).hypotheseEnCours?.repondantActuel).toBe(suivant);
   });
@@ -463,7 +468,7 @@ describe('Pouvoir du complice : l\'Hypothèse falsifiée', () => {
     expect(vA.hypotheseEnCours?.triplet).toEqual(original);
     // L'auteur n'a AUCUN moyen de savoir que sa version a été falsifiée.
     expect(vA.hypotheseEnCours?.auteurPrive).toEqual({ original });
-    expect(JSON.stringify(vA)).not.toContain('falsif');
+    expect(JSON.stringify([vA.historique, vA.moi, vA.hypotheseEnCours])).not.toContain('falsif');
     expect(JSON.stringify([vA.historique, vA.hypotheseEnCours, vA.moi.journal])).not.toContain('"lieu":"cave"');
     // Autres joueurs : version publique, aucune trace de l'original.
     for (const o of autres(etat, auteur)) {
@@ -617,5 +622,92 @@ describe('Carnet de déduction', () => {
     expect(act(etat, b, { type: 'carnet', notes: 'x'.repeat(5000) }, T0 + 3).ok).toBe(false);
     // Le carnet ne coûte aucun point d'action et n'influence pas la solution.
     expect(etat.pointsAction).toBe(2);
+  });
+});
+
+describe("Corrections d'équilibrage", () => {
+  for (const n of [4, 6]) {
+    it(`${n} joueurs : les 3 cartes restantes deviennent des pièces à conviction (archives), pas des cartes publiques`, () => {
+      const etat = nouvellePartie(n, { solution: SOLUTION });
+      expect(etat.cartesPubliques).toEqual([]);
+      expect(etat.pieces).toHaveLength(3);
+      const toutes = [...Object.values(etat.joueurs).flatMap((j) => j.main), ...etat.pieces!.map((p) => p.carte)];
+      expect(new Set(toutes).size).toBe(15);
+      for (const e of elementsDuTriplet(SOLUTION)) expect(toutes).not.toContain(e);
+      const v = vuePour(etat, etat.ordre[0]);
+      expect(v.archives.filter((a) => a.categorie === 'piece')).toHaveLength(3);
+      // Le contenu d'une pièce n'est jamais envoyé avant consultation.
+      for (const p of etat.pieces!) if (!etat.joueurs[etat.ordre[0]].main.includes(p.carte)) expect(JSON.stringify(v)).not.toContain(`"${p.carte}"`);
+    });
+  }
+
+  it('consulter une pièce à conviction coûte 1 PA et ne la révèle qu’au lecteur', () => {
+    const etat = nouvellePartie(4, { solution: SOLUTION });
+    const h = new Horloge();
+    const piece = etat.pieces![0];
+    piece.disponibleDesManche = 1;
+    const a = actif(etat);
+    expect(act(etat, a, { type: 'consulterArchive', dossier: piece.dossier }, h.avance(1)).ok).toBe(true);
+    expect(etat.pointsAction).toBe(1);
+    expect(vuePour(etat, a).moi.piecesConsultees).toEqual([{ dossier: piece.dossier, carte: piece.carte }]);
+    expect(etat.historique.at(-1)).toMatchObject({ type: 'archive', categorie: 'piece' });
+    for (const o of autres(etat, a)) {
+      const v = vuePour(etat, o);
+      expect(v.moi.piecesConsultees).toEqual([]);
+      if (!etat.joueurs[o].main.includes(piece.carte)) expect(JSON.stringify(v)).not.toContain(`"${piece.carte}"`);
+    }
+  });
+
+  it('une hypothèse coûte 2 PA : impossible après une consultation dans le même tour', () => {
+    const etat = nouvellePartie(4);
+    const a = actif(etat);
+    for (const d of etat.affaire.archives) d.disponibleDesManche = 1;
+    expect(act(etat, a, { type: 'consulterArchive', dossier: 1 }, T0 + 1).ok).toBe(true);
+    const r = act(etat, a, hyp(SOLUTION, autres(etat, a).slice(0, 2)), T0 + 2);
+    expect(r).toMatchObject({ ok: false, erreur: expect.stringContaining('2 points') });
+    expect(vuePour(etat, a).regles.coutHypothese).toBe(2);
+  });
+
+  it('un joueur qui quitte la partie voit ses tours passés aussitôt', () => {
+    const etat = nouvellePartie(3);
+    const premier = actif(etat);
+    abandonner(etat, premier, T0 + 10);
+    expect(vuePour(etat, autres(etat, premier)[0]).joueurs.find((j) => j.id === premier)).toMatchObject({ parti: true, connecte: false });
+    expect(etat.historique.at(-1)).toMatchObject({ type: 'depart', joueur: premier });
+    avancer(etat, T0 + 10 + 2_001);
+    expect(actif(etat)).not.toBe(premier);
+    // Au tour suivant de ce joueur, même chose.
+    const h = new Horloge();
+    h.t = T0 + 3_000;
+    while (actif(etat) !== premier) act(etat, actif(etat), { type: 'finTour' }, h.avance(1));
+    avancer(etat, h.avance(2_001));
+    expect(actif(etat)).not.toBe(premier);
+  });
+});
+
+describe('Pouvoirs selon la taille de la table', () => {
+  it('à 5 joueurs, le complice peut falsifier deux hypothèses différentes (jamais deux fois la même)', () => {
+    const base = nouvellePartie(5, { seed: 51, solution: SOLUTION });
+    const c = autres(base, actif(base))[0];
+    const etat = nouvellePartie(5, { seed: 51, solution: SOLUTION, complice: c });
+    const h = new Horloge();
+    let falsifiees = 0;
+    for (let tour = 0; tour < 10 && falsifiees < 3; tour++) {
+      const a = actif(etat);
+      if (a !== c) {
+        expect(act(etat, a, hyp(SOLUTION, autres(etat, a).slice(0, 2)), h.avance(1)).ok).toBe(true);
+        const r = act(etat, c, { type: 'falsifier', champ: 'arme', valeur: 'poison' }, h.avance(1));
+        if (falsifiees < 2) expect(r.ok).toBe(true);
+        else expect(r.ok).toBe(false);
+        if (r.ok) {
+          falsifiees++;
+          expect(act(etat, c, { type: 'falsifier', champ: 'lieu', valeur: 'bureau' }, h.avance(1)).ok).toBe(false);
+        } else falsifiees = 3;
+        while (etat.hypothese) avancer(etat, h.avance(10_001));
+      }
+      act(etat, actif(etat), { type: 'finTour' }, h.avance(1));
+    }
+    expect(etat.joueurs[c].falsificationsRestantes).toBe(0);
+    expect(etat.hypotheses.filter((x) => x.falsification)).toHaveLength(2);
   });
 });

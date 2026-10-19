@@ -21,6 +21,7 @@ type Sources = Partial<Record<ElementId, string>>;
 const COURT: Record<string, string> = {
   'dans votre main': 'main',
   'carte publique': 'publique',
+  'pièce à conviction': 'pièce',
   'écarté par un indice': 'indice',
   'le meurtrier (secret)': 'meurtrier',
 };
@@ -70,7 +71,7 @@ export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue
 
   return (
     <Modale
-      titre="Formuler une hypothèse (1 PA)"
+      titre={`Formuler une hypothèse (${vue.regles.coutHypothese} PA)`}
       onFermer={onFermer}
       pied={
         <>
@@ -86,7 +87,7 @@ export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue
     >
       <p className="muet petit">
         Une hypothèse n'est pas une accusation : elle sert à obtenir des informations. Les marqueurs rappellent ce que vous savez déjà (« main », « publique »,
-        « vue », « indice »). Vous pouvez inclure vos propres cartes pour brouiller les pistes.
+        « pièce », « vue », « indice »). Vous pouvez inclure vos propres cartes pour brouiller les pistes.
       </p>
       <Selecteur titre="Le meurtrier présumé" ids={SUSPECTS} valeur={t.suspect} choisir={t.setSuspect} sources={sources} />
       <Selecteur titre="Le lieu du crime" ids={LIEUX} valeur={t.lieu} choisir={t.setLieu} sources={sources} />

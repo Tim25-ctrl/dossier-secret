@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { INDICES_PAR_ID, LIBELLES_CATEGORIE_INDICE } from '../../../shared/data/indices';
+import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../../shared/data/indices';
 import { nomElement } from '../../../shared/data/manoir';
 import type { EntreePrivee, EvenementPublic } from '../../../shared/types';
 import { TripletVue } from '../Commun';
@@ -47,7 +47,7 @@ export function texteEvenement(
     case 'fin_hypothese':
       return ev.montreePar === null ? { contenu: "Aucune carte n'a été montrée." } : null;
     case 'archive':
-      return { contenu: `${qui(ev.joueur)} ${ev.joueur === moi ? 'consultez' : 'consulte'} le dossier d'archives n° ${ev.dossier} (${LIBELLES_CATEGORIE_INDICE[ev.categorie]}).` };
+      return { contenu: `${qui(ev.joueur)} ${ev.joueur === moi ? 'consultez' : 'consulte'} le dossier d'archives n° ${ev.dossier} (${LIBELLES_CATEGORIE_DOSSIER[ev.categorie]}).` };
     case 'indice_public':
       return { classe: 'important', contenu: `Nouvel indice versé au dossier public : « ${INDICES_PAR_ID[ev.indice]?.titre} ».` };
     case 'accusation':
@@ -60,6 +60,8 @@ export function texteEvenement(
           </>
         ),
       };
+    case 'depart':
+      return { classe: 'important', contenu: ev.joueur === moi ? 'Vous avez quitté la partie.' : `${nom(ev.joueur)} a quitté la partie : ses tours seront passés automatiquement.` };
     case 'connexion':
       return { contenu: ev.connecte ? `${nom(ev.joueur)} est de retour.` : `${nom(ev.joueur)} a perdu la connexion.` };
     case 'fin_partie':
@@ -102,6 +104,12 @@ export function texteEntreePrivee(e: EntreePrivee, nom: Noms): ReactNode {
       return `Vous avez montré « ${nomElement(e.carte)} » à ${nom(e.a)}${e.auto ? ' (réponse automatique)' : ''}.`;
     case 'archive_lue':
       return `Vous avez lu le dossier n° ${e.dossier} : « ${INDICES_PAR_ID[e.indice]?.titre} ».`;
+    case 'piece_lue':
+      return (
+        <>
+          Pièce à conviction n° {e.dossier} : <strong>{nomElement(e.carte)}</strong> (hors de cause).
+        </>
+      );
     case 'mensonge':
       return `Vous avez utilisé le pouvoir Mensonge (il en reste ${e.restants}).`;
     case 'falsification':

@@ -24,6 +24,7 @@ export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementI
     if (!possibles.some((t) => t.suspect === e || t.lieu === e || t.arme === e)) s[e] = 'écarté par un indice';
   }
   for (const e of v.cartesPubliques) s[e] = 'carte publique';
+  for (const p of v.moi.piecesConsultees) s[p.carte] = 'pièce à conviction';
   for (const j of v.moi.journal) if (j.type === 'carte_vue') s[j.carte] = `montrée par ${nom(j.de)}`;
   for (const e of v.moi.main) s[e] = 'dans votre main';
   if (v.moi.meurtrier) s[v.moi.meurtrier] = 'le meurtrier (secret)';
@@ -110,8 +111,8 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
           Cocher ce que je sais déjà
         </button>
         <Aide libelle="Aide sur le carnet">
-          Coche « écarté » les éléments que vous savez innocents : vos cartes, les cartes publiques, les cartes qu'on vous a montrées et ce que les indices lus
-          excluent. Les déductions plus fines restent à votre charge !
+          Coche « écarté » les éléments que vous savez innocents : vos cartes, les pièces à conviction lues, les cartes qu'on vous a montrées et ce que les
+          indices lus excluent. Les déductions plus fines restent à votre charge !
         </Aide>
       </div>
       <div className="carnet-grille">

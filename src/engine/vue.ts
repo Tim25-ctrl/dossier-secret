@@ -7,7 +7,7 @@ import { INDICES_PAR_ID } from '../shared/data/indices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../shared/data/manoir';
 import { ceQueLIndiceEcarte, combinaisonsPossibles } from '../shared/logique';
 import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
-import { nbInterroges } from './config';
+import { nbInterroges, pouvoirsPour } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
 import { cartesCorrespondantes, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
 
@@ -34,10 +34,14 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       peutAccuser: moi.peutAccuser,
       carnet: { marques: { ...moi.carnet.marques }, notes: moi.carnet.notes },
       journal: moi.journal.map((e) => ({ ...e })),
-      indicesConsultes: moi.dossiersConsultes.map((dossier) => ({
-        dossier,
-        indice: etat.affaire.archives.find((a) => a.dossier === dossier)!.indice,
-      })),
+      indicesConsultes: moi.dossiersConsultes.flatMap((dossier) => {
+        const a = etat.affaire.archives.find((x) => x.dossier === dossier);
+        return a ? [{ dossier, indice: a.indice }] : [];
+      }),
+      piecesConsultees: moi.dossiersConsultes.flatMap((dossier) => {
+        const p = (etat.pieces ?? []).find((x) => x.dossier === dossier);
+        return p ? [{ dossier, carte: p.carte }] : [];
+      }),
     },
     regles: {
       manchesMax: etat.config.manchesMax,
@@ -46,6 +50,9 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       hypothesesMaxParTour: etat.config.hypothesesMaxParTour,
       delaiFalsificationMs: etat.config.delaiFalsificationMs,
       dureeTourMs: etat.config.delaiTourMs,
+      coutHypothese: etat.config.coutHypothese,
+      mensonges: pouvoirsPour(etat.config, etat.ordre.length).mensonges,
+      falsifications: pouvoirsPour(etat.config, etat.ordre.length).falsifications,
     },
     manche: etat.manche,
     joueurActif: joueurActif(etat),
@@ -55,17 +62,14 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
     echeanceTour: etat.echeanceTour,
     joueurs: etat.ordre.map((id) => {
       const j = etat.joueurs[id];
-      return { id, nom: j.nom, connecte: j.connecte, peutAccuser: j.peutAccuser, nbCartes: j.main.length, bot: j.bot };
+      return { id, nom: j.nom, connecte: j.connecte, peutAccuser: j.peutAccuser, nbCartes: j.main.length, bot: j.bot, parti: !!j.parti };
     }),
     cartesPubliques: [...etat.cartesPubliques],
     indicesPublics: etat.indicesPublics.map((i) => ({ ...i })),
-    archives: etat.affaire.archives.map((a) => ({
-      dossier: a.dossier,
-      categorie: INDICES_PAR_ID[a.indice].categorie,
-      disponibleDesManche: a.disponibleDesManche,
-      disponible: a.disponibleDesManche <= etat.manche,
-      consulte: moi.dossiersConsultes.includes(a.dossier),
-    })),
+    archives: [
+      ...etat.affaire.archives.map((a) => ({ dossier: a.dossier, categorie: INDICES_PAR_ID[a.indice].categorie, disponibleDesManche: a.disponibleDesManche })),
+      ...(etat.pieces ?? []).map((p) => ({ dossier: p.dossier, categorie: 'piece' as const, disponibleDesManche: p.disponibleDesManche })),
+    ].map((a) => ({ ...a, disponible: a.disponibleDesManche <= etat.manche, consulte: moi.dossiersConsultes.includes(a.dossier) })),
     historique,
   };
 
@@ -148,6 +152,7 @@ export function resultatPartie(etat: EtatPartie): ResultatPartie {
     solution: { ...solution },
     complice: etat.complice,
     mains,
+    cartesRestantes: [...etat.cartesPubliques, ...(etat.pieces ?? []).map((p) => p.carte)],
     explication,
     indicesDecisifs,
     usagesPouvoirs: {

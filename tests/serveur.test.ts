@@ -203,7 +203,7 @@ describe('Partie en ligne : sécurité et synchronisation', () => {
     const h: ActionJeu = { type: 'hypothese', suspect: 'victor', lieu: 'cave', arme: 'dague', interroges: cibles };
     const res = await Promise.all([actif.action(h), actif.action(h), actif.action({ type: 'consulterArchive', dossier: 1 })]);
     expect(res.filter((r) => r.ok)).toHaveLength(1);
-    expect(etatServeur.pointsAction).toBe(1);
+    expect(etatServeur.pointsAction).toBe(2 - etatServeur.config.coutHypothese);
     expect(etatServeur.hypotheses).toHaveLength(1);
     tous.forEach((x) => x.fermer());
   });
@@ -297,5 +297,28 @@ describe('Serveur HTTP', () => {
     expect(r.headers.get('x-content-type-options')).toBe('nosniff');
     expect(r.headers.get('content-security-policy')).toContain("default-src 'self'");
     expect(await r.json()).toMatchObject({ ok: true });
+  });
+});
+
+describe('Quitter une partie en ligne', () => {
+  it('un joueur quitte (visible par tous), puis le dernier joueur présent ferme le salon', async () => {
+    const hote = await new Joueur().pret();
+    await hote.creer('Hôte');
+    const code = hote.session!.code;
+    const b = await new Joueur().pret();
+    await b.rejoindre(code, 'B');
+    await hote.emit('salon:ajouterBot', {});
+    expect((await hote.emit('salon:demarrer', {})).ok).toBe(true);
+    await attendre(() => b.etat?.partie != null);
+    const r = (await b.emit('salon:quitter', {})) as { ok: boolean; ferme?: boolean };
+    expect(r).toMatchObject({ ok: true, ferme: false });
+    await attendre(() => hote.etat!.partie!.joueurs.find((j) => j.id === b.session!.joueurId)?.parti === true);
+    expect(hote.etat!.partie!.historique.some((e) => e.type === 'depart')).toBe(true);
+    const r2 = (await hote.emit('salon:quitter', {})) as { ok: boolean; ferme?: boolean };
+    expect(r2).toMatchObject({ ok: true, ferme: true });
+    expect(serveur.gestionnaire.salons.has(code)).toBe(false);
+    const c = await new Joueur().pret();
+    expect((await c.rejoindre(code, 'Retard')).ok).toBe(false);
+    [hote, b, c].forEach((x) => x.fermer());
   });
 });

@@ -73,7 +73,12 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   // Ma main : certitude totale sur mes propres cartes.
   for (const c of TOUS_ELEMENTS) fixer(c, moi, vue.moi.main.includes(c));
   // Cartes publiques : personne ne les détient, et elles ne sont pas la solution.
-  for (const c of vue.cartesPubliques) for (const j of joueurs) fixer(c, j, false);
+  // Pièces à conviction lues : personne ne les détient et elles ne sont pas la solution.
+  const piecesLues = vue.moi.piecesConsultees.map((p) => p.carte);
+  const nonDistribuees = [...vue.cartesPubliques, ...piecesLues];
+  for (const c of nonDistribuees) for (const j of joueurs) fixer(c, j, false);
+  // Tant que des pièces restent inconnues, une carte détenue par personne peut être l'une d'elles.
+  const piecesInconnues = vue.archives.filter((a) => a.categorie === 'piece').length - piecesLues.length;
 
   const auMoinsUne: Contrainte[] = [];
   // Cartes vues directement.
@@ -105,7 +110,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   }
 
   // Propagation jusqu'à stabilité.
-  const horsSolution = new Set<ElementId>(vue.cartesPubliques);
+  const horsSolution = new Set<ElementId>(nonDistribuees);
   for (let tour = 0; tour < 50 && coherent; tour++) {
     let change = false;
     for (const c of TOUS_ELEMENTS) {
@@ -139,7 +144,8 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
       if (restantes.length === 0) coherent = false;
       if (restantes.length === 1) for (const j of joueurs) change = fixer(restantes[0], j, false) || change;
       // Une carte que personne ne détient et qui n'est pas publique est la solution.
-      const solution = cat.filter((c) => !vue.cartesPubliques.includes(c) && joueurs.every((j) => possession.get(c)!.get(j) === false));
+      const solution =
+        piecesInconnues > 0 ? [] : cat.filter((c) => !nonDistribuees.includes(c) && joueurs.every((j) => possession.get(c)!.get(j) === false));
       if (solution.length > 1) coherent = false;
       if (solution.length === 1) {
         for (const c of cat) {
@@ -176,7 +182,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
  * Aucun raisonnement sur les mains des autres.
  */
 export function deduireSimple(vue: VueJoueur): Triplet[] {
-  const connues = new Set<ElementId>([...vue.moi.main, ...vue.cartesPubliques]);
+  const connues = new Set<ElementId>([...vue.moi.main, ...vue.cartesPubliques, ...vue.moi.piecesConsultees.map((p) => p.carte)]);
   for (const e of vue.moi.journal) if (e.type === 'carte_vue') connues.add(e.carte);
   const indices = [
     ...vue.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]),

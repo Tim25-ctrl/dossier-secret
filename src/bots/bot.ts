@@ -72,6 +72,15 @@ function choisirInterroges(vue: VueJoueur, t: Triplet, k: Connaissance | null, r
   return ordonnes.slice(0, vue.regles.nbInterroges);
 }
 
+/**
+ * Quand une hypothèse coûte tout le tour, le bot choisit parfois de lire les archives à la place
+ * (un tour sur trois environ, s'il reste des dossiers à lire).
+ */
+function preferArchives(vue: VueJoueur, rng: Rng): boolean {
+  if (vue.regles.coutHypothese < vue.regles.pointsAction) return false;
+  return dossierDisponible(vue) !== null && rng.int(100) < 35;
+}
+
 function dossierDisponible(vue: VueJoueur): number | null {
   const d = vue.archives.find((a) => a.disponible && !a.consulte);
   return d ? d.dossier : null;
@@ -84,8 +93,8 @@ function tourEnqueteur(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
 
   if (vue.moi.peutAccuser && k.combinaisons.length === 1) return { type: 'accuser', ...k.combinaisons[0] };
 
-  const peutHypothese = vue.pointsAction >= 1 && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
-  if (peutHypothese && k.combinaisons.length > 0) {
+  const peutHypothese = vue.pointsAction >= vue.regles.coutHypothese && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
+  if (peutHypothese && k.combinaisons.length > 0 && !preferArchives(vue, rng)) {
     const t = choisirHypothese(k, rng);
     return { type: 'hypothese', ...t, interroges: choisirInterroges(vue, t, k, rng) };
   }
@@ -103,8 +112,8 @@ function choisirHypothese(k: Connaissance, rng: Rng): Triplet {
 
 function tourComplice(vue: VueJoueur, rng: Rng): ActionJeu {
   const meurtrier = vue.moi.meurtrier as SuspectId;
-  const peutHypothese = vue.pointsAction >= 1 && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
-  if (peutHypothese) {
+  const peutHypothese = vue.pointsAction >= vue.regles.coutHypothese && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
+  if (peutHypothese && !preferArchives(vue, rng)) {
     // Hypothèse « crédible » qui détourne l'attention du meurtrier.
     const k = deduireRobuste(vue);
     const suspects = SUSPECTS.filter((s) => s !== meurtrier) as SuspectId[];

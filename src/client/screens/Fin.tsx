@@ -5,6 +5,7 @@ import { Carte, CarteIndice, TripletVue, useNotification } from '../components/C
 import { Sceau } from '../components/Emblemes';
 import { texteEvenement } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
+import { BoutonQuitter } from '../components/Quitter';
 
 const RAISONS = {
   accusation_correcte: 'Une accusation juste a résolu l’affaire.',
@@ -49,9 +50,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
           ) : (
             <span className="muet">L'hôte peut relancer une nouvelle enquête.</span>
           )}
-          <button className="btn" onClick={() => void connexion.quitter()}>
-            Quitter
-          </button>
+          <BoutonQuitter etat={etat} libelle="Quitter" classe="btn" />
         </div>
       </section>
 
@@ -88,13 +87,13 @@ export function Fin({ etat }: { etat: EtatClient }) {
             </p>
             <ul>
               <li>
-                Mensonges utilisés : {r.usagesPouvoirs.mensonges.length} / 2
+                Mensonges utilisés : {r.usagesPouvoirs.mensonges.length} / {vue.regles.mensonges}
                 {r.usagesPouvoirs.mensonges.map((m) => (
                   <span key={m.hypothese} className="muet"> (manche {m.manche})</span>
                 ))}
               </li>
               <li>
-                Hypothèse falsifiée : {r.usagesPouvoirs.falsifications.length} / 1
+                Hypothèses falsifiées : {r.usagesPouvoirs.falsifications.length} / {vue.regles.falsifications}
                 {r.usagesPouvoirs.falsifications.map((f) => (
                   <span key={f.hypothese} className="muet">
                     {' '}
@@ -130,6 +129,16 @@ export function Fin({ etat }: { etat: EtatClient }) {
                 </div>
               </div>
             ))}
+            {r.cartesRestantes.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <strong>Pièces à conviction (non distribuées)</strong>
+                <div className="ligne">
+                  {r.cartesRestantes.map((c) => (
+                    <Carte key={c} id={c} taille="mini" />
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
           <section className="panneau">
             <h2>Résumé</h2>

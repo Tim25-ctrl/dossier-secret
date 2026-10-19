@@ -9,7 +9,8 @@
 // Le générateur ne retient une carte que si toutes ses règles sont vraies pour la
 // solution tirée au sort : un indice ne peut donc jamais exclure la vraie solution.
 
-import type { CarteIndice } from '../types';
+import { ARMES, LIEUX, SUSPECTS, type ArmeId, type CarteIndice } from '../types';
+import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from './manoir';
 
 export const INDICES: CarteIndice[] = [
   {
@@ -615,9 +616,183 @@ export const INDICES: CarteIndice[] = [
     incompatibleAvec: ['IND-14', 'IND-18'],
     disponibleDesManche: 1,
   },
+  {
+    id: 'IND-55',
+    titre: 'La peur des caves',
+    categorie: 'document',
+    texte:
+      "Un certificat du médecin de famille l'atteste : Éléonore souffre de claustrophobie depuis l'enfance et n'est jamais descendue à la cave. Si elle est la coupable, le crime n'a pas eu lieu dans la cave.",
+    concerne: ['eleonore', 'cave'],
+    regles: [{ type: 'pasEnsemble', a: 'eleonore', b: 'cave' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-56',
+    titre: 'Le rhume des foins',
+    categorie: 'temoignage',
+    texte:
+      "Victor souffre d'un rhume des foins si violent que la moindre fougère le fait éternuer à grand bruit. Personne n'a entendu le moindre éternuement du côté de la serre : si Victor est le coupable, ce n'est pas dans la serre.",
+    concerne: ['victor', 'serre'],
+    regles: [{ type: 'pasEnsemble', a: 'victor', b: 'serre' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-57',
+    titre: 'La poussière des grimoires',
+    categorie: 'document',
+    texte:
+      "Le docteur Morel est gravement allergique à la poussière des vieux livres : il ne peut rester plus d'une minute dans la bibliothèque sans suffoquer. S'il est le coupable, le crime n'a pas eu lieu dans la bibliothèque.",
+    concerne: ['morel', 'bibliotheque'],
+    regles: [{ type: 'pasEnsemble', a: 'morel', b: 'bibliotheque' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-58',
+    titre: 'Les chaussures cloutées',
+    categorie: 'trace',
+    texte:
+      "Les chaussures cloutées de Marchand marquent le parquet ciré à chaque pas. Celui du salon de musique ne porte aucune de ces marques : si le majordome est le coupable, ce n'est pas dans le salon de musique.",
+    concerne: ['marchand', 'salon_musique'],
+    regles: [{ type: 'pasEnsemble', a: 'marchand', b: 'salon_musique' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-59',
+    titre: "L'urticaire de Camille",
+    categorie: 'document',
+    texte:
+      "La veille, Camille a fait une crise d'urticaire spectaculaire après avoir traversé la serre, à cause du pollen. Ce soir, sa peau est intacte : si elle est la coupable, le crime n'a pas eu lieu dans la serre.",
+    concerne: ['camille', 'serre'],
+    regles: [{ type: 'pasEnsemble', a: 'camille', b: 'serre' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-60',
+    titre: 'La serrure changée',
+    categorie: 'objet',
+    texte:
+      "Depuis leur brouille, Armand avait fait changer la serrure du bureau, et Gabriel ignore tout du nouveau mécanisme à combinaison. Si Gabriel est le coupable, ce n'est pas dans le bureau.",
+    concerne: ['gabriel', 'bureau'],
+    regles: [{ type: 'pasEnsemble', a: 'gabriel', b: 'bureau' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-61',
+    titre: 'Les étagères basses',
+    categorie: 'trace',
+    texte:
+      "Entre les étagères basses de la serre, une lame aussi longue que la dague de collection n'aurait pas pu être brandie sans renverser les pots. Aucun pot n'a bougé : si le crime a eu lieu dans la serre, ce n'était pas avec la dague.",
+    concerne: ['serre', 'dague'],
+    regles: [{ type: 'pasEnsemble', a: 'serre', b: 'dague' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-62',
+    titre: 'Le régime du docteur',
+    categorie: 'temoignage',
+    texte:
+      "Sur ordre de son médecin, Armand ne buvait plus rien dans son bureau, et aucun verre ni aucune tasse n'y a été retrouvé. Si le crime a eu lieu dans le bureau, ce n'était pas avec la fiole.",
+    concerne: ['bureau', 'poison'],
+    regles: [{ type: 'pasEnsemble', a: 'bureau', b: 'poison' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-63',
+    titre: "Le règlement de 1921",
+    categorie: 'document',
+    texte:
+      "Depuis le petit incendie de 1921, aucune flamme n'entre dans la bibliothèque : le règlement est encadré à l'entrée, et il n'y a pas la moindre goutte de cire au sol. Si le crime a eu lieu dans la bibliothèque, ce n'était pas avec le chandelier.",
+    concerne: ['bibliotheque', 'chandelier'],
+    regles: [{ type: 'pasEnsemble', a: 'bibliotheque', b: 'chandelier' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-64',
+    titre: "L'argent qui noircit",
+    categorie: 'objet',
+    texte:
+      "Dans l'humidité de la cave, l'argent noircit en quelques minutes. Le coupe-papier est resté parfaitement brillant : si le crime a eu lieu dans la cave, ce n'était pas avec le coupe-papier.",
+    concerne: ['cave', 'coupe_papier'],
+    regles: [{ type: 'pasEnsemble', a: 'cave', b: 'coupe_papier' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-65',
+    titre: 'La vue du sang',
+    categorie: 'temoignage',
+    texte:
+      "Éléonore s'est évanouie la semaine dernière à la simple vue d'une coupure au doigt : tout le manoir en parle encore. Si elle est la coupable, elle n'a pas utilisé la dague.",
+    concerne: ['eleonore', 'dague'],
+    regles: [{ type: 'pasEnsemble', a: 'eleonore', b: 'dague' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-66',
+    titre: 'Le mécanisme du revolver',
+    categorie: 'document',
+    texte:
+      "Le revolver ancien possède un mécanisme de sûreté que seul un connaisseur sait débloquer. Marchand n'a jamais tenu une arme de sa vie, son livret militaire l'atteste : s'il est le coupable, ce n'est pas avec le revolver.",
+    concerne: ['marchand', 'revolver'],
+    regles: [{ type: 'pasEnsemble', a: 'marchand', b: 'revolver' }],
+    disponibleDesManche: 1,
+  },
 ];
 
-export const INDICES_PAR_ID: Record<string, CarteIndice> = Object.fromEntries(INDICES.map((c) => [c.id, c]));
+/**
+ * Modèles de FAUX indices « pas X avec Y » pour toutes les paires d'éléments.
+ * Ils ne sont jamais tirés comme vrais indices : seule la ruse « Dossier trafiqué » les utilise,
+ * quand aucun indice rédigé ne peut servir de faux pour la solution de la partie.
+ */
+function modelesFaux(): CarteIndice[] {
+  const minuscule = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+  const armeNom = (a: ArmeId) => ARMES_FICHES[a].article.replace(/^avec /, '');
+  const out: CarteIndice[] = [];
+  for (const s of SUSPECTS) {
+    const nom = PERSONNAGES[s].nom;
+    for (const l of LIEUX) {
+      const lieu = LIEUX_FICHES[l];
+      out.push({
+        id: `FAUX-${s}-${l}`,
+        titre: `Le témoin ${lieu.article.replace(/^dans /, 'de ')}`,
+        categorie: 'temoignage',
+        texte: `Un témoin assure que personne n'est entré ${lieu.article} pendant la soirée, et surtout pas ${nom}. Si ${nom} est coupable, le crime n'a pas eu lieu ${lieu.article}.`,
+        concerne: [s, l],
+        regles: [{ type: 'pasEnsemble', a: s, b: l }],
+        disponibleDesManche: 1,
+      });
+    }
+    for (const a of ARMES) {
+      out.push({
+        id: `FAUX-${s}-${a}`,
+        titre: `Les empreintes sur ${armeNom(a)}`,
+        categorie: 'trace',
+        texte: `Les seules empreintes relevées sur ${armeNom(a)} ne sont pas celles de ${nom}, et personne ne l'a vu s'en approcher. Si ${nom} est coupable, ce n'est pas ${ARMES_FICHES[a].article}.`,
+        concerne: [s, a],
+        regles: [{ type: 'pasEnsemble', a: s, b: a }],
+        disponibleDesManche: 1,
+      });
+    }
+  }
+  for (const l of LIEUX) {
+    const lieu = LIEUX_FICHES[l];
+    for (const a of ARMES) {
+      out.push({
+        id: `FAUX-${l}-${a}`,
+        titre: `Rien ${lieu.article}`,
+        categorie: 'trace',
+        texte: `Les enquêteurs ont passé ${minuscule(lieu.nom)} au peigne fin : rien n'indique que ${armeNom(a)} y ait servi. Si le crime a eu lieu ${lieu.article}, ce n'était pas ${ARMES_FICHES[a].article}.`,
+        concerne: [l, a],
+        regles: [{ type: 'pasEnsemble', a: l, b: a }],
+        disponibleDesManche: 1,
+      });
+    }
+  }
+  return out;
+}
+
+export const FAUX_INDICES: CarteIndice[] = modelesFaux();
+
+export const INDICES_PAR_ID: Record<string, CarteIndice> = Object.fromEntries([...INDICES, ...FAUX_INDICES].map((c) => [c.id, c]));
 
 export const LIBELLES_CATEGORIE_INDICE: Record<CarteIndice['categorie'], string> = {
   temoignage: 'Témoignage',

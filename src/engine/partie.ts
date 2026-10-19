@@ -26,7 +26,7 @@ import {
   type TypeRuse,
   type Vainqueur,
 } from '../shared/types';
-import { INDICES, INDICES_PAR_ID } from '../shared/data/indices';
+import { FAUX_INDICES, INDICES, INDICES_PAR_ID } from '../shared/data/indices';
 import { estRelationnel, indiceValide } from '../shared/logique';
 import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, coutRuse, nbInterroges, pouvoirsPour, rusesPour, type ConfigPartie } from './config';
 import {
@@ -648,10 +648,12 @@ function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
     ...etat.affaire.archives.map((d) => d.indice),
     ...(etat.trafics ?? []).map((t) => t.indiceFaux),
   ]);
-  const tousFaux = INDICES.filter((c) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution));
-  // Un faux indice doit ressembler aux vrais : relationnel lui aussi, si possible.
+  const estFaux = (c: (typeof INDICES)[number]) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution);
+  const tousFaux = INDICES.filter(estFaux);
+  // Un faux indice doit ressembler aux vrais : relationnel lui aussi. À défaut d'indice rédigé
+  // utilisable, on prend un modèle « pas X avec Y » sur une paire de la solution (toujours faux).
   const relationnels = tousFaux.filter((c) => !etat.config.indicesRelationnels || estRelationnel(c));
-  const faux = relationnels.length ? relationnels : tousFaux;
+  const faux = relationnels.length ? relationnels : etat.config.indicesRelationnels ? FAUX_INDICES.filter(estFaux) : tousFaux;
   const memeCategorie = faux.filter((c) => c.categorie === INDICES_PAR_ID[indiceVrai].categorie);
   const choix = memeCategorie.length ? memeCategorie : faux;
   return choix[alea(etat, choix.length)].id;

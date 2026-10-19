@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INDICES, INDICES_PAR_ID } from '../src/shared/data/indices';
+import { FAUX_INDICES, INDICES, INDICES_PAR_ID } from '../src/shared/data/indices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../src/shared/data/manoir';
 import {
   TOUS_TRIPLETS,
@@ -233,8 +233,33 @@ describe('Indices relationnels : les cartes des joueurs gardent leur valeur', ()
     }
   });
 
-  it('il existe assez d’indices relationnels pour varier les parties', () => {
-    const relationnels = INDICES.filter((c) => reglesEffectives(c).every((r) => r.type === 'siAlors' || r.type === 'pasEnsemble'));
-    expect(relationnels.length).toBeGreaterThanOrEqual(30);
+  it("aucun indice ne déduit un élément d'un autre (connaître le coupable ne donne ni le lieu ni l'arme)", () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const a = genererAffaire(seededRng(seed), CONFIG_PAR_DEFAUT);
+      for (const c of tousLesIndicesDeLAffaire(a)) {
+        const possibles = combinaisonsPossibles([c]);
+        for (const e of TOUS_ELEMENTS) {
+          const avecE = possibles.filter((t) => t.suspect === e || t.lieu === e || t.arme === e);
+          for (const cat of ['suspect', 'lieu', 'arme'] as const) {
+            if (categorieDe(e) === cat) continue;
+            expect(new Set(avecE.map((t) => t[cat])).size, `${c.id} : ${e} impose le ${cat}`).toBeGreaterThanOrEqual(4);
+          }
+        }
+      }
+    }
+  });
+
+  it('il existe assez d’indices « pas X avec Y » pour varier les parties', () => {
+    const relationnels = INDICES.filter((c) => reglesEffectives(c).every((r) => r.type === 'pasEnsemble'));
+    expect(relationnels.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('les modèles de faux indices couvrent toutes les paires et sont bien rédigés', () => {
+    expect(FAUX_INDICES).toHaveLength(108);
+    for (const c of FAUX_INDICES) {
+      expect(c.texte.length).toBeGreaterThan(60);
+      expect(c.texte).not.toMatch(/undefined|\$\{/);
+      expect(reglesEffectives(c)).toHaveLength(1);
+    }
   });
 });

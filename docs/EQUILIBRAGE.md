@@ -100,3 +100,28 @@ Les bots enquêteurs utilisent les empreintes, dénoncent quand un seul suspect 
 Contribution mesurée de chaque ruse (bots occasionnels, 3/4/5/6 joueurs) : sans le **dossier trafiqué**, les enquêteurs gagnent environ 20 points de plus — c'est la ruse la plus forte ; la **carte empruntée** pèse peu dans ce modèle de bots.
 
 Les enquêteurs restent favoris à 5 et 6 joueurs ; à 3 et 4 joueurs la partie est proche de l'équilibre. Comme toujours, ces chiffres viennent de bots : la discussion entre humains peut faire pencher la balance dans les deux sens.
+
+---
+
+# Indices relationnels (20/10/2026)
+
+**Problème signalé en partie** : le dossier public écartait directement « Éléonore » alors qu'un joueur avait la carte Éléonore — sa carte ne servait plus à rien. C'est général : chaque indice du type « X n'est pas coupable » révèle à tous l'information d'une carte détenue par quelqu'un.
+
+**Correction** : le dossier public et les archives ne contiennent plus que des **indices relationnels**, qui relient deux éléments sans en écarter aucun à eux seuls :
+- « Si le docteur Morel est coupable, le crime a eu lieu dans la serre » ;
+- « Le crime n'a pas eu lieu dans la cave avec le revolver ».
+
+Ils ne deviennent décisifs qu'en les combinant avec les cartes des joueurs. 18 nouveaux indices relationnels ont été écrits (IND-37 à IND-54) ; 31 sont disponibles au total. Les 23 anciens indices « directs » restent dans la boîte mais ne sont plus tirés. Un test vérifie, sur 200 affaires, qu'aucun indice n'écarte seul un suspect, un lieu ou une arme. Les faux indices du « Dossier trafiqué » sont eux aussi relationnels, pour rester indiscernables.
+
+La réserve de ruses à 3 joueurs passe de 3 à 2 pour compenser.
+
+## Résultats (mode rusé, 200 parties par taille)
+
+| Joueurs | Enquêteurs gagnent (expert / occasionnel) | Complice démasqué |
+|---:|---:|---:|
+| 3 | 67 % / 37 % | 59 % |
+| 4 | 56 % / 47 % | 67 % |
+| 5 | 70 % / 50 % | 52–56 % |
+| 6 | 76 % / 50 % | 45–46 % |
+
+Les bots « experts » (qui raisonnent sur les cartes) sont peu affectés ; les bots « occasionnels » trouvent un peu moins souvent, car les indices demandent désormais d'être combinés avec les cartes.

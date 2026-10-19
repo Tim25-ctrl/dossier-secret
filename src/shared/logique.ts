@@ -98,6 +98,15 @@ export function indicesIncompatibles(a: CarteIndice, b: CarteIndice): boolean {
   return false;
 }
 
+/**
+ * Indice « relationnel » : il relie des éléments (« si X alors Y », « pas X avec Y »)
+ * sans jamais en écarter un seul directement. Il ne remplace donc la carte de personne :
+ * il ne devient décisif qu'en le combinant avec les cartes des joueurs.
+ */
+export function estRelationnel(carte: CarteIndice): boolean {
+  return reglesEffectives(carte).every((r) => r.type === 'siAlors' || r.type === 'pasEnsemble');
+}
+
 /** Part des 216 combinaisons éliminées par l'indice seul. */
 export function partEliminee(carte: CarteIndice): number {
   return 1 - combinaisonsPossibles([carte]).length / TOUS_TRIPLETS.length;

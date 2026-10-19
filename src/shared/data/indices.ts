@@ -411,6 +411,210 @@ export const INDICES: CarteIndice[] = [
     ],
     disponibleDesManche: 1,
   },
+  {
+    id: 'IND-37',
+    titre: 'Les catalogues de vente',
+    categorie: 'deplacement',
+    texte:
+      "Victor a passé la soirée dans la bibliothèque à annoter les catalogues de vente d'Armand : ses notes, datées à la minute près, s'enchaînent sans interruption de 22 h 40 à 23 h 20.",
+    concerne: ['victor', 'bibliotheque'],
+    regles: [],
+    faits: [{ entite: 'victor', endroit: 'bibliotheque', de: '22:40', a: '23:20' }],
+    incompatibleAvec: ['IND-12'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-38',
+    titre: 'La chaudière de la cave',
+    categorie: 'temoignage',
+    texte:
+      "Marchand est descendu à la cave à 22 h 45 pour relancer la vieille chaudière, et n'en est remonté qu'à 23 h 15 : le registre d'entretien porte ses relevés de pression toutes les cinq minutes.",
+    concerne: ['marchand', 'cave'],
+    regles: [],
+    faits: [{ entite: 'marchand', endroit: 'cave', de: '22:45', a: '23:15' }],
+    incompatibleAvec: ['IND-08'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-39',
+    titre: 'La machine à écrire',
+    categorie: 'horaire',
+    texte:
+      "Camille a tapé son article sur la machine à écrire du bureau de 22 h 40 à 23 h 15 : chaque feuillet est daté, et le cliquetis de la machine n'a jamais cessé plus de quelques minutes.",
+    concerne: ['camille', 'bureau'],
+    regles: [],
+    faits: [{ entite: 'camille', endroit: 'bureau', de: '22:40', a: '23:15' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-40',
+    titre: 'Les cigarettes au filtre doré',
+    categorie: 'trace',
+    texte:
+      "Le cendrier de la salle à manger déborde des cigarettes au filtre doré que seul Gabriel fume. Elles ont été allumées une à une, toutes les cinq minutes environ, de 22 h 45 à 23 h 15.",
+    concerne: ['gabriel', 'salle_a_manger'],
+    regles: [],
+    faits: [{ entite: 'gabriel', endroit: 'salle_a_manger', de: '22:45', a: '23:15' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-41',
+    titre: 'La sonate interrompue',
+    categorie: 'temoignage',
+    texte:
+      "De 22 h 45 à 23 h 15, le docteur Morel a joué du piano au salon de musique : on entendait la même sonate, reprise sans relâche, dans tout le rez-de-chaussée.",
+    concerne: ['morel', 'salon_musique'],
+    regles: [],
+    faits: [{ entite: 'morel', endroit: 'salon_musique', de: '22:45', a: '23:15' }],
+    incompatibleAvec: ['IND-11'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-42',
+    titre: 'Les mégots du ficus',
+    categorie: 'trace',
+    texte:
+      "Éléonore s'est réfugiée dans la serre pour fumer en cachette : ses mégots tachés de rouge à lèvres s'accumulent dans le pot du ficus, à intervalles réguliers, de 22 h 40 à 23 h 20.",
+    concerne: ['eleonore', 'serre'],
+    regles: [],
+    faits: [{ entite: 'eleonore', endroit: 'serre', de: '22:40', a: '23:20' }],
+    incompatibleAvec: ['IND-09'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-43',
+    titre: 'La dague sur le piano',
+    categorie: 'objet',
+    texte:
+      "La dague de collection a été décrochée vers 22 h 40 et posée sur le piano du salon de musique, où on l'a retrouvée à 23 h 20 : la fine poussière autour d'elle montre qu'elle n'a pas bougé entre-temps.",
+    concerne: ['dague', 'salon_musique'],
+    regles: [],
+    faits: [{ entite: 'dague', endroit: 'salon_musique', de: '22:40', a: '23:20' }],
+    incompatibleAvec: ['IND-26', 'IND-11'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-44',
+    titre: 'Le ruban de soie',
+    categorie: 'objet',
+    texte:
+      "Sorti de sa vitrine pour être expertisé, le revolver ancien reposait sur la grande table de la bibliothèque. Le ruban de soie posé dessus à 22 h 30 n'avait pas glissé d'un millimètre à 23 h 30.",
+    concerne: ['revolver', 'bibliotheque'],
+    regles: [],
+    faits: [{ entite: 'revolver', endroit: 'bibliotheque', de: '22:30', a: '23:30' }],
+    incompatibleAvec: ['IND-12'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-45',
+    titre: 'La fiole sur la desserte',
+    categorie: 'trace',
+    texte:
+      "La fiole du cabinet de curiosités a été retrouvée sur la desserte de la salle à manger. Le cercle de poussière sous elle prouve qu'elle y a été posée vers 22 h 30 et n'en a pas bougé avant 23 h 30.",
+    concerne: ['poison', 'salle_a_manger'],
+    regles: [],
+    faits: [{ entite: 'poison', endroit: 'salle_a_manger', de: '22:30', a: '23:30' }],
+    incompatibleAvec: ['IND-27'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-46',
+    titre: 'La lettre sous le presse-papier',
+    categorie: 'objet',
+    texte:
+      "Toute la soirée, le presse-papier en cristal a maintenu une lettre ouverte sur le bureau d'Armand : la trace d'humidité qu'il a laissée sur le papier prouve qu'il n'a pas été déplacé avant minuit.",
+    concerne: ['presse_papier', 'bureau'],
+    regles: [],
+    faits: [{ entite: 'presse_papier', endroit: 'bureau', de: '20:00', a: '23:59' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-47',
+    titre: "L'allergie de Victor",
+    categorie: 'document',
+    texte:
+      "Un certificat médical atteste que Victor fait une violente réaction au contact de l'argent massif, et ses gants sont restés au vestiaire toute la soirée. S'il est le coupable, il n'a pas utilisé le coupe-papier en argent.",
+    concerne: ['victor', 'coupe_papier'],
+    regles: [{ type: 'pasEnsemble', a: 'victor', b: 'coupe_papier' }],
+    disponibleDesManche: 2,
+  },
+  {
+    id: 'IND-48',
+    titre: 'Le compteur de la cave',
+    categorie: 'trace',
+    texte:
+      "Le compteur électrique de la cave a sauté à 22 h 30 et n'a été relevé qu'au matin. Dans le noir complet, impossible d'y manier une petite fiole ou de viser avec un revolver : si le crime a eu lieu dans la cave, ce n'était avec aucun des deux.",
+    concerne: ['cave', 'poison', 'revolver'],
+    regles: [
+      { type: 'pasEnsemble', a: 'cave', b: 'poison' },
+      { type: 'pasEnsemble', a: 'cave', b: 'revolver' },
+    ],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-49',
+    titre: 'Le pansement de Camille',
+    categorie: 'document',
+    texte:
+      "À 21 h, le docteur Morel a bandé la main de Camille, entaillée en ouvrant une malle du grenier. Elle ne peut plus serrer un manche : si elle est la coupable, elle n'a utilisé ni la dague ni le coupe-papier.",
+    concerne: ['camille', 'dague', 'coupe_papier'],
+    regles: [
+      { type: 'pasEnsemble', a: 'camille', b: 'dague' },
+      { type: 'pasEnsemble', a: 'camille', b: 'coupe_papier' },
+    ],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-50',
+    titre: 'Les mains du majordome',
+    categorie: 'document',
+    texte:
+      "Le médecin du village le confirme : Marchand souffre d'un tremblement qui l'empêche d'ouvrir une petite fiole scellée sans en renverser le contenu. S'il est le coupable, il n'a pas utilisé la fiole.",
+    concerne: ['marchand', 'poison'],
+    regles: [{ type: 'pasEnsemble', a: 'marchand', b: 'poison' }],
+    disponibleDesManche: 3,
+  },
+  {
+    id: 'IND-51',
+    titre: "L'odeur de la bibliothèque",
+    categorie: 'trace',
+    texte:
+      "Les vieux papiers de la bibliothèque gardent les odeurs pendant des jours. Aucune odeur de poudre n'y a été relevée : si le crime a eu lieu dans la bibliothèque, ce n'était pas avec le revolver.",
+    concerne: ['bibliotheque', 'revolver'],
+    regles: [{ type: 'pasEnsemble', a: 'bibliotheque', b: 'revolver' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-52',
+    titre: 'Le dallage de verre',
+    categorie: 'trace',
+    texte:
+      "Le sol de la serre est un dallage de verre épais mais fragile : un objet lourd tombé à terre l'aurait fendu. Aucune fissure : si le crime a eu lieu dans la serre, ce n'était pas avec le presse-papier.",
+    concerne: ['serre', 'presse_papier'],
+    regles: [{ type: 'pasEnsemble', a: 'serre', b: 'presse_papier' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-53',
+    titre: 'La clé du salon de musique',
+    categorie: 'contradiction',
+    texte:
+      "Camille jure n'avoir jamais mis les pieds au salon de musique. Pourtant, la seule clé de cette pièce, fermée pour la saison, était dans son sac. Si le crime a eu lieu dans le salon de musique, c'est Camille qui l'a commis.",
+    concerne: ['salon_musique', 'camille'],
+    regles: [{ type: 'siAlors', si: 'salon_musique', alors: 'camille' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-54',
+    titre: 'Le trousseau unique',
+    categorie: 'contradiction',
+    texte:
+      "Marchand affirme que la cave est restée fermée. Mais lui seul en possède la clé, et la serrure n'a pas été forcée : si le crime a eu lieu dans la cave, personne d'autre que le majordome n'a pu le commettre.",
+    concerne: ['cave', 'marchand'],
+    regles: [{ type: 'siAlors', si: 'cave', alors: 'marchand' }],
+    incompatibleAvec: ['IND-14', 'IND-18'],
+    disponibleDesManche: 1,
+  },
 ];
 
 export const INDICES_PAR_ID: Record<string, CarteIndice> = Object.fromEntries(INDICES.map((c) => [c.id, c]));

@@ -5,7 +5,7 @@
 // Si la validation échoue, on régénère : une partie incohérente ne démarre jamais.
 
 import { INDICES, INDICES_PAR_ID } from '../shared/data/indices';
-import { combinaisonsPossibles, indiceValide, indicesIncompatibles } from '../shared/logique';
+import { combinaisonsPossibles, estRelationnel, indiceValide, indicesIncompatibles } from '../shared/logique';
 import {
   ARMES,
   LIEUX,
@@ -64,7 +64,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
   const total = config.nbIndicesPublicsDepart + nbDifferes + config.nbDossiersArchives;
   const compatibles = shuffle(
     rng,
-    INDICES.filter((c) => indiceValide(c, solution)),
+    INDICES.filter((c) => indiceValide(c, solution) && (!config.indicesRelationnels || estRelationnel(c))),
   );
 
   const choisis: CarteIndice[] = [];
@@ -143,6 +143,8 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
   const cartes = ids.map((id) => INDICES_PAR_ID[id]);
 
   for (const c of cartes) if (!indiceValide(c, solution)) erreurs.push(`L'indice ${c.id} exclut la vraie solution.`);
+  if (config.indicesRelationnels)
+    for (const c of cartes) if (!estRelationnel(c)) erreurs.push(`L'indice ${c.id} écarte directement un élément (il doit être relationnel).`);
   for (let i = 0; i < cartes.length; i++)
     for (let j = i + 1; j < cartes.length; j++)
       if (indicesIncompatibles(cartes[i], cartes[j])) erreurs.push(`Les indices ${cartes[i].id} et ${cartes[j].id} se contredisent.`);

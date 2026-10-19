@@ -123,7 +123,7 @@ export function ContenuRegles() {
 
       <h3>Mode « Complice rusé » (recommandé)</h3>
       <p>
-        L'hôte choisit le mode dans le salon d'attente. En mode rusé, le complice dispose d'une <strong>réserve de ruses</strong> (3 à 3 joueurs, 4 à 4 joueurs,
+        L'hôte choisit le mode dans le salon d'attente. En mode rusé, le complice dispose d'une <strong>réserve de ruses</strong> (2 à 3 joueurs, 4 à 4 joueurs,
         5 à 5 ou 6 joueurs). Chaque ruse a un coût :
       </p>
       <ul>

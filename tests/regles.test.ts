@@ -271,7 +271,9 @@ describe('Interrogation : une seule carte révélée', () => {
     const auteur = actif(etat);
     const [b, c, d] = autres(etat, auteur);
     // Hypothèse contenant une carte de c et une carte de d ; b n'a rien.
-    const t = tripletAvec(etat, [etat.joueurs[c].main[0], etat.joueurs[d].main.find((x) => x !== etat.joueurs[c].main[0])!]);
+    // Une carte de c et une carte de d, de catégories différentes (sinon l'une écraserait l'autre).
+    const carteC = etat.joueurs[c].main[0];
+    const t = tripletAvec(etat, [carteC, etat.joueurs[d].main.find((x) => categorieDe(x) !== categorieDe(carteC))!]);
     // Garantit que b n'a aucune carte correspondante (sinon on change b de place).
     const ordre = [b, c, d].sort((x, y) => cartesCorrespondantes(etat, x, t).length - cartesCorrespondantes(etat, y, t).length);
     const premierSans = ordre[0];

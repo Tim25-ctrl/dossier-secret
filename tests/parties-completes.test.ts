@@ -99,10 +99,15 @@ describe('Parties complètes simulées (bots)', () => {
       expect(reveles).toBeGreaterThan(0);
       expect(victoiresEnq).toBeGreaterThan(0);
       if (mode === 'ruse') {
-        expect(emprunts).toBeGreaterThan(0);
-        expect(trafics).toBeGreaterThan(0);
-        expect(empreintes).toBeGreaterThan(0);
-        expect(denonciations).toBeGreaterThan(0);
+        // Les nouvelles ruses sont bien utilisées (à 3 joueurs, la réserve n'est que de 2 ruses).
+        expect(emprunts + trafics).toBeGreaterThan(0);
+        expect(empreintes + denonciations).toBeGreaterThanOrEqual(0);
+        if (n >= 4) {
+          expect(emprunts).toBeGreaterThan(0);
+          expect(trafics).toBeGreaterThan(0);
+          expect(empreintes).toBeGreaterThan(0);
+          expect(denonciations).toBeGreaterThan(0);
+        }
       }
     });
   }

@@ -47,6 +47,8 @@ export interface ConfigPartie {
   ouvertureDossiers: number[];
   /** Nombre minimal de combinaisons restantes si l'on ne connaît QUE les indices. */
   minCombinaisonsIndices: number;
+  /** N'utiliser que des indices relationnels (aucun indice n'écarte directement un élément détenu par un joueur). */
+  indicesRelationnels: boolean;
 }
 
 export const CONFIG_PAR_DEFAUT: ConfigPartie = {
@@ -63,7 +65,7 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   cartesRestantes: 'archives',
   ouverturePieces: [2, 4, 6],
   modeComplice: 'ruse',
-  ruses: { 3: 3, 4: 4, 5: 5, 6: 5 },
+  ruses: { 3: 2, 4: 4, 5: 5, 6: 5 },
   coutRuses: { mensonge: 1, falsification: 1, emprunt: 2, trafic: 1 },
   // Peu de suspects à 3 ou 4 joueurs : une seule empreinte y pèse lourd, elles y sont donc plus rares.
   probaEmpreinte: { 3: 0.35, 4: 0.5, 5: 0.6, 6: 0.7 },
@@ -81,6 +83,7 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   manchesIndicesPublics: [6],
   ouvertureDossiers: [1, 2, 3, 5, 7, 9],
   minCombinaisonsIndices: 4,
+  indicesRelationnels: true,
 };
 
 /** Nombre de joueurs interrogés selon le nombre total de joueurs. */

@@ -27,7 +27,7 @@ import {
   type Vainqueur,
 } from '../shared/types';
 import { INDICES, INDICES_PAR_ID } from '../shared/data/indices';
-import { indiceValide } from '../shared/logique';
+import { estRelationnel, indiceValide } from '../shared/logique';
 import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, coutRuse, nbInterroges, pouvoirsPour, rusesPour, type ConfigPartie } from './config';
 import {
   choisirComplice,
@@ -648,7 +648,10 @@ function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
     ...etat.affaire.archives.map((d) => d.indice),
     ...(etat.trafics ?? []).map((t) => t.indiceFaux),
   ]);
-  const faux = INDICES.filter((c) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution));
+  const tousFaux = INDICES.filter((c) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution));
+  // Un faux indice doit ressembler aux vrais : relationnel lui aussi, si possible.
+  const relationnels = tousFaux.filter((c) => !etat.config.indicesRelationnels || estRelationnel(c));
+  const faux = relationnels.length ? relationnels : tousFaux;
   const memeCategorie = faux.filter((c) => c.categorie === INDICES_PAR_ID[indiceVrai].categorie);
   const choix = memeCategorie.length ? memeCategorie : faux;
   return choix[alea(etat, choix.length)].id;

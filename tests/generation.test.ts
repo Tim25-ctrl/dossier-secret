@@ -218,3 +218,23 @@ describe('Distribution des cartes', () => {
     expect(() => distribuerCartes(seededRng(1), a.solution, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])).toThrow();
   });
 });
+
+describe('Indices relationnels : les cartes des joueurs gardent leur valeur', () => {
+  it("aucun indice d'une affaire n'écarte, à lui seul, un suspect, un lieu ou une arme", () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const a = genererAffaire(seededRng(seed), CONFIG_PAR_DEFAUT);
+      for (const c of tousLesIndicesDeLAffaire(a)) {
+        const possibles = combinaisonsPossibles([c]);
+        for (const e of TOUS_ELEMENTS) {
+          const encorePossible = possibles.some((t) => t.suspect === e || t.lieu === e || t.arme === e);
+          expect(encorePossible, `${c.id} écarte directement ${e}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('il existe assez d’indices relationnels pour varier les parties', () => {
+    const relationnels = INDICES.filter((c) => reglesEffectives(c).every((r) => r.type === 'siAlors' || r.type === 'pasEnsemble'));
+    expect(relationnels.length).toBeGreaterThanOrEqual(30);
+  });
+});

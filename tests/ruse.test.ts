@@ -27,7 +27,7 @@ function allerALaManche(etat: EtatPartie, manche: number, h: Horloge) {
 }
 
 describe('Mode « complice rusé » : réserve de ruses', () => {
-  const attendu = { 3: 3, 4: 4, 5: 5, 6: 5 } as const;
+  const attendu = { 3: 2, 4: 4, 5: 5, 6: 5 } as const;
   for (const n of [3, 4, 5, 6] as const) {
     it(`${n} joueurs : le complice a ${attendu[n]} ruses ; les enquêteurs ne voient aucun compteur`, () => {
       const etat = nouvellePartie(n, { seed: 3, config: RUSE });

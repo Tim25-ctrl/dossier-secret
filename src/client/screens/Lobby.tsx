@@ -192,7 +192,7 @@ export function Lobby({ etat }: { etat: EtatClient }) {
               <li>2 points d'action par tour (hypothèse : 2 PA, archive : 1 PA), 12 manches maximum.</li>
               <li>Hypothèse : le premier joueur interrogé qui a une carte correspondante vous en montre une, en secret.</li>
               <li>Le complice utilise des ruses discrètes… qui laissent parfois des empreintes. Démasquez-le !</li>
-              <li>Une seule accusation finale par joueur.</li>
+              <li>Une seule accusation finale par enquêteur (le complice ne peut pas accuser).</li>
             </ul>
           </section>
           <section className="panneau">

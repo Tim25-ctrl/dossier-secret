@@ -711,3 +711,33 @@ describe('Pouvoirs selon la taille de la table', () => {
     expect(etat.hypotheses.filter((x) => x.falsification)).toHaveLength(2);
   });
 });
+
+describe('Le complice ne peut pas accuser', () => {
+  for (const mode of ['classique', 'ruse'] as const) {
+    it(`mode ${mode} : accusation refusée au complice, sans que les autres puissent le remarquer`, () => {
+      const base = nouvellePartie(4, { seed: 81, solution: SOLUTION, config: { modeComplice: mode } });
+      const premier = actif(base);
+      const etat = nouvellePartie(4, { seed: 81, solution: SOLUTION, complice: premier, config: { modeComplice: mode } });
+      expect(act(etat, premier, { type: 'accuser', ...SOLUTION }, T0 + 1)).toMatchObject({ ok: false, erreur: expect.stringContaining('complice') });
+      expect(etat.etape).toBe('tour');
+      expect(etat.accusations).toHaveLength(0);
+      // Aucune trace publique : son droit d'accuser apparaît comme celui de n'importe qui.
+      for (const o of autres(etat, premier)) {
+        const v = vuePour(etat, o);
+        expect(v.joueurs.find((j) => j.id === premier)?.peutAccuser).toBe(true);
+        expect(v.historique.some((e) => e.type === 'accusation')).toBe(false);
+      }
+    });
+  }
+
+  it('le complice gagne quand tous les enquêteurs ont échoué, même s’il n’a jamais accusé', () => {
+    const etat = nouvellePartie(3, { solution: SOLUTION });
+    const h = new Horloge();
+    const faux = { suspect: 'gabriel', lieu: 'serre', arme: 'poison' } as const;
+    for (const id of etat.ordre.filter((x) => x !== etat.complice)) {
+      allerAuTourDe(etat, id, h);
+      act(etat, id, { type: 'accuser', ...faux }, h.avance(1));
+    }
+    expect(etat.resultat).toMatchObject({ vainqueur: 'complice', raison: 'plus_d_accusateur' });
+  });
+});

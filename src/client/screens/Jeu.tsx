@@ -161,7 +161,12 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
                 <button className="btn" disabled={!monTour || !!raisonArchive} onClick={() => setOnglet('archives')}>
                   <Icone nom="livre" /> Consulter les archives (1 PA)
                 </button>
-                <button className="btn btn-danger" disabled={!monTour || !vue.moi.peutAccuser} onClick={() => setModale('accusation')}>
+                <button
+                  className="btn btn-danger"
+                  disabled={!monTour || !vue.moi.peutAccuser || vue.moi.role === 'complice'}
+                  title={vue.moi.role === 'complice' ? 'Le complice ne peut pas formuler d’accusation finale.' : undefined}
+                  onClick={() => setModale('accusation')}
+                >
                   Accusation finale
                 </button>
                 {vue.regles.modeComplice === 'ruse' && (

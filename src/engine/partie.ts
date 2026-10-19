@@ -728,6 +728,9 @@ function accuser(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { 
   const e = verifierTourActif(etat, joueur);
   if (e) return e;
   const j = etat.joueurs[joueur];
+  // Le complice joue contre l'enquête : il ne peut jamais accuser. Son droit d'accuser
+  // reste « vrai » dans les données publiques pour ne pas trahir son rôle.
+  if (j.role === 'complice') return refus('Le complice ne peut pas formuler d’accusation finale.');
   if (!j.peutAccuser) return refus('Vous avez déjà formulé une accusation finale.');
   const triplet = { suspect: action.suspect, lieu: action.lieu, arme: action.arme };
   if (!tripletValide(triplet)) return refus('Accusation invalide : choisissez un suspect, un lieu et une arme.');

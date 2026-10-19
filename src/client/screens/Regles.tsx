@@ -25,7 +25,7 @@ export function ContenuRegles() {
         </li>
         <li>
           <strong>Le complice</strong> (un seul joueur, tiré au sort) connaît le nom du meurtrier, mais ni le lieu ni l'arme. Il gagne si personne n'a trouvé la
-          solution à la fin de la 12ᵉ manche, ou si tous les enquêteurs se sont trompés d'accusation. Tout le monde sait qu'il y a un complice, personne ne
+          solution à la fin de la 12ᵉ manche, ou si tous les enquêteurs se sont trompés d'accusation. Il ne peut pas faire d'accusation finale. Tout le monde sait qu'il y a un complice, personne ne
           sait qui.
         </li>
       </ul>
@@ -160,6 +160,10 @@ export function ContenuRegles() {
       <p>
         Si les trois éléments sont justes, les enquêteurs gagnent immédiatement. Sinon, vous ne pourrez plus accuser — mais vous continuez à jouer, à interroger et à
         être interrogé. Vous n'apprenez pas quel élément était faux.
+      </p>
+      <p>
+        <strong>Le complice ne peut pas formuler d'accusation finale.</strong> Les autres joueurs ne le voient pas : pour eux, il semble simplement ne pas
+        encore avoir accusé.
       </p>
 
       <h3>Indices</h3>

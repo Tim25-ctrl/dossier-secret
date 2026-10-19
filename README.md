@@ -10,7 +10,7 @@ Le 17 octobre, à 23 h 17, Armand de Valombre est retrouvé mort dans son manoir
 - Carnet de déduction privé, discussion écrite, archives à consulter
 - Reconnexion automatique (rafraîchissement, coupure réseau, redémarrage du serveur)
 - Joueurs automatiques (bots) pour compléter une table ou tester seul
-- 100 tests automatisés, dont des parties complètes jouées en réseau
+- 93 tests automatisés, dont des parties complètes jouées en réseau
 
 Les règles complètes sont dans le jeu (bouton « Règles du jeu »).
 
@@ -162,7 +162,7 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 - Serveur multijoueur autoritaire : salons privés (codes de 6 caractères, liens d'invitation), 6 joueurs maximum, validation de toutes les entrées, filtrage des données par joueur, limitation de débit, reconnexion, sauvegarde/restauration, transfert d'hôte, journal d'audit.
 - Interface : accueil, tutoriel de premier lancement, règles, paramètres (taille du texte, animations), lobby, écran de jeu, interrogation, pouvoirs du complice (avec infobulles), carnet de déduction, archives, historique, discussion, écran de fin (solution, récit, indices décisifs, complice, pouvoirs utilisés, mains de chacun), « Rejouer ».
 - Responsive (testé à 375 px de large sans défilement horizontal), zones privées distinguées par icône, texte et style (pas seulement par la couleur).
-- Bots et simulations d'équilibrage ; 100 tests automatisés.
+- Bots et simulations d'équilibrage ; 93 tests automatisés.
 
 ## 9. Limites connues
 

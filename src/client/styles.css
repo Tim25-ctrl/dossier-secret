@@ -1096,3 +1096,80 @@ button.carte:hover:not(:disabled) {
   border: 1px solid var(--ardoise);
   padding: 4px 10px;
 }
+
+/* Tableaux : jamais plus larges que l'écran (défilement horizontal si nécessaire). */
+.tableau-defilant {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.regles table {
+  min-width: 0;
+  font-size: 0.92em;
+}
+@media (max-width: 520px) {
+  .regles td,
+  .regles th {
+    padding: 4px 6px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Petits écrans et texte agrandi : rien ne doit dépasser de l'écran.  */
+/* ------------------------------------------------------------------ */
+
+/* Une fenêtre ne s'élargit jamais au-delà de l'écran, même si un mot est long. */
+.modale {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.panneau,
+.prive,
+.indice,
+.carte,
+.journal li,
+.etapes li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Grilles de cartes : jamais une colonne plus large que l'espace disponible. */
+.cartes {
+  grid-template-columns: repeat(auto-fill, minmax(min(118px, 100%), 1fr));
+}
+.carte .nom-carte {
+  hyphens: auto;
+}
+@media (max-width: 520px) {
+  .fiche {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fiche dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Sur téléphone, les onglets passent à la ligne au lieu d'être cachés hors de l'écran. */
+@media (max-width: 820px) {
+  .onglets {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+  .onglet {
+    padding: 8px 10px;
+  }
+}
+/* Grilles de mise en page : une colonne ne s'élargit jamais au-delà de l'écran. */
+.deux-colonnes {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+}
+@media (max-width: 820px) {
+  .deux-colonnes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.deux-colonnes > *,
+.disposition > * {
+  min-width: 0;
+}
+.code-salon {
+  overflow-wrap: anywhere;
+}

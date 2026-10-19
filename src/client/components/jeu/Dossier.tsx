@@ -10,7 +10,7 @@ function pistes(vue: VueJoueur, e: ElementId) {
   return ids.map((id) => INDICES_PAR_ID[id]).filter((c) => c.concerne.includes(e));
 }
 
-export function Dossier({ vue }: { vue: VueJoueur }) {
+export function Dossier({ vue }: { vue?: VueJoueur }) {
   const [section, setSection] = useState<'suspects' | 'lieux' | 'armes'>('suspects');
   return (
     <div>
@@ -96,7 +96,8 @@ export function Dossier({ vue }: { vue: VueJoueur }) {
   );
 }
 
-function listePistes(vue: VueJoueur, e: ElementId) {
+function listePistes(vue: VueJoueur | undefined, e: ElementId) {
+  if (!vue) return <span className="muet">Visibles pendant une partie.</span>;
   const p = pistes(vue, e);
   if (p.length === 0) return <span className="muet">Aucune pour l'instant.</span>;
   return p.map((c) => `« ${c.titre} »`).join(', ');

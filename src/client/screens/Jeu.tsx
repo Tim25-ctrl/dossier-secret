@@ -8,13 +8,12 @@ import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification 
 import { Icone } from '../components/Emblemes';
 import { ModaleAccusation, ModaleFalsification, ModaleHypothese, ModaleReponse, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
-import { Dossier } from '../components/jeu/Dossier';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
 import { BoutonQuitter } from '../components/Quitter';
 
-type Onglet = 'enquete' | 'cartes' | 'dossier' | 'archives' | 'carnet' | 'historique' | 'discussion';
+type Onglet = 'enquete' | 'cartes' | 'archives' | 'carnet' | 'historique' | 'discussion';
 
 export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) {
   const vue = etat.partie!;
@@ -74,7 +73,6 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   const onglets: { id: Onglet; libelle: string; classe?: string; badge?: number }[] = [
     { id: 'enquete', libelle: 'Enquête' },
     { id: 'cartes', libelle: 'Mes cartes', classe: 'onglet-mobile-seulement' },
-    { id: 'dossier', libelle: 'Dossier' },
     { id: 'archives', libelle: 'Archives', badge: dossiersDispo.length || undefined },
     { id: 'carnet', libelle: 'Carnet' },
     { id: 'historique', libelle: 'Historique' },
@@ -210,8 +208,6 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
             </div>
           )}
 
-          {onglet === 'dossier' && <Dossier vue={vue} />}
-
           {onglet === 'archives' && <Archives vue={vue} monTour={monTour} onAgir={agir} />}
 
           {onglet === 'carnet' && <Carnet vue={vue} nom={nom} onErreur={erreur} />}
@@ -241,7 +237,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
 
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'accusation' && <ModaleAccusation sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
-      {modale === 'regles' && <ModaleRegles onFermer={() => setModale(null)} />}
+      {modale === 'regles' && <ModaleRegles vue={vue} onFermer={() => setModale(null)} />}
       {doitRepondre && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {peutFalsifier && !doitRepondre && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
       {notification}

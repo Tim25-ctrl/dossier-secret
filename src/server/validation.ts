@@ -23,7 +23,8 @@ export const schemaAction = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('carnet'),
-      marques: z.record(element, marque).optional(),
+      // partialRecord : seuls les éléments modifiés sont envoyés (z.record exigerait les 18 clés).
+      marques: z.partialRecord(element, marque).optional(),
       notes: z.string().max(4000).optional(),
     })
     .strict(),

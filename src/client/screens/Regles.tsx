@@ -1,5 +1,8 @@
 import { AFFAIRE } from '../../shared/data/manoir';
+import { useState } from 'react';
+import type { VueJoueur } from '../../shared/types';
 import { Modale } from '../components/Commun';
+import { Dossier } from '../components/jeu/Dossier';
 
 export function ContenuRegles() {
   return (
@@ -32,6 +35,7 @@ export function ContenuRegles() {
         Les 18 cartes (suspects, lieux, armes) moins les trois de la solution sont distribuées. Chaque carte que vous possédez est innocente : elle ne fait
         pas partie de la solution. S'il en reste (à 4 et 6 joueurs), elles deviennent des « pièces à conviction » rangées dans les archives : chacun peut les consulter (1 PA) pour les écarter.
       </p>
+      <div className="tableau-defilant">
       <table>
         <thead>
           <tr>
@@ -68,6 +72,7 @@ export function ContenuRegles() {
           </tr>
         </tbody>
       </table>
+      </div>
 
       <h3>Le tour de jeu</h3>
       <p>
@@ -131,10 +136,26 @@ export function ContenuRegles() {
   );
 }
 
-export function ModaleRegles({ onFermer }: { onFermer: () => void }) {
+export function ModaleRegles({ onFermer, vue }: { onFermer: () => void; vue?: VueJoueur }) {
+  const [section, setSection] = useState<'regles' | 'dossier'>('regles');
   return (
     <Modale titre="Règles du jeu" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Compris</button>}>
-      <ContenuRegles />
+      <div className="ligne" role="tablist" aria-label="Sections des règles" style={{ marginBottom: 12 }}>
+        <button role="tab" aria-selected={section === 'regles'} className={`btn btn-petit ${section === 'regles' ? 'btn-or' : ''}`} onClick={() => setSection('regles')}>
+          Règles
+        </button>
+        <button role="tab" aria-selected={section === 'dossier'} className={`btn btn-petit ${section === 'dossier' ? 'btn-or' : ''}`} onClick={() => setSection('dossier')}>
+          Le dossier de l'affaire
+        </button>
+      </div>
+      {section === 'regles' ? (
+        <ContenuRegles />
+      ) : (
+        <>
+          <p className="muet petit">Fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
+          <Dossier vue={vue} />
+        </>
+      )}
     </Modale>
   );
 }

@@ -322,3 +322,17 @@ describe('Quitter une partie en ligne', () => {
     [hote, b, c].forEach((x) => x.fermer());
   });
 });
+
+describe('Carnet en ligne', () => {
+  it('cocher un seul élément du carnet est accepté ; une clé inconnue est refusée', async () => {
+    const { hote, tous } = await salonAvec(3);
+    expect((await hote.emit('salon:demarrer', {})).ok).toBe(true);
+    await attendre(() => hote.etat?.partie != null);
+    expect(await hote.action({ type: 'carnet', marques: { victor: 'ecarte' } })).toMatchObject({ ok: true });
+    expect(await hote.action({ type: 'carnet', marques: { cave: 'probable', poison: 'certain' }, notes: 'à vérifier' })).toMatchObject({ ok: true });
+    await attendre(() => hote.etat!.partie!.moi.carnet.marques.poison === 'certain');
+    expect(hote.etat!.partie!.moi.carnet).toEqual({ marques: { victor: 'ecarte', cave: 'probable', poison: 'certain' }, notes: 'à vérifier' });
+    expect((await hote.emit('jeu:action', { type: 'carnet', marques: { intrus: 'ecarte' } })).ok).toBe(false);
+    tous.forEach((x) => x.fermer());
+  });
+});

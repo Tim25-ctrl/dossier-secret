@@ -21,6 +21,12 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const derniere = connexion.derniereSession();
 
+  /** Ouvre un formulaire en reprenant le pseudo par défaut (il a pu changer dans les Paramètres). */
+  const ouvrir = (m: Mode) => {
+    setMode(m);
+    setPseudo(prefs.pseudo);
+  };
+
   const valider = async (e: FormEvent) => {
     e.preventDefault();
     setErreur(null);
@@ -55,10 +61,10 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
                 Reprendre ma partie ({derniere.code})
               </button>
             )}
-            <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => setMode('creer')}>
+            <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
               Créer une partie
             </button>
-            <button className="btn" onClick={() => setMode('rejoindre')}>
+            <button className="btn" onClick={() => ouvrir('rejoindre')}>
               Rejoindre une partie
             </button>
             <div className="ligne" style={{ justifyContent: 'center' }}>

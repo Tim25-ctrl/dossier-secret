@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { avancer, cartesCorrespondantes, definirConnexion, type EtatPartie } from '../src/engine/partie';
 import { vuePour } from '../src/engine/vue';
-import { elementsDuTriplet, type ElementId, type Triplet } from '../src/shared/types';
+import { categorieDe, elementsDuTriplet, type ElementId, type Triplet } from '../src/shared/types';
 import {
   FALSIF_MS,
   Horloge,
@@ -93,6 +93,8 @@ describe('Tours et points d\'action', () => {
     const etat = nouvellePartie(3);
     const h = new Horloge();
     const a = actif(etat);
+    // On rend tous les dossiers consultables pour ce test.
+    for (const d of etat.affaire.archives) d.disponibleDesManche = 1;
     expect(etat.pointsAction).toBe(2);
     expect(act(etat, a, { type: 'consulterArchive', dossier: 1 }, h.avance(1)).ok).toBe(true);
     expect(etat.pointsAction).toBe(1);
@@ -167,11 +169,15 @@ describe('Tours et points d\'action', () => {
   it('les indices publics différés sont publiés aux manches prévues', () => {
     const etat = nouvellePartie(3);
     const h = new Horloge();
-    expect(etat.indicesPublics).toHaveLength(2);
-    while (etat.manche < 5) act(etat, actif(etat), { type: 'finTour' }, h.avance(1));
-    expect(etat.indicesPublics).toHaveLength(3);
-    while (etat.manche < 9) act(etat, actif(etat), { type: 'finTour' }, h.avance(1));
-    expect(etat.indicesPublics).toHaveLength(4);
+    const { nbIndicesPublicsDepart, manchesIndicesPublics } = etat.config;
+    expect(etat.indicesPublics).toHaveLength(nbIndicesPublicsDepart);
+    manchesIndicesPublics.forEach((manche, i) => {
+      while (etat.manche < manche - 1) act(etat, actif(etat), { type: 'finTour' }, h.avance(1));
+      expect(etat.indicesPublics).toHaveLength(nbIndicesPublicsDepart + i);
+      while (etat.manche < manche) act(etat, actif(etat), { type: 'finTour' }, h.avance(1));
+      expect(etat.indicesPublics).toHaveLength(nbIndicesPublicsDepart + i + 1);
+      expect(etat.historique.at(-2)).toMatchObject({ type: 'indice_public', manche });
+    });
   });
 });
 
@@ -329,9 +335,11 @@ describe('Pouvoir du complice : le Mensonge', () => {
   it('le complice peut cacher sa carte ; l\'interrogation continue avec le suivant', () => {
     const { etat, auteur, c, h } = scenario();
     const suivant = autres(etat, auteur).find((x) => x !== c)!;
+    // Une carte du complice et une carte du suivant, de catégories différentes.
     const carteC = etat.joueurs[c].main[0];
-    const carteS = etat.joueurs[suivant].main.find((x) => x.length && x !== carteC && !(etat.joueurs[c].main.includes(x)))!;
-    const t = tripletAvec(etat, [carteC, carteS].filter((x, i, arr) => arr.findIndex((y) => y === x) === i));
+    const carteS = etat.joueurs[suivant].main.find((x) => categorieDe(x) !== categorieDe(carteC))!;
+    expect(carteS).toBeDefined();
+    const t = tripletAvec(etat, [carteC, carteS]);
     act(etat, auteur, hyp(t, [c, suivant]), h.avance(1));
     passerFalsification(etat, h);
     const v = vuePour(etat, c);

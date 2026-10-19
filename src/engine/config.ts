@@ -42,10 +42,12 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   delaiDeconnecteMs: 25_000,
   delaiRepriseTourMs: 45_000,
 
-  nbDossiersArchives: 8,
-  nbIndicesPublicsDepart: 2,
-  manchesIndicesPublics: [5, 9],
-  ouvertureDossiers: [1, 1, 1, 1, 3, 3, 6, 6],
+  // Volume d'indices choisi d'après les simulations (voir docs/EQUILIBRAGE.md) :
+  // assez pour enquêter, sans rendre l'affaire triviale.
+  nbDossiersArchives: 6,
+  nbIndicesPublicsDepart: 1,
+  manchesIndicesPublics: [6],
+  ouvertureDossiers: [1, 2, 3, 5, 7, 9],
   minCombinaisonsIndices: 4,
 };
 

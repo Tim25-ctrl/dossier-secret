@@ -97,18 +97,23 @@ export function CarteIndice({ id, dossier, ouvert = true }: { id: string; dossie
 export function Modale({ titre, onFermer, children, pied }: { titre: ReactNode; onFermer?: () => void; children: ReactNode; pied?: ReactNode }) {
   const idTitre = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // Dernière version de onFermer : les parents la recréent à chaque rendu, ce qui ne doit
+  // PAS relancer l'effet ci-dessous (sinon le focus est volé à chaque frappe ou mise à jour).
+  const fermer = useRef(onFermer);
+  fermer.current = onFermer;
   useEffect(() => {
     const precedent = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
+    // Le focus n'est placé sur la fenêtre que si rien à l'intérieur ne l'a déjà (ex. autoFocus).
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
     const echap = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onFermer) onFermer();
+      if (e.key === 'Escape') fermer.current?.();
     };
     document.addEventListener('keydown', echap);
     return () => {
       document.removeEventListener('keydown', echap);
       precedent?.focus?.();
     };
-  }, [onFermer]);
+  }, []);
   return (
     <div className="voile" onMouseDown={(e) => e.target === e.currentTarget && onFermer?.()}>
       <div className="modale" role="dialog" aria-modal="true" aria-labelledby={idTitre} tabIndex={-1} ref={ref}>

@@ -147,6 +147,7 @@ textarea {
 }
 .btn:disabled {
   opacity: 0.45;
+  filter: grayscale(0.85);
   cursor: not-allowed;
 }
 .btn-or {

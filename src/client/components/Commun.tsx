@@ -1,0 +1,208 @@
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { INDICES_PAR_ID, LIBELLES_CATEGORIE_INDICE } from '../../shared/data/indices';
+import { nomCourt, nomElement } from '../../shared/data/manoir';
+import { ceQueLIndiceEcarte, precision } from '../../shared/logique';
+import { categorieDe, type ElementId, type Triplet } from '../../shared/types';
+import { Embleme, Icone } from './Emblemes';
+
+export const LIBELLE_CATEGORIE = { suspect: 'Suspect', lieu: 'Lieu', arme: 'Arme' } as const;
+
+export function Carte({
+  id,
+  taille = 'normale',
+  onClick,
+  presse,
+  desactive,
+  marqueur,
+  titre,
+}: {
+  id: ElementId;
+  taille?: 'normale' | 'mini';
+  onClick?: () => void;
+  presse?: boolean;
+  desactive?: boolean;
+  marqueur?: string;
+  titre?: string;
+}) {
+  const cat = categorieDe(id)!;
+  const contenu = (
+    <>
+      <Embleme id={id} taille={taille === 'mini' ? 26 : 54} />
+      {taille === 'mini' ? (
+        <span className="nom-carte">{nomCourt(id)}</span>
+      ) : (
+        <>
+          <span className="nom-carte">{nomElement(id)}</span>
+          <span className="type-carte">{LIBELLE_CATEGORIE[cat]}</span>
+        </>
+      )}
+      {marqueur && <span className="marqueur">{marqueur}</span>}
+    </>
+  );
+  const classe = `carte${taille === 'mini' ? ' carte-mini' : ''}`;
+  if (onClick)
+    return (
+      <button type="button" className={classe} onClick={onClick} aria-pressed={presse} disabled={desactive} title={titre}>
+        {contenu}
+      </button>
+    );
+  return (
+    <span className={classe} title={titre ?? nomElement(id)}>
+      {contenu}
+    </span>
+  );
+}
+
+export function TripletVue({ t }: { t: Triplet }) {
+  return (
+    <span className="triplet">
+      <Carte id={t.suspect} taille="mini" />
+      <Carte id={t.lieu} taille="mini" />
+      <Carte id={t.arme} taille="mini" />
+    </span>
+  );
+}
+
+export function texteTriplet(t: Triplet) {
+  return `${nomElement(t.suspect)} · ${nomElement(t.lieu)} · ${nomElement(t.arme)}`;
+}
+
+export function CarteIndice({ id, dossier, ouvert = true }: { id: string; dossier?: number; ouvert?: boolean }) {
+  const c = INDICES_PAR_ID[id];
+  const [details, setDetails] = useState(ouvert);
+  if (!c) return null;
+  return (
+    <article className="indice">
+      <div className="meta">
+        <span>{LIBELLES_CATEGORIE_INDICE[c.categorie]}</span>
+        {dossier !== undefined && <span>Dossier n° {dossier}</span>}
+        <span>Précision {precision(c)}</span>
+      </div>
+      <h4>{c.titre}</h4>
+      <p>{c.texte}</p>
+      <button type="button" className="btn btn-discret btn-petit" style={{ color: '#5b4520' }} onClick={() => setDetails(!details)} aria-expanded={details}>
+        {details ? 'Masquer' : 'Afficher'} ce que l'indice permet d'écarter
+      </button>
+      {details && (
+        <ul>
+          {ceQueLIndiceEcarte(c).map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+      )}
+    </article>
+  );
+}
+
+export function Modale({ titre, onFermer, children, pied }: { titre: ReactNode; onFermer?: () => void; children: ReactNode; pied?: ReactNode }) {
+  const idTitre = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const precedent = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    const echap = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onFermer) onFermer();
+    };
+    document.addEventListener('keydown', echap);
+    return () => {
+      document.removeEventListener('keydown', echap);
+      precedent?.focus?.();
+    };
+  }, [onFermer]);
+  return (
+    <div className="voile" onMouseDown={(e) => e.target === e.currentTarget && onFermer?.()}>
+      <div className="modale" role="dialog" aria-modal="true" aria-labelledby={idTitre} tabIndex={-1} ref={ref}>
+        <div className="modale-entete">
+          <h2 id={idTitre} style={{ margin: 0 }}>
+            {titre}
+          </h2>
+          {onFermer && (
+            <button type="button" className="btn btn-discret btn-petit" onClick={onFermer} aria-label="Fermer">
+              ✕
+            </button>
+          )}
+        </div>
+        {children}
+        {pied && <div className="modale-pied">{pied}</div>}
+      </div>
+    </div>
+  );
+}
+
+/** Bulle d'aide accessible au clavier, à la souris et au toucher. */
+export function Aide({ children, libelle = 'Aide' }: { children: ReactNode; libelle?: string }) {
+  const [ouvert, setOuvert] = useState(false);
+  const id = useId();
+  return (
+    <span className="aide" onMouseEnter={() => setOuvert(true)} onMouseLeave={() => setOuvert(false)}>
+      <button type="button" className="aide-bouton" aria-label={libelle} aria-describedby={ouvert ? id : undefined} onClick={() => setOuvert(!ouvert)} onBlur={() => setOuvert(false)}>
+        ?
+      </button>
+      {ouvert && (
+        <span role="tooltip" id={id} className="aide-bulle">
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function Prive({ children, titre = 'Privé — visible par vous seul' }: { children: ReactNode; titre?: string }) {
+  return (
+    <section className="prive">
+      <div className="prive-entete">
+        <Icone nom="cadenas" taille={14} /> {titre}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function EntetePublic({ children = 'Public — visible par tous' }: { children?: ReactNode }) {
+  return (
+    <div className="public-entete">
+      <Icone nom="oeil" taille={14} /> {children}
+    </div>
+  );
+}
+
+/** Compte à rebours basé sur l'heure du serveur. */
+export function Chrono({ echeance, decalage, total }: { echeance: number; decalage: number; total?: number }) {
+  const [, setTic] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTic((x) => x + 1), 250);
+    return () => clearInterval(t);
+  }, []);
+  const restant = Math.max(0, echeance - (Date.now() + decalage));
+  const s = Math.ceil(restant / 1000);
+  const texte = s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')}` : `${s} s`;
+  return (
+    <span>
+      <span className={`chrono${s <= 10 ? ' urgent' : ''}`} aria-label={`${s} secondes restantes`}>
+        {texte}
+      </span>
+      {total ? (
+        <div className="barre-progression" aria-hidden="true">
+          <div style={{ width: `${Math.min(100, (restant / total) * 100)}%` }} />
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
+/** Petite notification temporaire. */
+export function useNotification() {
+  const [notif, setNotif] = useState<{ texte: string; erreur: boolean } | null>(null);
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const afficher = (texte: string, erreur = false) => {
+    setNotif({ texte, erreur });
+    if (minuteur.current) clearTimeout(minuteur.current);
+    minuteur.current = setTimeout(() => setNotif(null), erreur ? 5000 : 3000);
+  };
+  const vue = notif ? (
+    <div className={`notification${notif.erreur ? ' erreur-notif' : ''}`} role={notif.erreur ? 'alert' : 'status'}>
+      {notif.texte}
+    </div>
+  ) : null;
+  return { afficher, vue };
+}

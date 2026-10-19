@@ -48,6 +48,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       pointsAction: etat.config.pointsAction,
       nbInterroges: nbInterroges(etat.ordre.length),
       hypothesesMaxParTour: etat.config.hypothesesMaxParTour,
+      delaiFalsificationMs: etat.config.delaiFalsificationMs,
     },
     manche: etat.manche,
     joueurActif: joueurActif(etat),

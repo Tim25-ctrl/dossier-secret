@@ -166,6 +166,16 @@ describe('Tours et points d\'action', () => {
     expect(actif(etat)).not.toBe(premier);
   });
 
+  it('un joueur qui revient (page rechargée) récupère un délai de tour raisonnable', () => {
+    const etat = nouvellePartie(3);
+    const premier = actif(etat);
+    definirConnexion(etat, premier, false, T0 + 10);
+    definirConnexion(etat, premier, true, T0 + 20);
+    avancer(etat, T0 + 10 + 5_001); // l'ancien délai « déconnecté » ne s'applique plus
+    expect(actif(etat)).toBe(premier);
+    expect(etat.echeanceTour).toBeGreaterThanOrEqual(T0 + 20 + 20_000);
+  });
+
   it('les indices publics différés sont publiés aux manches prévues', () => {
     const etat = nouvellePartie(3);
     const h = new Horloge();

@@ -690,11 +690,20 @@ export function definirConnexion(etat: EtatPartie, joueur: string, connecte: boo
   if (!j || j.connecte === connecte) return;
   j.connecte = connecte;
   publier(etat, { t: now, type: 'connexion', joueur, connecte });
-  if (!connecte && etat.etape !== 'terminee') {
+  if (etat.etape === 'terminee') {
+    etat.version++;
+    return;
+  }
+  const concerneTour = etat.etape === 'tour' && joueurActif(etat) === joueur;
+  const concerneReponse = etat.etape === 'hypothese' && etat.hypothese?.etape === 'interrogation' && repondantActuel(etat) === joueur;
+  if (!connecte) {
     const limite = now + etat.config.delaiDeconnecteMs;
-    if (etat.etape === 'tour' && joueurActif(etat) === joueur) etat.echeanceTour = Math.min(etat.echeanceTour, limite);
-    if (etat.etape === 'hypothese' && etat.hypothese?.etape === 'interrogation' && repondantActuel(etat) === joueur)
-      etat.hypothese.echeance = Math.min(etat.hypothese.echeance, limite);
+    if (concerneTour) etat.echeanceTour = Math.min(etat.echeanceTour, limite);
+    if (concerneReponse) etat.hypothese!.echeance = Math.min(etat.hypothese!.echeance, limite);
+  } else {
+    // De retour (page rechargée, réseau rétabli) : on lui rend un délai raisonnable.
+    if (concerneTour) etat.echeanceTour = Math.max(etat.echeanceTour, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiTourMs));
+    if (concerneReponse) etat.hypothese!.echeance = Math.max(etat.hypothese!.echeance, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiReponseMs));
   }
   etat.version++;
 }

@@ -229,6 +229,7 @@ export interface VueJoueur {
     pointsAction: number;
     nbInterroges: number;
     hypothesesMaxParTour: number;
+    delaiFalsificationMs: number;
   };
   manche: number;
   joueurActif: string;

@@ -152,7 +152,7 @@ Render propose une offre gratuite qui supporte les WebSockets. Ce qu'il faut sav
 
 Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'autres hébergeurs (Fly.io, Railway, Koyeb, VPS…).
 
-> **Statut honnête :** le jeu a été testé en local avec plusieurs onglets, des bots et de vrais clients WebSocket automatisés. Il **n'a pas encore été déployé en ligne** ni testé entre plusieurs appareils sur Internet : cette étape nécessite vos comptes GitHub et Render.
+> **Statut :** le jeu est déployé sur **https://dossier-secret.onrender.com** (service Render gratuit, région Francfort, redéploiement automatique à chaque envoi sur la branche `main` de GitHub). Une partie à deux joueurs + un bot y a été lancée avec succès depuis deux onglets. Elle n'a pas encore été testée depuis plusieurs appareils différents.
 
 ## 8. Ce qui est terminé
 

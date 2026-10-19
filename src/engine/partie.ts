@@ -667,6 +667,19 @@ export function avancer(etat: EtatPartie, now: number, rng?: Rng): boolean {
   return change;
 }
 
+/**
+ * Après un redémarrage du serveur, les échéances passées pendant l'arrêt ne doivent
+ * pas déclencher une cascade de tours automatiques : on les repousse.
+ */
+export function recalerEcheances(etat: EtatPartie, now: number) {
+  if (etat.etape === 'terminee') return;
+  etat.echeanceTour = Math.max(etat.echeanceTour, now + etat.config.delaiTourMs);
+  if (etat.hypothese) {
+    const delai = etat.hypothese.etape === 'falsification' ? etat.config.delaiFalsificationMs : etat.config.delaiReponseMs;
+    etat.hypothese.echeance = Math.max(etat.hypothese.echeance, now + delai);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Présence
 // ---------------------------------------------------------------------------

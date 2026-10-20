@@ -184,6 +184,7 @@ class Connexion {
   message = (texte: string) => this.envoyer('salon:message', { texte });
   reglerDureeTour = (dureeTourS: number | null) => this.envoyer('salon:reglages', { dureeTourS });
   reglerModeComplice = (modeComplice: 'classique' | 'ruse') => this.envoyer('salon:reglages', { modeComplice });
+  reglerHistoriqueCartes = (historiqueCartes: 'visibles' | 'anonymes') => this.envoyer('salon:reglages', { historiqueCartes });
   action = (a: ActionJeu) => this.envoyer('jeu:action', a);
 }
 

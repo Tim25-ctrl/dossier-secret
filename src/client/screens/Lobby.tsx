@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSonMessages } from '../components/jeu/useSons';
 import { DUREES_TOUR, type EtatClient } from '../../shared/protocole';
 import { Chat } from '../components/Chat';
 import { useNotification } from '../components/Commun';
@@ -21,6 +22,7 @@ export function Lobby({ etat }: { etat: EtatClient }) {
   const [regles, setRegles] = useState(false);
   const [lancement, setLancement] = useState(false);
   const lien = `${location.origin}/?salon=${salon.code}`;
+  useSonMessages(salon.messages, moi);
   const n = salon.joueurs.length;
   const absents = salon.joueurs.filter((j) => !j.connecte);
   const raisonBlocage =
@@ -156,6 +158,26 @@ export function Lobby({ etat }: { etat: EtatClient }) {
                 {salon.reglages.modeComplice === 'ruse'
                   ? 'Le complice dispose de ruses discrètes (mensonge, carte empruntée, hypothèse falsifiée, dossier trafiqué). Chaque ruse peut laisser une empreinte, et chacun peut tenter de le dénoncer une fois.'
                   : 'Le complice peut mentir et falsifier des hypothèses un nombre limité de fois. Pas d’empreintes ni de dénonciation.'}
+              </span>
+            </div>
+            <div className="champ" style={{ marginTop: 14, marginBottom: 0 }}>
+              <label htmlFor="historique-cartes">Cartes montrées</label>
+              {estHote ? (
+                <select
+                  id="historique-cartes"
+                  value={salon.reglages.historiqueCartes ?? 'visibles'}
+                  onChange={(e) => void agir(() => connexion.reglerHistoriqueCartes(e.target.value as 'visibles' | 'anonymes'))}
+                >
+                  <option value="visibles">Rappelées dans l'historique (recommandé)</option>
+                  <option value="anonymes">Anonymes : à retenir de mémoire (difficile)</option>
+                </select>
+              ) : (
+                <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'Anonymes (difficile)' : "Rappelées dans l'historique"}</strong>
+              )}
+              <span className="petit muet">
+                {salon.reglages.historiqueCartes === 'anonymes'
+                  ? 'Vous voyez la carte au moment où on vous la montre, et jusqu’à la fin de votre tour. Ensuite, l’historique et le carnet indiquent seulement « une carte » : notez-la vous-même !'
+                  : 'Les cartes que vous montrez et que l’on vous montre restent rappelées dans l’historique et le carnet (visibles par vous seul).'}
               </span>
             </div>
             <div style={{ marginTop: 14 }}>

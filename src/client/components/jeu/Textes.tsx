@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../../shared/data/indices';
 import { nomElement } from '../../../shared/data/manoir';
 import type { EntreePrivee, EvenementPublic } from '../../../shared/types';
-import { TripletVue } from '../Commun';
+import { Carte, TripletVue } from '../Commun';
 
 export type Noms = (id: string) => string;
 
@@ -40,6 +40,16 @@ export function texteEvenement(
         ),
       };
     case 'reponse':
+      if (ev.resultat === 'carte_montree' && ev.carte)
+        return {
+          classe: 'prive-ligne',
+          contenu: (
+            <>
+              🔒 {ev.joueur === moi ? 'Vous montrez en secret' : `${nom(ev.joueur)} vous montre en secret`} : <Carte id={ev.carte} taille="mini" />
+              {ev.auto ? ' (réponse automatique)' : ''}
+            </>
+          ),
+        };
       return {
         contenu:
           ev.resultat === 'carte_montree'
@@ -64,16 +74,16 @@ export function texteEvenement(
       };
     case 'empreinte':
       return {
-        classe: 'important',
+        classe: 'important empreinte',
         contenu: (
           <>
             {ev.innocente ? (
               <>
-                🔍 <strong>Empreinte relevée</strong> sur les lieux d'une manigance : elle n'appartient pas à <strong>{ev.innocente === moi ? 'vous' : nom(ev.innocente)}</strong>.
+                <span className="loupe-balaie" aria-hidden="true">🔍</span> <strong>Empreinte relevée</strong> sur les lieux d'une manigance : elle n'appartient pas à <strong>{ev.innocente === moi ? 'vous' : nom(ev.innocente)}</strong>.
               </>
             ) : (
               <>
-                🔍 <strong>Empreinte relevée</strong> : le complice a rusé pendant la <strong>manche {ev.mancheRuse}</strong>. Qui a répondu, falsifié ou consulté quoi à ce
+                <span className="loupe-balaie" aria-hidden="true">🔍</span> <strong>Empreinte relevée</strong> : le complice a rusé pendant la <strong>manche {ev.mancheRuse}</strong>. Qui a répondu, falsifié ou consulté quoi à ce
                 moment-là ?
               </>
             )}
@@ -111,7 +121,11 @@ export function texteEvenement(
   }
 }
 
-export function texteEntreePrivee(e: EntreePrivee, nom: Noms): ReactNode {
+export function texteEntreePrivee(e: EntreePrivee, nom: Noms, anonyme = false): ReactNode {
+  // Mode difficile : les cartes montrées et reçues ne sont pas rappelées.
+  if (anonyme && e.type === 'carte_vue') return `${nom(e.de)} vous a montré une carte.`;
+  if (anonyme && e.type === 'carte_montree') return `Vous avez montré une carte à ${nom(e.a)}${e.auto ? ' (réponse automatique)' : ''}.`;
+  if (anonyme && e.type === 'ruse' && e.ruse === 'emprunt') return 'Ruse « Carte empruntée » : vous avez montré une carte que vous n’avez pas.';
   switch (e.type) {
     case 'role':
       return e.role === 'complice' ? (

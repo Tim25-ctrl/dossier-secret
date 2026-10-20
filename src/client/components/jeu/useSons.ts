@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import type { VueJoueur } from '../../../shared/types';
+import type { MessageChat } from '../../../shared/protocole';
+import { SANS_LIMITE, type VueJoueur } from '../../../shared/types';
 import { jouer, type Son } from '../../sons';
 
 /**
@@ -42,4 +43,33 @@ export function useSonsPartie(vue: VueJoueur, doitRepondre: boolean) {
     if (doitRepondre && !avant.current.doitRepondre) jouer('interrogation');
     avant.current = { monTour, doitRepondre };
   }, [monTour, doitRepondre]);
+}
+
+/** « Pop » discret à chaque nouveau message d'un AUTRE joueur (jamais pour les anciens ni les miens). */
+export function useSonMessages(messages: MessageChat[], moi: string) {
+  const dernier = useRef(messages.at(-1)?.id ?? 0);
+  useEffect(() => {
+    const nouveaux = messages.filter((m) => m.id > dernier.current);
+    dernier.current = messages.at(-1)?.id ?? dernier.current;
+    if (nouveaux.some((m) => m.auteur !== moi)) jouer('message');
+  }, [messages, moi]);
+}
+
+/**
+ * Tic-tac pendant les 10 dernières secondes de MON délai : mon tour, ou ma réponse à une
+ * interrogation (vécue de la même façon par tous les interrogés). Rien en pause ni sans limite.
+ */
+export function useTicTac(echeance: number | null, decalage: number) {
+  useEffect(() => {
+    if (echeance === null || echeance >= SANS_LIMITE) return;
+    let derniere = -1;
+    const t = setInterval(() => {
+      const restant = Math.ceil((echeance - (Date.now() + decalage)) / 1000);
+      if (restant >= 1 && restant <= 10 && restant !== derniere) {
+        derniere = restant;
+        jouer(restant % 2 === 0 ? 'tic' : 'tac');
+      }
+    }, 200);
+    return () => clearInterval(t);
+  }, [echeance, decalage]);
 }

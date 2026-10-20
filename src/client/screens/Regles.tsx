@@ -1,6 +1,5 @@
 import { AFFAIRE } from '../../shared/data/manoir';
 import { useState } from 'react';
-import type { VueJoueur } from '../../shared/types';
 import { Modale } from '../components/Commun';
 import { Dossier } from '../components/jeu/Dossier';
 
@@ -106,6 +105,10 @@ export function ContenuRegles() {
         <li>si personne n'a de carte, vous ne recevez rien. Attention : cela ne prouve pas que l'hypothèse est juste !</li>
       </ul>
       <p>Répondre à une interrogation ne coûte aucun point d'action.</p>
+      <p>
+        <strong>Option « Cartes montrées anonymes » (difficile).</strong> Choisie par l'hôte dans le salon d'attente : vous voyez la carte au moment où on vous la
+        montre et jusqu'à la fin de votre tour, puis l'historique et le carnet indiquent seulement « une carte ». À vous de la noter !
+      </p>
 
       <h3>Les pouvoirs du complice</h3>
       <ul>
@@ -190,7 +193,7 @@ export function ContenuRegles() {
   );
 }
 
-export function ModaleRegles({ onFermer, vue }: { onFermer: () => void; vue?: VueJoueur }) {
+export function ModaleRegles({ onFermer }: { onFermer: () => void }) {
   const [section, setSection] = useState<'regles' | 'dossier'>('regles');
   return (
     <Modale titre="Règles du jeu" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Compris</button>}>
@@ -207,7 +210,7 @@ export function ModaleRegles({ onFermer, vue }: { onFermer: () => void; vue?: Vu
       ) : (
         <>
           <p className="muet petit">Fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
-          <Dossier vue={vue} />
+          <Dossier />
         </>
       )}
     </Modale>

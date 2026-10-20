@@ -5,7 +5,19 @@
 // RÈGLE : aucun son ne doit trahir le complice. Seuls des événements publics, ou vécus de la même
 // façon par tous les joueurs (être interrogé, voir une carte, ouvrir un dossier), font du bruit.
 
-export type Son = 'tour' | 'interrogation' | 'carte' | 'hypothese' | 'dossier' | 'empreinte' | 'demasque' | 'victoire' | 'defaite';
+export type Son =
+  | 'tour'
+  | 'interrogation'
+  | 'carte'
+  | 'hypothese'
+  | 'dossier'
+  | 'empreinte'
+  | 'demasque'
+  | 'victoire'
+  | 'defaite'
+  | 'message'
+  | 'tic'
+  | 'tac';
 
 let ctx: AudioContext | null = null;
 let actif = true;
@@ -148,6 +160,19 @@ const RECETTES: Record<Son, (c: AudioContext, s: AudioNode) => void> = {
   // Petite fanfare montante.
   victoire: (c, s) => {
     [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(c, s, { freq: f, debut: i * 0.13, duree: i === 3 ? 1.2 : 0.3, type: 'triangle', gain: 0.25 }));
+  },
+  // Petit « pop » discret : nouveau message dans la discussion.
+  message: (c, s) => {
+    note(c, s, { freq: 660, freqFin: 990, duree: 0.12, gain: 0.12 });
+  },
+  // Tic-tac de pendule (10 dernières secondes) : deux hauteurs qui alternent.
+  tic: (c, s) => {
+    note(c, s, { freq: 2000, duree: 0.04, gain: 0.12, type: 'triangle' });
+    souffle(c, s, { duree: 0.02, filtre: 'highpass', freq: 4000, gain: 0.08 });
+  },
+  tac: (c, s) => {
+    note(c, s, { freq: 1500, duree: 0.04, gain: 0.12, type: 'triangle' });
+    souffle(c, s, { duree: 0.02, filtre: 'highpass', freq: 3000, gain: 0.08 });
   },
   // Descente mineure, lente.
   defaite: (c, s) => {

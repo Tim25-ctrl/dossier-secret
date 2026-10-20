@@ -434,12 +434,18 @@ textarea:focus {
 }
 .liste-joueurs li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--nuit-2);
   border: 1px solid var(--ardoise);
+}
+/* Le nom garde sa largeur : les étiquettes (« son tour », « complice démasqué ») passent à la ligne. */
+.nom-joueur {
+  flex: 1 1 7em;
+  min-width: 0;
 }
 .pastille {
   width: 10px;
@@ -623,7 +629,18 @@ textarea:focus {
 .bandeau-tour.mon-tour {
   border-color: var(--or);
   background: linear-gradient(90deg, rgba(201, 164, 92, 0.18), rgba(201, 164, 92, 0.03));
-  animation: apparition 0.4s ease-out;
+  /* Arrivée, puis trois pulsations dorées pour attirer l'œil. */
+  animation:
+    apparition 0.4s ease-out,
+    pulsation 1.4s ease-out 0.4s 3;
+}
+@keyframes pulsation {
+  from {
+    box-shadow: 0 0 0 0 rgba(201, 164, 92, 0.55);
+  }
+  to {
+    box-shadow: 0 0 0 14px rgba(201, 164, 92, 0);
+  }
 }
 @keyframes apparition {
   from {
@@ -1396,4 +1413,110 @@ button.carte:hover:not(:disabled) {
 }
 .prive:has(> .sceau-brise) > .prive-entete {
   padding-right: 44px;
+}
+
+/* Complice démasqué : tampon rouge. */
+.bandeau-demasque {
+  position: relative;
+  padding-right: 130px;
+}
+.tampon-demasque {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  margin-top: -14px;
+  padding: 1px 8px;
+  font-size: 0.78rem;
+  border: 3px double var(--rouge);
+  border-radius: 6px;
+  color: var(--rouge);
+  font-family: var(--titre);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-10deg);
+  pointer-events: none;
+  animation: tamponner-demasque 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes tamponner-demasque {
+  from {
+    transform: scale(2.6) rotate(-24deg);
+  }
+  to {
+    transform: rotate(-10deg);
+  }
+}
+@media (max-width: 520px) {
+  .bandeau-demasque {
+    padding-right: 14px;
+    padding-top: 40px;
+  }
+  .tampon-demasque {
+    top: 8px;
+    margin-top: 0;
+  }
+}
+
+/* Empreinte relevée : la loupe balaie la ligne, qui s'illumine. */
+.loupe-balaie {
+  display: inline-block;
+  animation: balayer 0.6s ease-in-out 3 alternate;
+}
+@keyframes balayer {
+  from {
+    transform: translateX(-5px) rotate(-15deg) scale(1.1);
+  }
+  to {
+    transform: translateX(5px) rotate(10deg) scale(1.25);
+  }
+}
+.journal li.empreinte {
+  animation: lueur 2s ease-out;
+}
+@keyframes lueur {
+  from {
+    box-shadow: inset 0 0 0 999px rgba(201, 164, 92, 0.22), 0 0 16px rgba(201, 164, 92, 0.5);
+  }
+  to {
+    box-shadow: inset 0 0 0 999px rgba(201, 164, 92, 0), 0 0 0 rgba(201, 164, 92, 0);
+  }
+}
+
+/* Écran de fin : le sceau s'appose sur le verdict. */
+.sceau-appose {
+  display: inline-block;
+  animation: apposer 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+@keyframes apposer {
+  from {
+    transform: scale(2.6) rotate(-35deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Carnet : icône cliquable, carte en grand. */
+.icone-carte {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: zoom-in;
+  line-height: 0;
+}
+.icone-carte:focus-visible {
+  outline: 2px solid var(--or);
+  outline-offset: 2px;
+}
+.carte-en-grand {
+  text-align: center;
+  max-width: 420px;
+  margin: 0 auto;
+}
+/* Historique : ligne privée (carte montrée), visible des deux joueurs concernés seulement. */
+.journal li.prive-ligne {
+  border-left-color: var(--or);
+  background: rgba(201, 164, 92, 0.08);
 }

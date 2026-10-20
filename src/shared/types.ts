@@ -120,6 +120,9 @@ export interface CarteIndice {
 
 export type Role = 'enqueteur' | 'complice';
 
+/** Cartes montrées dans l'historique : visibles (pour les deux joueurs concernés) ou anonymes (mode difficile). */
+export type HistoriqueCartes = 'visibles' | 'anonymes';
+
 /** Mode du complice : pouvoirs historiques, ou réserve de ruses + empreintes + dénonciation. */
 export type ModeComplice = 'classique' | 'ruse';
 /** Les ruses du complice (mode « rusé »). Chacune coûte 1 ruse et laisse une empreinte. */
@@ -154,7 +157,8 @@ export type EvenementPublic = { t: number } & (
   | { type: 'debut_tour'; joueur: string; manche: number }
   | { type: 'fin_tour'; joueur: string; raison: 'volontaire' | 'temps_ecoule' | 'tour_perdu' }
   | { type: 'hypothese'; id: string; auteur: string; triplet: Triplet; interroges: string[] }
-  | { type: 'reponse'; hypothese: string; joueur: string; resultat: 'aucune_carte' | 'carte_montree'; auto: boolean }
+  /** `carte` : ajoutée seulement dans la vue de l'auteur de l'hypothèse et de celui qui l'a montrée. */
+  | { type: 'reponse'; hypothese: string; joueur: string; resultat: 'aucune_carte' | 'carte_montree'; auto: boolean; carte?: ElementId }
   | { type: 'fin_hypothese'; hypothese: string; montreePar: string | null }
   | { type: 'archive'; joueur: string; dossier: number; categorie: CategorieDossier }
   | { type: 'indice_public'; indice: string; manche: number }
@@ -275,6 +279,8 @@ export interface VueJoueur {
     /** Mode « rusé » : nombre total de ruses du complice. */
     ruses: number;
     coutRuses: Record<TypeRuse, number>;
+    /** « anonymes » : après le tour, les cartes montrées et reçues ne sont plus rappelées nulle part. */
+    historiqueCartes: HistoriqueCartes;
     /** Mode « rusé » : aucune empreinte publiée avant cette manche. */
     premiereMancheEmpreinte: number;
     /** Mode « rusé » : manches de suspension des ruses d'un complice démasqué. */

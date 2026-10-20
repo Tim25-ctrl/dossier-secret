@@ -378,3 +378,20 @@ describe('Mode du complice dans le salon', () => {
     tous.forEach((x) => x.fermer());
   });
 });
+
+describe('Cartes montrées anonymes (mode difficile)', () => {
+  it("l'hôte seul choisit, dans le salon d'attente ; la partie démarre dans ce mode", async () => {
+    const { hote, autres, tous, code } = await salonAvec(3);
+    expect(hote.etat!.salon.reglages.historiqueCartes).toBe('visibles');
+    expect((await autres[0].emit('salon:reglages', { historiqueCartes: 'anonymes' })).ok).toBe(false);
+    expect((await hote.emit('salon:reglages', { historiqueCartes: 'oui' })).ok).toBe(false);
+    expect((await hote.emit('salon:reglages', { historiqueCartes: 'anonymes' })).ok).toBe(true);
+    await attendre(() => tous.every((j) => j.etat!.salon.reglages.historiqueCartes === 'anonymes'));
+    expect((await hote.emit('salon:demarrer', {})).ok).toBe(true);
+    await attendre(() => hote.etat?.partie != null);
+    expect(hote.etat!.partie!.regles.historiqueCartes).toBe('anonymes');
+    expect(serveur.gestionnaire.salons.get(code)!.partie!.config.historiqueCartes).toBe('anonymes');
+    expect((await hote.emit('salon:reglages', { historiqueCartes: 'visibles' })).ok).toBe(false); // partie lancée
+    tous.forEach((x) => x.fermer());
+  });
+});

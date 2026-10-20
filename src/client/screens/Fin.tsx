@@ -36,7 +36,9 @@ export function Fin({ etat }: { etat: EtatClient }) {
   return (
     <main className="page">
       <section className="verdict" aria-live="polite">
-        <Sceau taille={70} />
+        <span className="sceau-appose">
+          <Sceau taille={70} />
+        </span>
         <h1>{r.vainqueur === 'enqueteurs' ? 'Affaire résolue !' : 'Le complice triomphe'}</h1>
         <p style={{ fontSize: '1.15em' }}>
           {RAISONS[r.raison]} {gagnant && `${nom(gagnant.joueur)} a démasqué le coupable.`}

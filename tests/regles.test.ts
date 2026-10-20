@@ -811,3 +811,41 @@ describe('Le complice ne peut pas accuser', () => {
     expect(etat.resultat).toMatchObject({ vainqueur: 'complice', raison: 'plus_d_accusateur' });
   });
 });
+
+describe('Historique : la carte montrée reste visible, pour les deux joueurs concernés seulement', () => {
+  it("l'auteur et celui qui montre voient la carte dans l'historique ; les autres non", () => {
+    const etat = nouvellePartie(4, { seed: 7 });
+    const h = new Horloge();
+    const auteur = actif(etat);
+    const [repondant, temoin] = autres(etat, auteur);
+    const carte = etat.joueurs[repondant].main[0];
+    const t = tripletAvec(etat, [carte]);
+    expect(act(etat, auteur, { type: 'hypothese', ...t, interroges: [repondant, temoin] }, h.avance(1)).ok).toBe(true);
+    passerFalsification(etat, h);
+    const montrees = cartesCorrespondantes(etat, repondant, t);
+    expect(act(etat, repondant, { type: 'repondre', carte: montrees[0] }, h.avance(1)).ok).toBe(true);
+    const ligne = (id: string) => vuePour(etat, id).historique.find((e) => e.type === 'reponse' && e.joueur === repondant);
+    expect(ligne(auteur)).toMatchObject({ resultat: 'carte_montree', carte: montrees[0] });
+    expect(ligne(repondant)).toMatchObject({ resultat: 'carte_montree', carte: montrees[0] });
+    expect(ligne(temoin)).not.toHaveProperty('carte');
+    expect(JSON.stringify(vuePour(etat, temoin).historique)).not.toContain(`"carte":"${montrees[0]}"`);
+  });
+});
+
+describe('Cartes montrées anonymes (mode difficile)', () => {
+  it("l'historique ne rappelle la carte à personne, pas même aux deux joueurs concernés", () => {
+    const etat = nouvellePartie(4, { seed: 7, config: { historiqueCartes: 'anonymes' } });
+    const h = new Horloge();
+    const auteur = actif(etat);
+    const [repondant, temoin] = autres(etat, auteur);
+    const t = tripletAvec(etat, [etat.joueurs[repondant].main[0]]);
+    expect(act(etat, auteur, { type: 'hypothese', ...t, interroges: [repondant, temoin] }, h.avance(1)).ok).toBe(true);
+    passerFalsification(etat, h);
+    expect(act(etat, repondant, { type: 'repondre', carte: cartesCorrespondantes(etat, repondant, t)[0] }, h.avance(1)).ok).toBe(true);
+    for (const id of [auteur, repondant, temoin]) {
+      const v = vuePour(etat, id);
+      expect(v.regles.historiqueCartes).toBe('anonymes');
+      expect(v.historique.find((e) => e.type === 'reponse' && e.joueur === repondant)).not.toHaveProperty('carte');
+    }
+  });
+});

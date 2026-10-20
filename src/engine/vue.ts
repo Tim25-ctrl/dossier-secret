@@ -19,8 +19,19 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
   // Historique public ; l'auteur d'une hypothèse y voit toujours SA version originale,
   // sans aucun indice qu'elle a pu être falsifiée pour les autres.
   const mesHypotheses = new Map(etat.hypotheses.filter((h) => h.auteur === joueurId).map((h) => [h.id, h]));
+  // La carte montrée reste lisible dans l'historique, mais seulement pour les deux joueurs concernés.
+  const cartesVues = new Map(moi.journal.flatMap((e) => (e.type === 'carte_vue' ? [[`${e.hypothese}|${e.de}`, e.carte] as const] : [])));
+  const cartesMontrees = new Map(
+    moi.journal.flatMap((e) =>
+      e.type === 'carte_montree' ? [[e.hypothese, e.carte] as const] : e.type === 'ruse' && e.ruse === 'emprunt' && e.hypothese && e.carte ? [[e.hypothese, e.carte] as const] : [],
+    ),
+  );
   const historique = etat.historique.map((ev) => {
     if (ev.type === 'hypothese' && mesHypotheses.has(ev.id)) return { ...ev, triplet: { ...mesHypotheses.get(ev.id)!.original } };
+    if (ev.type === 'reponse' && ev.resultat === 'carte_montree' && etat.config.historiqueCartes !== 'anonymes') {
+      const carte = ev.joueur === joueurId ? cartesMontrees.get(ev.hypothese) : cartesVues.get(`${ev.hypothese}|${ev.joueur}`);
+      if (carte) return { ...ev, carte };
+    }
     return ev;
   });
 
@@ -57,6 +68,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       modeComplice: etat.config.modeComplice ?? 'classique',
       ruses: rusesPour(etat.config, etat.ordre.length),
       coutRuses: { mensonge: coutRuse(etat.config, 'mensonge'), falsification: coutRuse(etat.config, 'falsification'), emprunt: coutRuse(etat.config, 'emprunt'), trafic: coutRuse(etat.config, 'trafic') },
+      historiqueCartes: etat.config.historiqueCartes ?? 'visibles',
       premiereMancheEmpreinte: etat.config.premiereMancheEmpreinte ?? 1,
       suspensionDemasque: etat.config.suspensionDemasque ?? 3,
     },

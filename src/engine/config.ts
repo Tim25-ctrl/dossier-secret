@@ -4,7 +4,7 @@
 //  - une hypothèse coûte 2 PA ;
 //  - les pouvoirs du complice dépendent du nombre de joueurs.
 
-import type { ModeComplice, TypeRuse } from '../shared/types';
+import type { ModeComplice, HistoriqueCartes, TypeRuse } from '../shared/types';
 
 export interface ConfigPartie {
   manchesMax: number;
@@ -25,6 +25,8 @@ export interface ConfigPartie {
   ruses: Record<number, number>;
   /** Mode « rusé » : coût de chaque ruse (en ruses). */
   coutRuses: Record<TypeRuse, number>;
+  /** Cartes montrées et reçues : rappelées dans l'historique (« visibles ») ou non (« anonymes », difficile). */
+  historiqueCartes: HistoriqueCartes;
   /** Mode « rusé » : probabilité qu'une ruse laisse une empreinte, selon la taille de la table. */
   probaEmpreinte: Record<number, number>;
   /** Mode « rusé » : une empreinte est publiée entre [min, max] manches après la ruse… */
@@ -76,6 +78,7 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   ruses: { 3: 2, 4: 4, 5: 5, 6: 5 },
   coutRuses: { mensonge: 1, falsification: 1, emprunt: 2, trafic: 1 },
   // Peu de suspects à 3 ou 4 joueurs : une seule empreinte y pèse lourd, elles y sont donc plus rares.
+  historiqueCartes: 'visibles',
   probaEmpreinte: { 3: 0.35, 4: 0.4, 5: 0.5, 6: 0.6 },
   // Empreintes tardives (décision du 20/10/2026) : le complice peut ruser en début de partie sans se griller.
   delaiEmpreinte: [2, 3],

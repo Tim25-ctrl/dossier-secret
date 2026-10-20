@@ -1,6 +1,6 @@
 // Protocole WebSocket entre le navigateur et le serveur (types uniquement).
 
-import type { ActionJeu, ModeComplice, VueJoueur } from './types';
+import type { ActionJeu, HistoriqueCartes, ModeComplice, VueJoueur } from './types';
 
 export const LONGUEUR_CODE = 6;
 export const ALPHABET_CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -32,6 +32,8 @@ export interface ReglagesSalon {
   dureeTourS: number | null;
   /** Pouvoirs du complice. */
   modeComplice: ModeComplice;
+  /** Cartes montrées et reçues : rappelées dans l'historique, ou anonymes (difficile). */
+  historiqueCartes: HistoriqueCartes;
 }
 
 export interface SalonVue {

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { INDICES_PAR_ID } from '../../../shared/data/indices';
-import { nomElement } from '../../../shared/data/manoir';
+import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES, nomElement } from '../../../shared/data/manoir';
 import { combinaisonsPossibles } from '../../../shared/logique';
-import { ARMES, LIEUX, SUSPECTS, type ElementId, type Marque, type VueJoueur } from '../../../shared/types';
+import { ARMES, LIEUX, SUSPECTS, categorieDe, type ArmeId, type ElementId, type LieuId, type Marque, type SuspectId, type VueJoueur } from '../../../shared/types';
 import { connexion } from '../../connexion';
-import { Aide, Prive } from '../Commun';
+import { Aide, Modale, Prive } from '../Commun';
 import { Embleme } from '../Emblemes';
 import { texteEntreePrivee, type Noms } from './Textes';
 
@@ -25,18 +25,41 @@ export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementI
   }
   for (const e of v.cartesPubliques) s[e] = 'carte publique';
   for (const p of v.moi.piecesConsultees) s[p.carte] = 'pièce à conviction';
-  for (const j of v.moi.journal) if (j.type === 'carte_vue') s[j.carte] = `montrée par ${nom(j.de)}`;
+  // Mode difficile : les cartes reçues ne sont pas rappelées (à retenir de mémoire).
+  if (v.regles.historiqueCartes !== 'anonymes') for (const j of v.moi.journal) if (j.type === 'carte_vue') s[j.carte] = `montrée par ${nom(j.de)}`;
   for (const e of v.moi.main) s[e] = 'dans votre main';
   if (v.moi.meurtrier) s[v.moi.meurtrier] = 'le meurtrier (secret)';
   return s;
 }
 
+/** Description courte d'un élément, pour la carte affichée en grand. */
+function description(e: ElementId): string {
+  if (e in PERSONNAGES) return PERSONNAGES[e as SuspectId].description;
+  if (e in LIEUX_FICHES) return LIEUX_FICHES[e as LieuId].description;
+  return ARMES_FICHES[e as ArmeId].description;
+}
+
+/** Carte affichée en grand quand on touche son icône dans le carnet. */
+function ModaleCarte({ id, onFermer }: { id: ElementId; onFermer: () => void }) {
+  return (
+    <Modale titre={nomElement(id)} onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
+      <div className="carte-en-grand">
+        <Embleme id={id} taille={150} />
+        <p className="muet petit" style={{ margin: '8px 0 4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {categorieDe(id) === 'suspect' ? 'Suspect' : categorieDe(id) === 'lieu' ? 'Lieu' : 'Arme'}
+        </p>
+        <p style={{ margin: 0 }}>{description(id)}</p>
+      </div>
+    </Modale>
+  );
+}
+
 export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onErreur: (e: string) => void }) {
+  const [enGrand, setEnGrand] = useState<ElementId | null>(null);
   const [marques, setMarques] = useState(vue.moi.carnet.marques);
   const [notes, setNotes] = useState(vue.moi.carnet.notes);
   const [enregistre, setEnregistre] = useState(true);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sources = useMemo(() => sourcesConnues(vue, nom), [vue, nom]);
 
   // Synchronisation avec le serveur (autre appareil, reconnexion) quand on n'est pas en train d'écrire.
   useEffect(() => setMarques(vue.moi.carnet.marques), [vue.moi.carnet.marques]);
@@ -66,15 +89,6 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
     }, 700);
   };
 
-  const remplirAutomatiquement = async () => {
-    const auto: Partial<Record<ElementId, Marque>> = {};
-    for (const [e, src] of Object.entries(sources)) if (src && !src.startsWith('le meurtrier') && !marques[e as ElementId]) auto[e as ElementId] = 'ecarte';
-    if (Object.keys(auto).length === 0) return;
-    setMarques({ ...marques, ...auto });
-    const r = await connexion.action({ type: 'carnet', marques: auto });
-    if (!r.ok) onErreur(r.erreur);
-  };
-
   const colonne = (titre: string, ids: readonly ElementId[]) => (
     <div>
       <h4>{titre}</h4>
@@ -83,10 +97,11 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
         return (
           <div key={e} className={`carnet-ligne${m === 'ecarte' ? ' ecarte' : ''}`}>
             <div className="nom">
-              <Embleme id={e} taille={26} />
+              <button type="button" className="icone-carte" onClick={() => setEnGrand(e)} aria-label={`Voir la carte « ${nomElement(e)} » en grand`} title="Voir en grand">
+                <Embleme id={e} taille={26} />
+              </button>
               <span>
                 <span className="libelle">{nomElement(e)}</span>
-                {sources[e] && <span className="source">{sources[e]}</span>}
               </span>
             </div>
             <div className="marques" role="group" aria-label={`Statut de ${nomElement(e)}`}>
@@ -107,12 +122,8 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
       <div className="ligne" style={{ marginBottom: 10 }}>
         <span className="petit muet">? inconnu · ✗ écarté · ~ probable · ✓ certain</span>
         <span className="espace" />
-        <button className="btn btn-petit" onClick={() => void remplirAutomatiquement()}>
-          Cocher ce que je sais déjà
-        </button>
         <Aide libelle="Aide sur le carnet">
-          Coche « écarté » les éléments que vous savez innocents : vos cartes, les pièces à conviction lues, les cartes qu'on vous a montrées et ce que les
-          indices lus excluent. Les déductions plus fines restent à votre charge !
+          Notez ce que vous savez de chaque suspect, lieu et arme. Touchez une icône pour voir la carte en grand. Personne d'autre ne voit votre carnet.
         </Aide>
       </div>
       <div className="carnet-grille">
@@ -129,9 +140,10 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
       <h4>Mes observations</h4>
       <ul className="journal">
         {[...vue.moi.journal].reverse().map((e, i) => (
-          <li key={i}>{texteEntreePrivee(e, nom)}</li>
+          <li key={i}>{texteEntreePrivee(e, nom, vue.regles.historiqueCartes === 'anonymes')}</li>
         ))}
       </ul>
+      {enGrand && <ModaleCarte id={enGrand} onFermer={() => setEnGrand(null)} />}
     </Prive>
   );
 }

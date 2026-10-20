@@ -354,6 +354,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       const r = schemaReglages.parse(p);
       if (r.dureeTourS !== undefined) gestionnaire.reglerDureeTour(code, id, r.dureeTourS);
       if (r.modeComplice !== undefined) gestionnaire.reglerModeComplice(code, id, r.modeComplice);
+      if (r.historiqueCartes !== undefined) gestionnaire.reglerHistoriqueCartes(code, id, r.historiqueCartes);
     });
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 

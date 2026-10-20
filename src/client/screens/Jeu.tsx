@@ -12,7 +12,7 @@ import { GRACE_PAUSE_MS, ModalePause, useHeureServeur } from '../components/jeu/
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
-import { useSonsPartie } from '../components/jeu/useSons';
+import { useSonMessages, useSonsPartie, useTicTac } from '../components/jeu/useSons';
 import type { Preferences } from '../preferences';
 import { BoutonQuitter } from '../components/Quitter';
 
@@ -45,6 +45,8 @@ export function Jeu({
   const doitRepondre = !!h?.aRepondre && h.repondantActuel === moi;
   const peutFalsifier = !!h?.falsification && h.etape === 'falsification';
   useSonsPartie(vue, doitRepondre);
+  useSonMessages(etat.salon.messages, moi);
+  useTicTac(vue.pause ? null : doitRepondre ? (h?.echeance ?? null) : monTour ? vue.echeanceTour : null, decalage);
 
   // Messages non lus (onglet Discussion sur petit écran).
   const [lus, setLus] = useState(etat.salon.messages.length);
@@ -195,7 +197,10 @@ export function Jeu({
                 {!vue.moi.peutAccuser && <span className="etiquette etiquette-rouge">Vous ne pouvez plus accuser</span>}
               </div>
               {vue.compliceDemasque && (
-                <div className="info" role="status">
+                <div className="info bandeau-demasque" role="status">
+                  <span className="tampon-demasque" aria-hidden="true">
+                    Démasqué
+                  </span>
                   🎭 <strong>{vue.compliceDemasque === moi ? 'Vous avez été démasqué' : `${nom(vue.compliceDemasque)} est le complice`}</strong> :{' '}
                   {vue.retourRuses !== null
                     ? `ses ruses sont suspendues jusqu'à la manche ${vue.retourRuses} ; d'ici là, ses réponses sont honnêtes.`
@@ -313,7 +318,7 @@ export function Jeu({
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'accusation' && <ModaleAccusation sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}
-      {modale === 'regles' && <ModaleRegles vue={vue} onFermer={() => setModale(null)} />}
+      {modale === 'regles' && <ModaleRegles onFermer={() => setModale(null)} />}
       {doitRepondre && !vue.pause && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {fenetrePause && (
         <ModalePause
@@ -428,7 +433,7 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
         {vue.joueurs.map((j) => (
           <li key={j.id} style={j.id === vue.joueurActif ? { borderColor: 'var(--or)' } : undefined}>
             <span className={`pastille ${j.connecte ? 'pastille-on' : 'pastille-off'}`} aria-hidden="true" />
-            <span style={{ minWidth: 0 }}>
+            <span className="nom-joueur">
               <strong>{j.id === vue.moi.id ? `${nom(j.id)} (vous)` : nom(j.id)}</strong>
               <span className="petit muet" style={{ display: 'block' }}>
                 {j.nbCartes} cartes{j.parti ? ' · a quitté la partie' : !j.connecte && ' · déconnecté'}

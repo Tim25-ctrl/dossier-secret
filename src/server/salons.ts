@@ -134,7 +134,11 @@ export class GestionnaireSalons {
 
   private reglagesParDefaut(): ReglagesSalon {
     const ms = this.configPartie.delaiTourMs;
-    return { dureeTourS: ms === null ? null : Math.round((ms ?? 180_000) / 1000), modeComplice: this.configPartie.modeComplice ?? 'ruse' };
+    return {
+      dureeTourS: ms === null ? null : Math.round((ms ?? 180_000) / 1000),
+      modeComplice: this.configPartie.modeComplice ?? 'ruse',
+      historiqueCartes: this.configPartie.historiqueCartes ?? 'visibles',
+    };
   }
 
   salon(code: string): Salon {
@@ -336,6 +340,16 @@ export class GestionnaireSalons {
     this.toucher(s);
   }
 
+  /** L'hôte choisit si les cartes montrées restent rappelées dans l'historique (salon d'attente uniquement). */
+  reglerHistoriqueCartes(code: string, id: string, valeur: unknown) {
+    const s = this.salon(code);
+    if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut modifier les réglages.");
+    if (s.statut !== 'lobby') throw new ErreurJeu('Les réglages ne peuvent plus changer une fois la partie lancée.');
+    if (valeur !== 'visibles' && valeur !== 'anonymes') throw new ErreurJeu('Réglage invalide.');
+    s.reglages = { ...s.reglages, historiqueCartes: valeur };
+    this.toucher(s);
+  }
+
   /** L'hôte règle la durée d'un tour (dans le salon d'attente uniquement). */
   reglerDureeTour(code: string, id: string, valeur: unknown) {
     const s = this.salon(code);
@@ -365,6 +379,7 @@ export class GestionnaireSalons {
         ...this.configPartie,
         delaiTourMs: s.reglages.dureeTourS === null ? null : s.reglages.dureeTourS * 1000,
         modeComplice: s.reglages.modeComplice ?? 'ruse',
+        historiqueCartes: s.reglages.historiqueCartes ?? 'visibles',
       },
     });
     s.statut = 'partie';

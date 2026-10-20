@@ -1,16 +1,9 @@
 import { useState } from 'react';
-import { INDICES_PAR_ID } from '../../../shared/data/indices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/manoir';
-import { ARMES, LIEUX, SUSPECTS, type ElementId, type VueJoueur } from '../../../shared/types';
+import { ARMES, LIEUX, SUSPECTS } from '../../../shared/types';
 import { Embleme } from '../Emblemes';
 
-/** Pistes connues du joueur (indices publics ou consultés) qui concernent un élément. */
-function pistes(vue: VueJoueur, e: ElementId) {
-  const ids = [...vue.indicesPublics.map((i) => i.indice), ...vue.moi.indicesConsultes.map((i) => i.indice)];
-  return ids.map((id) => INDICES_PAR_ID[id]).filter((c) => c.concerne.includes(e));
-}
-
-export function Dossier({ vue }: { vue?: VueJoueur }) {
+export function Dossier() {
   const [section, setSection] = useState<'suspects' | 'lieux' | 'armes'>('suspects');
   return (
     <div>
@@ -46,8 +39,6 @@ export function Dossier({ vue }: { vue?: VueJoueur }) {
                     <dd>{p.alibi}</dd>
                     <dt>Ce qu'il sait</dt>
                     <dd>{p.connaissances}</dd>
-                    <dt>Pistes connues</dt>
-                    <dd>{listePistes(vue, id)}</dd>
                   </dl>
                 </div>
               </article>
@@ -65,8 +56,6 @@ export function Dossier({ vue }: { vue?: VueJoueur }) {
                   <dl>
                     <dt>À observer</dt>
                     <dd>{l.details.join(' · ')}</dd>
-                    <dt>Pistes connues</dt>
-                    <dd>{listePistes(vue, id)}</dd>
                   </dl>
                 </div>
               </article>
@@ -84,8 +73,6 @@ export function Dossier({ vue }: { vue?: VueJoueur }) {
                   <dl>
                     <dt>Caractéristiques</dt>
                     <dd>{a.caracteristiques.join(' · ')}</dd>
-                    <dt>Pistes connues</dt>
-                    <dd>{listePistes(vue, id)}</dd>
                   </dl>
                 </div>
               </article>
@@ -94,11 +81,4 @@ export function Dossier({ vue }: { vue?: VueJoueur }) {
       </div>
     </div>
   );
-}
-
-function listePistes(vue: VueJoueur | undefined, e: ElementId) {
-  if (!vue) return <span className="muet">Visibles pendant une partie.</span>;
-  const p = pistes(vue, e);
-  if (p.length === 0) return <span className="muet">Aucune pour l'instant.</span>;
-  return p.map((c) => `« ${c.titre} »`).join(', ');
 }

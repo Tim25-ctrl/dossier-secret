@@ -2,7 +2,7 @@
 // il reçoit des intentions, les valide, les applique au moteur, puis envoie à
 // chaque joueur SA vue filtrée.
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { createServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -92,6 +92,12 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     res.json({ ok: true, salons: gestionnaire.salons.size });
   });
   const dossierClient = o.dossierClient;
+  // Version du client servi (nom du script principal) : envoyée à chaque connexion pour qu'une page
+  // ouverte avant une mise à jour se recharge, au lieu de faire tourner l'ancien code.
+  const versionClient =
+    dossierClient && existsSync(path.join(dossierClient, 'index.html'))
+      ? (/index-[\w-]+\.js/.exec(readFileSync(path.join(dossierClient, 'index.html'), 'utf8'))?.[0] ?? null)
+      : null;
   if (dossierClient && existsSync(path.join(dossierClient, 'index.html'))) {
     app.use(express.static(dossierClient, { index: false, maxAge: '1h' }));
     app.use((req, res, next) => {
@@ -226,6 +232,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   };
 
   io.on('connection', (socket: S) => {
+    if (versionClient) socket.emit('version', versionClient);
     socket.data.jetons = LIMITE;
     socket.data.dernierRemplissage = Date.now();
 

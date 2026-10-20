@@ -46,6 +46,24 @@ function ecrire(stockage: Storage, cle: string, s: Session | null) {
   }
 }
 
+/**
+ * Le serveur annonce la version du client qu'il sert. Si cette page est plus ancienne (ouverte avant
+ * une mise à jour), on la recharge : la session est reprise automatiquement. Une seule tentative par
+ * version, pour ne jamais boucler.
+ */
+function verifierVersion(versionServeur: string) {
+  const script = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]');
+  const versionPage = /index-[\w-]+\.js/.exec(script?.src ?? '')?.[0];
+  if (!versionPage || versionPage === versionServeur) return; // développement, ou déjà à jour
+  try {
+    if (sessionStorage.getItem('dossier-secret:version-rechargee') === versionServeur) return;
+    sessionStorage.setItem('dossier-secret:version-rechargee', versionServeur);
+  } catch {
+    return; // sans stockage, on ne peut pas éviter une boucle : on ne recharge pas
+  }
+  location.reload();
+}
+
 class Connexion {
   private socket: Socket<EvenementsServeur, EvenementsClient>;
   private abonnes = new Set<() => void>();
@@ -72,6 +90,7 @@ class Connexion {
     this.socket.on('expulse', ({ raison }) => {
       this.maj({ expulsion: raison, etat: null });
     });
+    this.socket.on('version', verifierVersion);
   }
 
   abonner = (f: () => void) => {

@@ -84,7 +84,8 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   // Sur téléphone, ces onglets forment une barre fixe en bas de l'écran.
   const onglets: { id: Onglet; libelle: string; icone: Parameters<typeof Icone>[0]['nom']; classe?: string; badge?: number }[] = [
     { id: 'enquete', libelle: 'Enquête', icone: 'loupe' },
-    { id: 'archives', libelle: 'Archives', icone: 'dossier', badge: dossiersDispo.length || undefined },
+    // Pastille seulement pendant mon tour : hors de mon tour, je ne peux rien consulter.
+    { id: 'archives', libelle: 'Archives', icone: 'dossier', badge: monTour && dossiersDispo.length ? dossiersDispo.length : undefined },
     { id: 'carnet', libelle: 'Carnet', icone: 'plume' },
     { id: 'discussion', libelle: 'Discussion', icone: 'bulle', classe: 'onglet-chat', badge: onglet !== 'discussion' && nonLus ? nonLus : undefined },
   ];

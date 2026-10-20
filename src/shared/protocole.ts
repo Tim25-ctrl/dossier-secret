@@ -85,4 +85,6 @@ export interface EvenementsServeur {
   etat: (e: EtatClient) => void;
   /** La session a été ouverte ailleurs ou le joueur a été retiré. */
   expulse: (p: { raison: string }) => void;
+  /** Script principal servi par le serveur (ex. « index-B7lvQ1Cs.js ») : une page plus ancienne se recharge. */
+  version: (v: string) => void;
 }

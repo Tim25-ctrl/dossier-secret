@@ -1793,3 +1793,35 @@ button.carte:hover:not(:disabled) {
     margin-top: 8px;
   }
 }
+
+/* Carte du carnet affichée seule (pas de fenêtre autour) : clic à côté pour fermer. */
+.voile-carte {
+  padding: 16px 12px;
+}
+.carte-seule {
+  position: relative;
+  width: min(380px, 100%);
+  margin: auto;
+}
+.carte-jeu-fermer {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #a88a4f;
+  border-radius: 50%;
+  background: rgba(255, 250, 235, 0.85);
+  color: #3b2b10;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.carte-jeu-fermer:hover,
+.carte-jeu-fermer:focus-visible {
+  background: #fff8e6;
+  outline: 2px solid var(--or);
+  outline-offset: 1px;
+}

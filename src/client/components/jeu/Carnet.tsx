@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { INDICES_PAR_ID } from '../../../shared/data/indices';
 import { nomElement } from '../../../shared/data/manoir';
 import { combinaisonsPossibles } from '../../../shared/logique';
 import { ARMES, LIEUX, SUSPECTS, type ElementId, type Marque, type VueJoueur } from '../../../shared/types';
 import { connexion } from '../../connexion';
-import { Aide, Modale, Prive } from '../Commun';
+import { Aide, Prive } from '../Commun';
 import { Embleme } from '../Emblemes';
 import { CarteDeJeu } from './Dossier';
 import { texteEntreePrivee, type Noms } from './Textes';
@@ -33,12 +34,36 @@ export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementI
   return s;
 }
 
-/** Carte affichée en grand, façon carte à jouer, quand on touche son icône dans le carnet. */
+/**
+ * Carte affichée en grand, seule sur un voile sombre, quand on touche son icône dans le carnet.
+ * Fermeture : la croix sur la carte, Échap, ou un clic à côté de la carte.
+ */
 function ModaleCarte({ id, onFermer }: { id: ElementId; onFermer: () => void }) {
-  return (
-    <Modale titre={nomElement(id)} titreMasque onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
-      <CarteDeJeu id={id} />
-    </Modale>
+  const croix = useRef<HTMLButtonElement>(null);
+  const fermer = useRef(onFermer);
+  fermer.current = onFermer;
+  useEffect(() => {
+    const precedent = document.activeElement as HTMLElement | null;
+    croix.current?.focus();
+    const echap = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') fermer.current();
+    };
+    document.addEventListener('keydown', echap);
+    return () => {
+      document.removeEventListener('keydown', echap);
+      precedent?.focus?.();
+    };
+  }, []);
+  return createPortal(
+    <div className="voile voile-carte" onMouseDown={(e) => e.target === e.currentTarget && onFermer()}>
+      <div role="dialog" aria-modal="true" aria-label={`Carte : ${nomElement(id)}`} className="carte-seule">
+        <CarteDeJeu id={id} />
+        <button ref={croix} type="button" className="carte-jeu-fermer" onClick={onFermer} aria-label="Fermer la carte">
+          ✕
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

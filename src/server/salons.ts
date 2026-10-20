@@ -64,7 +64,7 @@ export interface OptionsGestionnaire {
   suppressionSalonMs?: number;
 }
 
-const NOMS_BOTS = ['Hercule', 'Marple', 'Maigret', 'Rouletabille', 'Lupin', 'Holmes', 'Dupin', 'Vidocq'];
+const NOMS_BOTS = ['Hercule', 'Marple', 'Maigret', 'Columbo', 'Lupin', 'Holmes', 'Dupin', 'Vidocq'];
 
 export function hacher(jeton: string): string {
   return createHash('sha256').update(jeton).digest('hex');

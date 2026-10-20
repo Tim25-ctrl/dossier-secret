@@ -1,10 +1,100 @@
 import { useState } from 'react';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/manoir';
-import { ARMES, LIEUX, SUSPECTS } from '../../../shared/types';
+import { ARMES, LIEUX, SUSPECTS, categorieDe, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../../shared/types';
 import { Embleme } from '../Emblemes';
+
+/** Contenu de la fiche d'un élément : le même dans les règles et sur la carte du carnet. */
+interface Fiche {
+  nom: string;
+  categorie: string;
+  /** Ligne en italique sous le nom. */
+  accroche: string;
+  rubriques: [string, string][];
+}
+
+export function ficheDe(id: ElementId): Fiche {
+  const cat = categorieDe(id);
+  if (cat === 'suspect') {
+    const p = PERSONNAGES[id as SuspectId];
+    return {
+      nom: p.nom,
+      categorie: 'Suspect',
+      accroche: `${p.titre} — ${p.description}`,
+      rubriques: [
+        ['Histoire', p.histoire],
+        ['Relation', p.relation],
+        ['Mobile possible', p.mobile],
+        ['Secret', p.secret],
+        ['Alibi déclaré', p.alibi],
+        ["Ce qu'il sait", p.connaissances],
+      ],
+    };
+  }
+  if (cat === 'lieu') {
+    const l = LIEUX_FICHES[id as LieuId];
+    return { nom: l.nom, categorie: 'Lieu', accroche: l.description, rubriques: [['À observer', l.details.join(' · ')]] };
+  }
+  const a = ARMES_FICHES[id as ArmeId];
+  return { nom: a.nom, categorie: 'Arme', accroche: a.description, rubriques: [['Caractéristiques', a.caracteristiques.join(' · ')]] };
+}
+
+function FicheDossier({ id }: { id: ElementId }) {
+  const f = ficheDe(id);
+  return (
+    <article className="panneau fiche">
+      <Embleme id={id} taille={96} />
+      <div>
+        <h3 style={{ marginBottom: 2 }}>{f.nom}</h3>
+        <p className="muet" style={{ fontStyle: 'italic' }}>
+          {f.accroche}
+        </p>
+        <dl>
+          {f.rubriques.map(([titre, texte]) => (
+            <div key={titre} style={{ display: 'contents' }}>
+              <dt>{titre}</dt>
+              <dd>{texte}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </article>
+  );
+}
+
+/** La même fiche, présentée comme une carte à jouer (carnet : carte affichée en grand). */
+export function CarteDeJeu({ id }: { id: ElementId }) {
+  const f = ficheDe(id);
+  return (
+    <article className={`carte-jeu carte-jeu-${categorieDe(id)}`} aria-label={`Carte ${f.categorie.toLowerCase()} : ${f.nom}`}>
+      <span className="carte-jeu-coin haut" aria-hidden="true">
+        <Embleme id={id} taille={22} />
+      </span>
+      <span className="carte-jeu-coin bas" aria-hidden="true">
+        <Embleme id={id} taille={22} />
+      </span>
+      <div className="carte-jeu-cadre">
+        <p className="carte-jeu-categorie">{f.categorie}</p>
+        <div className="carte-jeu-portrait">
+          <Embleme id={id} taille={120} />
+        </div>
+        <h3 className="carte-jeu-nom">{f.nom}</h3>
+        <p className="carte-jeu-accroche">{f.accroche}</p>
+        <dl className="carte-jeu-rubriques">
+          {f.rubriques.map(([titre, texte]) => (
+            <div key={titre}>
+              <dt>{titre}</dt>
+              <dd>{texte}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </article>
+  );
+}
 
 export function Dossier() {
   const [section, setSection] = useState<'suspects' | 'lieux' | 'armes'>('suspects');
+  const ids: readonly ElementId[] = section === 'suspects' ? SUSPECTS : section === 'lieux' ? LIEUX : ARMES;
   return (
     <div>
       <div className="ligne" role="tablist" aria-label="Sections du dossier" style={{ marginBottom: 12 }}>
@@ -15,69 +105,9 @@ export function Dossier() {
         ))}
       </div>
       <div className="indices">
-        {section === 'suspects' &&
-          SUSPECTS.map((id) => {
-            const p = PERSONNAGES[id];
-            return (
-              <article key={id} className="panneau fiche">
-                <Embleme id={id} taille={96} />
-                <div>
-                  <h3 style={{ marginBottom: 2 }}>{p.nom}</h3>
-                  <p className="muet" style={{ fontStyle: 'italic' }}>
-                    {p.titre} — {p.description}
-                  </p>
-                  <dl>
-                    <dt>Histoire</dt>
-                    <dd>{p.histoire}</dd>
-                    <dt>Relation</dt>
-                    <dd>{p.relation}</dd>
-                    <dt>Mobile possible</dt>
-                    <dd>{p.mobile}</dd>
-                    <dt>Secret</dt>
-                    <dd>{p.secret}</dd>
-                    <dt>Alibi déclaré</dt>
-                    <dd>{p.alibi}</dd>
-                    <dt>Ce qu'il sait</dt>
-                    <dd>{p.connaissances}</dd>
-                  </dl>
-                </div>
-              </article>
-            );
-          })}
-        {section === 'lieux' &&
-          LIEUX.map((id) => {
-            const l = LIEUX_FICHES[id];
-            return (
-              <article key={id} className="panneau fiche">
-                <Embleme id={id} taille={96} />
-                <div>
-                  <h3>{l.nom}</h3>
-                  <p>{l.description}</p>
-                  <dl>
-                    <dt>À observer</dt>
-                    <dd>{l.details.join(' · ')}</dd>
-                  </dl>
-                </div>
-              </article>
-            );
-          })}
-        {section === 'armes' &&
-          ARMES.map((id) => {
-            const a = ARMES_FICHES[id];
-            return (
-              <article key={id} className="panneau fiche">
-                <Embleme id={id} taille={96} />
-                <div>
-                  <h3>{a.nom}</h3>
-                  <p>{a.description}</p>
-                  <dl>
-                    <dt>Caractéristiques</dt>
-                    <dd>{a.caracteristiques.join(' · ')}</dd>
-                  </dl>
-                </div>
-              </article>
-            );
-          })}
+        {ids.map((id) => (
+          <FicheDossier key={id} id={id} />
+        ))}
       </div>
     </div>
   );

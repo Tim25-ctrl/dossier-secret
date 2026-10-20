@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useSonMessages } from '../components/jeu/useSons';
 import { DUREES_TOUR, type EtatClient } from '../../shared/protocole';
 import { Chat } from '../components/Chat';
-import { useNotification } from '../components/Commun';
+import { Aide, useNotification } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
-import { ModaleRegles } from './Regles';
-import { BoutonQuitter } from '../components/Quitter';
+import { MenuPrincipal } from '../components/Menu';
+import type { Preferences } from '../preferences';
 
 export function libelleDuree(s: number | null): string {
   if (s === null) return 'Sans limite';
@@ -15,11 +15,10 @@ export function libelleDuree(s: number | null): string {
   return Number.isInteger(m) ? `${m} minute${m > 1 ? 's' : ''}` : `${Math.floor(m)} min ${s % 60} s`;
 }
 
-export function Lobby({ etat }: { etat: EtatClient }) {
+export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
   const { salon, moi } = etat;
   const estHote = salon.hote === moi;
   const { afficher, vue: notification } = useNotification();
-  const [regles, setRegles] = useState(false);
   const [lancement, setLancement] = useState(false);
   const lien = `${location.origin}/?salon=${salon.code}`;
   useSonMessages(salon.messages, moi);
@@ -52,10 +51,7 @@ export function Lobby({ etat }: { etat: EtatClient }) {
         <Sceau taille={46} />
         <h1 style={{ margin: 0, fontSize: '1.9rem' }}>Salon d'attente</h1>
         <span className="espace" />
-        <button className="btn btn-discret" onClick={() => setRegles(true)}>
-          <Icone nom="livre" /> Règles
-        </button>
-        <BoutonQuitter etat={etat} />
+        <MenuPrincipal etat={etat} prefs={prefs} majPrefs={majPrefs} />
       </div>
 
       <div className="deux-colonnes">
@@ -116,69 +112,71 @@ export function Lobby({ etat }: { etat: EtatClient }) {
                 </li>
               ))}
             </ul>
-            <div className="champ" style={{ marginTop: 14, marginBottom: 0 }}>
-              <label htmlFor="duree-tour">Durée d'un tour</label>
-              {estHote ? (
-                <select
-                  id="duree-tour"
-                  value={salon.reglages.dureeTourS === null ? 'aucune' : String(salon.reglages.dureeTourS)}
-                  onChange={(e) => void agir(() => connexion.reglerDureeTour(e.target.value === 'aucune' ? null : Number(e.target.value)))}
-                >
-                  {(DUREES_TOUR.includes(salon.reglages.dureeTourS) ? DUREES_TOUR : [salon.reglages.dureeTourS, ...DUREES_TOUR]).map((d) => (
-                    <option key={String(d)} value={d === null ? 'aucune' : String(d)}>
-                      {libelleDuree(d)}
-                      {d === 180 ? ' (recommandé)' : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <strong id="duree-tour">{libelleDuree(salon.reglages.dureeTourS)}</strong>
-              )}
-              <span className="petit muet">
-                {salon.reglages.dureeTourS === null
-                  ? "Personne n'est pressé par le temps. Un joueur déconnecté est tout de même passé au bout de quelques secondes pour ne pas bloquer la table."
-                  : "À la fin du temps, le tour passe automatiquement au joueur suivant."}
-              </span>
-            </div>
-            <div className="champ" style={{ marginTop: 14, marginBottom: 0 }}>
-              <label htmlFor="mode-complice">Pouvoirs du complice</label>
-              {estHote ? (
-                <select
-                  id="mode-complice"
-                  value={salon.reglages.modeComplice}
-                  onChange={(e) => void agir(() => connexion.reglerModeComplice(e.target.value as 'classique' | 'ruse'))}
-                >
-                  <option value="ruse">Complice rusé (recommandé)</option>
-                  <option value="classique">Classique</option>
-                </select>
-              ) : (
-                <strong id="mode-complice">{salon.reglages.modeComplice === 'ruse' ? 'Complice rusé' : 'Classique'}</strong>
-              )}
-              <span className="petit muet">
-                {salon.reglages.modeComplice === 'ruse'
-                  ? 'Le complice dispose de ruses discrètes (mensonge, carte empruntée, hypothèse falsifiée, dossier trafiqué). Chaque ruse peut laisser une empreinte, et chacun peut tenter de le dénoncer une fois.'
-                  : 'Le complice peut mentir et falsifier des hypothèses un nombre limité de fois. Pas d’empreintes ni de dénonciation.'}
-              </span>
-            </div>
-            <div className="champ" style={{ marginTop: 14, marginBottom: 0 }}>
-              <label htmlFor="historique-cartes">Cartes montrées</label>
-              {estHote ? (
-                <select
-                  id="historique-cartes"
-                  value={salon.reglages.historiqueCartes ?? 'visibles'}
-                  onChange={(e) => void agir(() => connexion.reglerHistoriqueCartes(e.target.value as 'visibles' | 'anonymes'))}
-                >
-                  <option value="visibles">Rappelées dans l'historique (recommandé)</option>
-                  <option value="anonymes">Anonymes : à retenir de mémoire (difficile)</option>
-                </select>
-              ) : (
-                <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'Anonymes (difficile)' : "Rappelées dans l'historique"}</strong>
-              )}
-              <span className="petit muet">
-                {salon.reglages.historiqueCartes === 'anonymes'
-                  ? 'Vous voyez la carte au moment où on vous la montre, et jusqu’à la fin de votre tour. Ensuite, l’historique et le carnet indiquent seulement « une carte » : notez-la vous-même !'
-                  : 'Les cartes que vous montrez et que l’on vous montre restent rappelées dans l’historique et le carnet (visibles par vous seul).'}
-              </span>
+            <div className="reglages-partie">
+              <h4>Réglages de la partie</h4>
+              <div className="reglage">
+                <label htmlFor="duree-tour">Durée d'un tour</label>
+                {estHote ? (
+                  <select
+                    id="duree-tour"
+                    value={salon.reglages.dureeTourS === null ? 'aucune' : String(salon.reglages.dureeTourS)}
+                    onChange={(e) => void agir(() => connexion.reglerDureeTour(e.target.value === 'aucune' ? null : Number(e.target.value)))}
+                  >
+                    {(DUREES_TOUR.includes(salon.reglages.dureeTourS) ? DUREES_TOUR : [salon.reglages.dureeTourS, ...DUREES_TOUR]).map((d) => (
+                      <option key={String(d)} value={d === null ? 'aucune' : String(d)}>
+                        {libelleDuree(d)}
+                        {d === 180 ? ' (conseillé)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <strong id="duree-tour">{libelleDuree(salon.reglages.dureeTourS)}</strong>
+                )}
+                <Aide libelle="Aide sur la durée d'un tour">
+                  À la fin du temps, le tour passe automatiquement au joueur suivant. Sans limite, personne n'est pressé ; un joueur absent met la partie
+                  en pause.
+                </Aide>
+              </div>
+              <div className="reglage">
+                <label htmlFor="mode-complice">Complice</label>
+                {estHote ? (
+                  <select
+                    id="mode-complice"
+                    value={salon.reglages.modeComplice}
+                    onChange={(e) => void agir(() => connexion.reglerModeComplice(e.target.value as 'classique' | 'ruse'))}
+                  >
+                    <option value="ruse">Rusé (conseillé)</option>
+                    <option value="classique">Classique</option>
+                  </select>
+                ) : (
+                  <strong id="mode-complice">{salon.reglages.modeComplice === 'ruse' ? 'Rusé' : 'Classique'}</strong>
+                )}
+                <Aide libelle="Aide sur les pouvoirs du complice">
+                  {salon.reglages.modeComplice === 'ruse'
+                    ? 'Rusé : mensonge, carte empruntée, hypothèse falsifiée, dossier trafiqué. Chaque ruse peut laisser une empreinte, et chacun peut tenter de le dénoncer une fois.'
+                    : 'Classique : le complice peut mentir et falsifier des hypothèses un nombre limité de fois. Pas d’empreintes ni de dénonciation.'}
+                </Aide>
+              </div>
+              <div className="reglage">
+                <label htmlFor="historique-cartes">Cartes montrées</label>
+                {estHote ? (
+                  <select
+                    id="historique-cartes"
+                    value={salon.reglages.historiqueCartes ?? 'visibles'}
+                    onChange={(e) => void agir(() => connexion.reglerHistoriqueCartes(e.target.value as 'visibles' | 'anonymes'))}
+                  >
+                    <option value="visibles">Rappelées (conseillé)</option>
+                    <option value="anonymes">Anonymes (difficile)</option>
+                  </select>
+                ) : (
+                  <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'Anonymes (difficile)' : 'Rappelées'}</strong>
+                )}
+                <Aide libelle="Aide sur les cartes montrées">
+                  {salon.reglages.historiqueCartes === 'anonymes'
+                    ? 'Anonymes : vous voyez la carte au moment où on vous la montre et jusqu’à la fin de votre tour ; ensuite, l’historique et le carnet indiquent seulement « une carte ». À retenir de mémoire !'
+                    : 'Rappelées : les cartes que vous montrez et que l’on vous montre restent dans l’historique et le carnet (visibles par vous seul).'}
+                </Aide>
+              </div>
             </div>
             <div style={{ marginTop: 14 }}>
               {estHote ? (
@@ -223,7 +221,6 @@ export function Lobby({ etat }: { etat: EtatClient }) {
           </section>
         </div>
       </div>
-      {regles && <ModaleRegles onFermer={() => setRegles(false)} />}
       {notification}
     </main>
   );

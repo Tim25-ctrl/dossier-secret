@@ -96,7 +96,20 @@ export function CarteIndice({ id, dossier, ouvert = true, categorie }: { id: str
   );
 }
 
-export function Modale({ titre, onFermer, children, pied }: { titre: ReactNode; onFermer?: () => void; children: ReactNode; pied?: ReactNode }) {
+export function Modale({
+  titre,
+  onFermer,
+  children,
+  pied,
+  titreMasque = false,
+}: {
+  titre: ReactNode;
+  onFermer?: () => void;
+  children: ReactNode;
+  pied?: ReactNode;
+  /** Titre lu par les lecteurs d'écran mais non affiché (le contenu le montre déjà). */
+  titreMasque?: boolean;
+}) {
   const idTitre = useId();
   const ref = useRef<HTMLDivElement>(null);
   // Dernière version de onFermer : les parents la recréent à chaque rendu, ce qui ne doit
@@ -122,11 +135,11 @@ export function Modale({ titre, onFermer, children, pied }: { titre: ReactNode; 
     <div className="voile" onMouseDown={(e) => e.target === e.currentTarget && onFermer?.()}>
       <div className="modale" role="dialog" aria-modal="true" aria-labelledby={idTitre} tabIndex={-1} ref={ref}>
         <div className="modale-entete">
-          <h2 id={idTitre} style={{ margin: 0 }}>
+          <h2 id={idTitre} className={titreMasque ? 'sr-only' : undefined} style={{ margin: 0 }}>
             {titre}
           </h2>
           {onFermer && (
-            <button type="button" className="btn btn-discret btn-petit" onClick={onFermer} aria-label="Fermer">
+            <button type="button" className="btn btn-discret btn-petit" style={{ marginLeft: 'auto' }} onClick={onFermer} aria-label="Fermer">
               ✕
             </button>
           )}

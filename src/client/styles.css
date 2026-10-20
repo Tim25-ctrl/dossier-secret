@@ -1471,9 +1471,9 @@ button.carte:hover:not(:disabled) {
   }
 }
 .journal li.empreinte {
-  animation: lueur 2s ease-out;
+  animation: lueur-empreinte 2s ease-out;
 }
-@keyframes lueur {
+@keyframes lueur-empreinte {
   from {
     box-shadow: inset 0 0 0 999px rgba(201, 164, 92, 0.22), 0 0 16px rgba(201, 164, 92, 0.5);
   }
@@ -1519,4 +1519,277 @@ button.carte:hover:not(:disabled) {
 .journal li.prive-ligne {
   border-left-color: var(--or);
   background: rgba(201, 164, 92, 0.08);
+}
+
+/* Carte à jouer (carnet : carte affichée en grand) */
+.carte-jeu {
+  position: relative;
+  max-width: 380px;
+  margin: 0 auto;
+  padding: 9px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #f3e8cb, #dcc89c);
+  border: 2px solid #8a6a32;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.45),
+    inset 0 0 40px rgba(120, 90, 30, 0.2);
+  color: #20180b;
+}
+.carte-jeu-cadre {
+  border: 3px double #a88a4f;
+  border-radius: 12px;
+  /* Marges haute et basse : les petits emblèmes des coins ne recouvrent jamais le texte. */
+  padding: 16px 16px 36px;
+  text-align: center;
+}
+.carte-jeu-coin {
+  position: absolute;
+  line-height: 0;
+}
+.carte-jeu-coin.haut {
+  top: 16px;
+  left: 16px;
+}
+.carte-jeu-coin.bas {
+  right: 16px;
+  bottom: 16px;
+  transform: rotate(180deg);
+}
+.carte-jeu-categorie {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7a5a22;
+}
+.carte-jeu-suspect .carte-jeu-categorie {
+  color: #8a2f28;
+}
+.carte-jeu-portrait {
+  display: inline-block;
+  padding: 6px;
+  border-radius: 50%;
+  border: 2px solid #a88a4f;
+  background: radial-gradient(circle, #fbf3df, #e4d3a8);
+  line-height: 0;
+}
+.carte-jeu-nom {
+  margin: 10px 0 2px;
+  font-family: var(--titre);
+  font-size: 1.5rem;
+  color: #2b1e08;
+}
+.carte-jeu-accroche {
+  margin: 0 0 12px;
+  font-family: var(--titre);
+  font-style: italic;
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+.carte-jeu-rubriques {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid #b89a5c;
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.carte-jeu-rubriques > div + div {
+  margin-top: 7px;
+}
+.carte-jeu-rubriques dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7a5a22;
+}
+.carte-jeu-rubriques dd {
+  margin: 1px 0 0;
+}
+
+/* Logo à gauche de la barre de jeu */
+.logo-jeu {
+  display: inline-flex;
+  line-height: 0;
+}
+
+/* Menu ☰ (partie et salon d'attente) */
+.menu-principal {
+  position: relative;
+}
+.menu-bouton {
+  font-size: 1.25rem;
+  min-width: 44px;
+}
+.menu-liste {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: var(--rayon);
+  border: 1px solid var(--ardoise);
+  background: var(--panneau);
+  box-shadow: var(--ombre);
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ivoire);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: rgba(201, 164, 92, 0.14);
+  outline: none;
+}
+.menu-item-danger {
+  margin-top: 4px;
+  border-top: 1px solid var(--ardoise);
+  border-radius: 0 0 8px 8px;
+  color: var(--rouge);
+}
+
+/* Salon d'attente : réglages de la partie, compacts */
+.reglages-partie {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--ardoise);
+  border-radius: var(--rayon);
+}
+.reglages-partie h4 {
+  margin: 0 0 8px;
+}
+.reglage {
+  display: grid;
+  grid-template-columns: 8.5em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.reglage + .reglage {
+  margin-top: 6px;
+}
+.reglage label {
+  font-weight: 600;
+  font-size: 0.92em;
+}
+.reglage select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 0.75em;
+  border-radius: 8px;
+  border: 1px solid var(--ardoise-clair);
+  background: var(--nuit-2);
+}
+.reglage select:focus {
+  border-color: var(--or);
+}
+
+/* Libellés des indicateurs : longs sur ordinateur, courts sur téléphone. */
+.libelle-court {
+  display: none;
+}
+@media (max-width: 820px) {
+  .libelle-long {
+    display: none;
+  }
+  .libelle-court {
+    display: inline;
+  }
+  /* Barre du haut sur deux lignes : indicateurs + son + menu, puis rôle et cartes. */
+  .barre-jeu {
+    gap: 4px 10px;
+    flex-wrap: wrap;
+  }
+  .barre-jeu .role-entete {
+    display: none;
+  }
+  .barre-jeu .logo-jeu svg {
+    width: 30px;
+    height: 30px;
+  }
+  .nom-actif {
+    display: inline-block;
+    max-width: 6.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+  .puce-role {
+    padding-left: 8px;
+    border-color: var(--or);
+    color: var(--or-clair);
+    font-weight: 700;
+  }
+}
+@media (max-width: 820px) {
+  .puce-role.puce-meurtrier {
+    border-color: var(--rouge);
+    color: var(--rouge);
+  }
+}
+/* Indicateurs groupés : ils rétrécissent (nom du joueur actif tronqué), les boutons 🔊 et ☰ restent sur la ligne. */
+.indicateurs {
+  display: flex;
+  align-items: center;
+  gap: 8px 14px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.indicateurs .indicateur {
+  min-width: 0;
+}
+@media (max-width: 820px) {
+  .indicateurs {
+    gap: 10px;
+    flex: 1 1 0;
+  }
+  .barre-jeu .espace {
+    display: none;
+  }
+  .barre-jeu > .btn-petit,
+  .barre-jeu .menu-bouton {
+    flex: none;
+    min-width: 38px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .nom-actif {
+    max-width: 100%;
+  }
+  .indicateurs .indicateur:nth-child(2) {
+    flex: 0 1 auto;
+  }
+}
+.indicateur strong,
+.indicateur .chrono {
+  white-space: nowrap;
+}
+/* Téléphone : le libellé au-dessus, la liste déroulante et l'aide en dessous (texte jamais coupé). */
+@media (max-width: 520px) {
+  .reglage {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 8px;
+  }
+  .reglage label {
+    grid-column: 1 / -1;
+  }
+  .reglage + .reglage {
+    margin-top: 8px;
+  }
 }

@@ -193,8 +193,8 @@ export function ContenuRegles() {
   );
 }
 
-export function ModaleRegles({ onFermer }: { onFermer: () => void }) {
-  const [section, setSection] = useState<'regles' | 'dossier'>('regles');
+export function ModaleRegles({ onFermer, section: initiale = 'regles' }: { onFermer: () => void; section?: 'regles' | 'dossier' }) {
+  const [section, setSection] = useState<'regles' | 'dossier'>(initiale);
   return (
     <Modale titre="Règles du jeu" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Compris</button>}>
       <div className="ligne" role="tablist" aria-label="Sections des règles" style={{ marginBottom: 12 }}>

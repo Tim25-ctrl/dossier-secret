@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { INDICES_PAR_ID } from '../../../shared/data/indices';
-import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES, nomElement } from '../../../shared/data/manoir';
+import { nomElement } from '../../../shared/data/manoir';
 import { combinaisonsPossibles } from '../../../shared/logique';
-import { ARMES, LIEUX, SUSPECTS, categorieDe, type ArmeId, type ElementId, type LieuId, type Marque, type SuspectId, type VueJoueur } from '../../../shared/types';
+import { ARMES, LIEUX, SUSPECTS, type ElementId, type Marque, type VueJoueur } from '../../../shared/types';
 import { connexion } from '../../connexion';
 import { Aide, Modale, Prive } from '../Commun';
 import { Embleme } from '../Emblemes';
+import { CarteDeJeu } from './Dossier';
 import { texteEntreePrivee, type Noms } from './Textes';
 
 const MARQUES: { m: Marque; court: string; long: string }[] = [
@@ -32,24 +33,11 @@ export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementI
   return s;
 }
 
-/** Description courte d'un élément, pour la carte affichée en grand. */
-function description(e: ElementId): string {
-  if (e in PERSONNAGES) return PERSONNAGES[e as SuspectId].description;
-  if (e in LIEUX_FICHES) return LIEUX_FICHES[e as LieuId].description;
-  return ARMES_FICHES[e as ArmeId].description;
-}
-
-/** Carte affichée en grand quand on touche son icône dans le carnet. */
+/** Carte affichée en grand, façon carte à jouer, quand on touche son icône dans le carnet. */
 function ModaleCarte({ id, onFermer }: { id: ElementId; onFermer: () => void }) {
   return (
-    <Modale titre={nomElement(id)} onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
-      <div className="carte-en-grand">
-        <Embleme id={id} taille={150} />
-        <p className="muet petit" style={{ margin: '8px 0 4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          {categorieDe(id) === 'suspect' ? 'Suspect' : categorieDe(id) === 'lieu' ? 'Lieu' : 'Arme'}
-        </p>
-        <p style={{ margin: 0 }}>{description(id)}</p>
-      </div>
+    <Modale titre={nomElement(id)} titreMasque onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
+      <CarteDeJeu id={id} />
     </Modale>
   );
 }

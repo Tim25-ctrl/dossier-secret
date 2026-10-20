@@ -5,16 +5,15 @@ import type { EtatClient } from '../../shared/protocole';
 import { SANS_LIMITE, categorieDe, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
 import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification } from '../components/Commun';
-import { Embleme, Icone } from '../components/Emblemes';
+import { Embleme, Icone, Sceau } from '../components/Emblemes';
 import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, ResultatHypothese, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
 import { GRACE_PAUSE_MS, ModalePause, useHeureServeur } from '../components/jeu/Pause';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
-import { ModaleRegles } from './Regles';
 import { useSonMessages, useSonsPartie, useTicTac } from '../components/jeu/useSons';
 import type { Preferences } from '../preferences';
-import { BoutonQuitter } from '../components/Quitter';
+import { MenuPrincipal } from '../components/Menu';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
 
@@ -33,7 +32,7 @@ export function Jeu({
   const moi = vue.moi.id;
   const [onglet, setOnglet] = useState<Onglet>('enquete');
   const [historiqueComplet, setHistoriqueComplet] = useState(false);
-  const [modale, setModale] = useState<'hypothese' | 'accusation' | 'denonciation' | 'regles' | null>(null);
+  const [modale, setModale] = useState<'hypothese' | 'accusation' | 'denonciation' | null>(null);
   const { afficher, vue: notification } = useNotification();
   const noms = useMemo(() => new Map(vue.joueurs.map((j) => [j.id, j.nom])), [vue.joueurs]);
   const nom: Noms = useCallback((id: string) => noms.get(id) ?? '?', [noms]);
@@ -108,7 +107,10 @@ export function Jeu({
   return (
     <div className="jeu">
       <header className="barre-jeu">
-        <span className="titre-jeu">Dossier Secret</span>
+        <span className="logo-jeu" title="Dossier Secret">
+          <Sceau taille={36} />
+        </span>
+        <div className="indicateurs">
         <div className="indicateur">
           <small>Manche</small>
           <strong>
@@ -116,11 +118,17 @@ export function Jeu({
           </strong>
         </div>
         <div className="indicateur">
-          <small>Tour de</small>
-          <strong>{vue.joueurActif === moi ? 'vous' : nom(vue.joueurActif)}</strong>
+          <small>
+            <span className="libelle-long">Tour de</span>
+            <span className="libelle-court">Tour</span>
+          </small>
+          <strong className="nom-actif">{vue.joueurActif === moi ? 'vous' : nom(vue.joueurActif)}</strong>
         </div>
         <div className="indicateur">
-          <small>Points d'action</small>
+          <small>
+            <span className="libelle-long">Points d'action</span>
+            <span className="libelle-court">PA</span>
+          </small>
           <span className="points" aria-label={`${vue.pointsAction} point(s) d'action sur ${vue.regles.pointsAction}`}>
             {Array.from({ length: vue.regles.pointsAction }, (_, i) => (
               <span key={i} className={`point${i < vue.pointsAction ? ' plein' : ''}`} />
@@ -129,12 +137,16 @@ export function Jeu({
         </div>
         {vue.etape === 'tour' && (
           <div className="indicateur">
-            <small>Fin du tour</small>
+            <small>
+              <span className="libelle-long">Fin du tour</span>
+              <span className="libelle-court">Temps</span>
+            </small>
             {vue.pause ? <strong>en pause</strong> : vue.echeanceTour >= SANS_LIMITE ? <strong>sans limite</strong> : <Chrono echeance={vue.echeanceTour} decalage={decalage} />}
           </div>
         )}
+        </div>
         <span className="espace" />
-        <span className={`etiquette ${vue.moi.role === 'complice' ? 'etiquette-rouge' : 'etiquette-or'}`} title="Visible par vous seul">
+        <span className={`etiquette role-entete ${vue.moi.role === 'complice' ? 'etiquette-rouge' : 'etiquette-or'}`} title="Visible par vous seul">
           <Icone nom="cadenas" taille={12} /> {vue.moi.role === 'complice' ? 'Complice' : 'Enquêteur'}
         </span>
         <button
@@ -146,10 +158,7 @@ export function Jeu({
         >
           {prefs.son ? '🔊' : '🔇'}
         </button>
-        <button className="btn btn-discret btn-petit" onClick={() => setModale('regles')}>
-          <Icone nom="livre" /> Règles
-        </button>
-        <BoutonQuitter etat={etat} classe="btn btn-discret btn-petit" />
+        <MenuPrincipal etat={etat} prefs={prefs} majPrefs={majPrefs} />
         <BandeMesCartes vue={vue} />
       </header>
 
@@ -318,7 +327,6 @@ export function Jeu({
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'accusation' && <ModaleAccusation sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}
-      {modale === 'regles' && <ModaleRegles onFermer={() => setModale(null)} />}
       {doitRepondre && !vue.pause && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {fenetrePause && (
         <ModalePause
@@ -341,8 +349,9 @@ export function Jeu({
 /** Téléphone uniquement : vos cartes (et, pour le complice, le meurtrier) toujours visibles dans la barre du haut. */
 function BandeMesCartes({ vue }: { vue: VueJoueur }) {
   return (
-    <div className="bande-cartes" aria-label="Mes cartes, visibles par vous seul">
+    <div className="bande-cartes" aria-label="Mon rôle et mes cartes, visibles par vous seul">
       <Icone nom="cadenas" taille={12} />
+      <span className={`puce-carte puce-role${vue.moi.role === 'complice' ? ' puce-meurtrier' : ''}`}>{vue.moi.role === 'complice' ? 'Complice' : 'Enquêteur'}</span>
       {vue.moi.role === 'complice' && (
         <span className="puce-carte puce-meurtrier" title="Le meurtrier (vous seul le savez)">
           🎭 {nomCourt(vue.moi.meurtrier!)}

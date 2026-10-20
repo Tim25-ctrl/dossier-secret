@@ -7,6 +7,7 @@ import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
+import { lancerPartieGuidee } from '../tutoriel/partieLocale';
 
 type Mode = 'menu' | 'creer' | 'rejoindre';
 
@@ -67,6 +68,12 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             </button>
             <button className="btn" onClick={() => ouvrir('rejoindre')}>
               Rejoindre une partie
+            </button>
+            <button className="btn" onClick={() => {
+                majPrefs({ tutorielVu: true });
+                lancerPartieGuidee(prefs.pseudo.trim());
+              }}>
+              🎓 Apprendre à jouer (partie guidée)
             </button>
             <div className="ligne" style={{ justifyContent: 'center' }}>
               <button className="btn btn-discret" onClick={() => setRegles(true)}>
@@ -133,12 +140,40 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
       {regles && <ModaleRegles onFermer={() => setRegles(false)} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} />}
       {tutoriel && (
-        <Tutoriel
+        <Modale
+          titre="Première visite ?"
           onFermer={() => {
             setTutoriel(false);
             majPrefs({ tutorielVu: true });
           }}
-        />
+          pied={
+            <>
+              <button
+                className="btn btn-discret"
+                onClick={() => {
+                  setTutoriel(false);
+                  majPrefs({ tutorielVu: true });
+                }}
+              >
+                Plus tard
+              </button>
+              <button className="btn btn-or" onClick={() => {
+                majPrefs({ tutorielVu: true });
+                lancerPartieGuidee(prefs.pseudo.trim());
+              }}>
+                Lancer la partie guidée
+              </button>
+            </>
+          }
+        >
+          <p>
+            Apprenez à jouer en <strong>5 minutes</strong>, avec une vraie partie contre deux bots. Un guide vous montre où cliquer et explique chaque étape :
+            hypothèse, cartes montrées, carnet, archives, complice, accusation.
+          </p>
+          <p className="muet petit" style={{ marginBottom: 0 }}>
+            Vous la retrouverez à tout moment avec le bouton « Apprendre à jouer » de l'accueil.
+          </p>
+        </Modale>
       )}
     </main>
   );
@@ -188,55 +223,19 @@ export function ModaleParametres({ prefs, majPrefs, onFermer }: { prefs: Prefere
         <label htmlFor="pseudo-defaut">Pseudonyme par défaut</label>
         <input id="pseudo-defaut" value={prefs.pseudo} maxLength={PSEUDO_MAX} onChange={(e) => majPrefs({ pseudo: e.target.value })} />
       </div>
-      <button className="btn btn-discret btn-petit" onClick={() => majPrefs({ tutorielVu: false })}>
-        Revoir le tutoriel au prochain passage sur l'accueil
-      </button>
+      <div className="champ">
+        <label htmlFor="conseils">Conseils en partie</label>
+        <select id="conseils" value={prefs.conseils ? 'oui' : 'non'} onChange={(e) => majPrefs({ conseils: e.target.value === 'oui' })}>
+          <option value="oui">Affichés</option>
+          <option value="non">Masqués</option>
+        </select>
+      </div>
+      {prefs.conseils && prefs.conseilsVus.length > 0 && (
+        <button className="btn btn-discret btn-petit" onClick={() => majPrefs({ conseilsVus: [] })}>
+          Réafficher tous les conseils déjà lus
+        </button>
+      )}
     </Modale>
   );
 }
 
-const ETAPES_TUTORIEL = [
-  {
-    titre: 'Bienvenue au Manoir des Brumes',
-    texte: "Armand de Valombre a été assassiné. Votre mission : découvrir qui l'a tué, où, et avec quelle arme. Une seule combinaison parmi 216 est la bonne.",
-  },
-  {
-    titre: 'Vos cartes sont innocentes',
-    texte: 'Chaque carte que vous recevez ne fait pas partie de la solution. Interrogez les autres joueurs pour découvrir les leurs et éliminer des pistes.',
-  },
-  {
-    titre: 'Un complice parmi vous',
-    texte: "L'un des joueurs connaît le meurtrier. Il peut mentir deux fois et falsifier une hypothèse. Soyez attentifs aux réponses étranges.",
-  },
-  {
-    titre: 'Prenez des notes',
-    texte: "Votre carnet de déduction est privé. Cochez ce que vous écartez, puis accusez quand vous êtes sûr : une seule accusation par joueur !",
-  },
-];
-
-function Tutoriel({ onFermer }: { onFermer: () => void }) {
-  const [i, setI] = useState(0);
-  const e = ETAPES_TUTORIEL[i];
-  const dernier = i === ETAPES_TUTORIEL.length - 1;
-  return (
-    <Modale
-      titre={e.titre}
-      onFermer={onFermer}
-      pied={
-        <>
-          <span className="muet petit" style={{ marginRight: 'auto', alignSelf: 'center' }}>
-            {i + 1} / {ETAPES_TUTORIEL.length}
-          </span>
-          <button className="btn btn-discret" onClick={onFermer}>
-            Passer
-          </button>
-          <button className="btn btn-or" onClick={() => (dernier ? onFermer() : setI(i + 1))}>
-            {dernier ? "Commencer l'enquête" : 'Suivant'}
-          </button>
-        </>
-      }
-    >
-      <p style={{ fontSize: '1.1em' }}>{e.texte}</p>
-    </Modale>
-  );
-}

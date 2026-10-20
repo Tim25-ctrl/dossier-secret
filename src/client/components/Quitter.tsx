@@ -53,8 +53,9 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
   ) : null;
 
   return {
-    libelle: enPartie ? 'Quitter la partie' : 'Quitter le salon',
-    demander: () => (enPartie || dernier ? setOuverte(true) : void quitter()),
+    libelle: connexion.instantane().tutoriel ? 'Quitter la partie guidée' : enPartie ? 'Quitter la partie' : 'Quitter le salon',
+    // Partie guidée : rien à confirmer, on revient simplement à l'accueil.
+    demander: () => (!connexion.instantane().tutoriel && (enPartie || dernier) ? setOuverte(true) : void quitter()),
     confirmation,
   };
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CONFIG_PAR_DEFAUT } from '../../../engine/config';
 import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../../shared/data/indices';
 import { nomElement } from '../../../shared/data/manoir';
 import type { EntreePrivee, EvenementPublic } from '../../../shared/types';
@@ -22,7 +23,7 @@ export function texteEvenement(
     case 'debut_partie':
       return { contenu: "L'enquête commence. Les cartes sont distribuées et les rôles attribués en secret.", classe: 'important' };
     case 'debut_manche':
-      return { contenu: `Manche ${ev.manche}`, classe: 'manche' };
+      return { contenu: ev.manche === CONFIG_PAR_DEFAUT.manchesMax ? `Manche ${ev.manche} — dernière manche !` : `Manche ${ev.manche}`, classe: 'manche' };
     case 'debut_tour':
       return { contenu: ev.joueur === moi ? "C'est votre tour." : `Au tour de ${nom(ev.joueur)}.` };
     case 'fin_tour':

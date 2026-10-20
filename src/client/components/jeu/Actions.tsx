@@ -246,19 +246,21 @@ export function ResultatHypothese({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
   const reponse = journal.find((e) => e.type === 'carte_vue' || e.type === 'aucune_carte_vue');
   if (!origine || !reponse || origine.type !== 'hypothese_originale' || !('hypothese' in reponse) || reponse.hypothese !== origine.hypothese) return null;
   return (
-    <Prive titre="Résultat de votre hypothèse — vu par vous seul">
-      <TripletVue t={origine.triplet} />
-      {reponse.type === 'carte_vue' ? (
-        <p style={{ marginTop: 10, marginBottom: 0 }}>
-          {nom(reponse.de)} vous montre :{' '}
-          <span key={reponse.hypothese} className="anim-retournement">
-            <Carte id={reponse.carte} taille="mini" />
-          </span>
-        </p>
-      ) : (
-        <p style={{ marginTop: 10, marginBottom: 0 }}>Personne ne vous a montré de carte. Attention : cela ne prouve pas que l'hypothèse est juste.</p>
-      )}
-    </Prive>
+    <div className="resultat-hypothese">
+      <Prive titre="Résultat de votre hypothèse — vu par vous seul">
+        <TripletVue t={origine.triplet} />
+        {reponse.type === 'carte_vue' ? (
+          <p style={{ marginTop: 10, marginBottom: 0 }}>
+            {nom(reponse.de)} vous montre :{' '}
+            <span key={reponse.hypothese} className="anim-retournement">
+              <Carte id={reponse.carte} taille="mini" />
+            </span>
+          </p>
+        ) : (
+          <p style={{ marginTop: 10, marginBottom: 0 }}>Personne ne vous a montré de carte. Attention : cela ne prouve pas que l'hypothèse est juste.</p>
+        )}
+        </Prive>
+    </div>
   );
 }
 
@@ -281,6 +283,7 @@ export function ModaleReponse({ vue, nom, decalage, onErreur }: { vue: VueJoueur
         <p style={{ marginTop: 10 }}>
           Temps restant : <Chrono echeance={h.echeance} decalage={decalage} /> <span className="muet petit">(passé ce délai, une réponse honnête est donnée automatiquement)</span>
         </p>
+        <h4 className="titre-reponse">✅ Réponse honnête</h4>
         {a.cartesCorrespondantes.length === 0 ? (
           <>
             <p>Vous n'avez aucune carte correspondante.</p>
@@ -293,45 +296,63 @@ export function ModaleReponse({ vue, nom, decalage, onErreur }: { vue: VueJoueur
             <p>Vous devez montrer une de ces cartes (au choix) :</p>
             <div className="ligne">
               {a.cartesCorrespondantes.map((c) => (
-                <button key={c} className="btn" disabled={envoi} onClick={() => void envoyer({ type: 'repondre', carte: c })}>
+                <button key={c} className="btn btn-or" disabled={envoi} onClick={() => void envoyer({ type: 'repondre', carte: c })}>
                   Montrer « {nomElement(c)} »
                 </button>
               ))}
             </div>
+          </>
+        )}
+        {(a.peutMentir || a.cartesEmpruntables.length > 0) && (
+          <section className="ruses-reponse" aria-label="Vos ruses de complice">
+            <h4 className="titre-reponse">
+              🎭 Ou bien… une ruse de complice
+              <span className="etiquette etiquette-rouge">
+                {vue.regles.modeComplice === 'ruse' ? `${vue.moi.rusesRestantes} ruse${(vue.moi.rusesRestantes ?? 0) > 1 ? 's' : ''} en réserve` : 'pouvoir du complice'}
+              </span>
+            </h4>
+            <p className="petit muet" style={{ marginTop: 0 }}>
+              Personne ne voit que vous rusez.{vue.regles.modeComplice === 'ruse' ? ' Mais une ruse laisse parfois une empreinte, publiée plus tard, qui aide à vous démasquer.' : ''}
+            </p>
             {a.peutMentir && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--or-sombre)' }}>
-                <div className="ligne">
-                  <button className="btn btn-danger" disabled={envoi} onClick={() => void envoyer({ type: 'mentir' })}>
+              <div className="ruse-bloc">
+                <div className="ruse-titre">
+                  <strong>Mentir</strong>
+                  <span className="petit muet">
                     {vue.regles.modeComplice === 'ruse'
-                      ? `Ruse « Mensonge » (${vue.regles.coutRuses.mensonge} ruse — reste ${vue.moi.rusesRestantes})`
-                      : `Utiliser « Mensonge » (${vue.moi.mensongesRestants} restant${(vue.moi.mensongesRestants ?? 0) > 1 ? 's' : ''})`}
-                  </button>
-                  <Aide libelle="Aide sur le pouvoir Mensonge">
-                    Pouvoir du complice : vous ne montrez aucune carte et tout le monde croit que vous n'en avez pas. L'interrogation continue avec le joueur suivant.
-                    Vos cartes ne changent pas.
-                  </Aide>
+                      ? `coûte ${vue.regles.coutRuses.mensonge} ruse`
+                      : `${vue.moi.mensongesRestants} restant${(vue.moi.mensongesRestants ?? 0) > 1 ? 's' : ''}`}
+                  </span>
+                </div>
+                <p className="ruse-explication">
+                  Vous répondez « aucune carte » alors que vous avez {a.cartesCorrespondantes.map((c) => `« ${nomElement(c)} »`).join(' ou ')}. {nom(h.auteur)} croira que vous
+                  n'avez rien, et l'interrogation passe au joueur suivant.
+                </p>
+                <button className="btn btn-danger btn-petit" disabled={envoi} onClick={() => void envoyer({ type: 'mentir' })}>
+                  Mentir : répondre « aucune carte »
+                </button>
+              </div>
+            )}
+            {a.cartesEmpruntables.length > 0 && (
+              <div className="ruse-bloc">
+                <div className="ruse-titre">
+                  <strong>Montrer une carte que vous n'avez pas</strong>
+                  <span className="petit muet">coûte {vue.regles.coutRuses.emprunt} ruses</span>
+                </div>
+                <p className="ruse-explication">
+                  {nom(h.auteur)} croira que cette carte est innocente. Risqué : vous ignorez le lieu et l'arme du crime, c'est peut-être la bonne… Et si son vrai
+                  détenteur la montre aussi, la supercherie peut se voir.
+                </p>
+                <div className="ligne">
+                  {a.cartesEmpruntables.map((c) => (
+                    <button key={c} className="btn btn-danger btn-petit" disabled={envoi} onClick={() => void envoyer({ type: 'emprunter', carte: c })}>
+                      Montrer « {nomElement(c)} »
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
-          </>
-        )}
-        {a.cartesEmpruntables.length > 0 && (
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--or-sombre)' }}>
-            <div className="ligne" style={{ marginBottom: 6 }}>
-              <strong>Ruse « Carte empruntée »</strong> <span className="petit">({vue.regles.coutRuses.emprunt} ruses — reste {vue.moi.rusesRestantes})</span>
-              <Aide libelle="Aide sur la carte empruntée">
-                Montrez une carte de l'hypothèse que vous n'avez PAS : l'enquêteur la croira innocente. Attention : vous ignorez le lieu et l'arme du crime, la carte
-                montrée peut donc être innocente… ou faire partie de la solution. Si son vrai détenteur la montre aussi, la supercherie peut être découverte.
-              </Aide>
-            </div>
-            <div className="ligne">
-              {a.cartesEmpruntables.map((c) => (
-                <button key={c} className="btn btn-danger btn-petit" disabled={envoi} onClick={() => void envoyer({ type: 'emprunter', carte: c })}>
-                  Montrer « {nomElement(c)} » sans l'avoir
-                </button>
-              ))}
-            </div>
-          </div>
+          </section>
         )}
       </Prive>
     </Modale>
@@ -404,7 +425,7 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
   };
 
   return (
-    <Modale titre="Pouvoir : hypothèse falsifiée">
+    <Modale titre={`🎭 Ruse : falsifier l'hypothèse de ${nom(h.auteur)} ?`}>
       <Prive titre="Complice — décision secrète">
         <p style={{ marginBottom: 6 }}>{nom(h.auteur)} vient de formuler :</p>
         <TripletVue t={f.original} />
@@ -415,11 +436,16 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
           <p>Décision enregistrée. L'hypothèse sera annoncée à la fin du délai.</p>
         ) : (
           <>
-            <p className="petit">
-              Vous pouvez modifier <strong>un seul</strong> élément avant l'annonce publique (
-              {vue.regles.modeComplice === 'ruse' ? `${vue.regles.coutRuses.falsification} ruse — il vous en reste ${vue.moi.rusesRestantes}` : `reste : ${vue.moi.falsificationsRestantes}`}
-              ). L'auteur continuera de voir sa version originale, sans être prévenu ; les réponses seront calculées sur l'original.
+            <p className="ruse-explication">
+              Vous pouvez changer <strong>un seul</strong> élément avant que l'hypothèse soit annoncée. Les autres joueurs verront la version modifiée ;{' '}
+              {nom(h.auteur)} verra toujours la sienne, sans être prévenu. Les cartes montrées restent calculées sur sa vraie hypothèse.
             </p>
+            <p className="petit muet">
+              {vue.regles.modeComplice === 'ruse'
+                ? `Coûte ${vue.regles.coutRuses.falsification} ruse (il vous en reste ${vue.moi.rusesRestantes}). Une ruse laisse parfois une empreinte qui aide à vous démasquer.`
+                : `Falsifications restantes : ${vue.moi.falsificationsRestantes}.`}
+            </p>
+            <h4 className="titre-reponse">1. L'élément à changer</h4>
             <div className="ligne" role="radiogroup" aria-label="Élément à modifier">
               {(['suspect', 'lieu', 'arme'] as const).map((c) => (
                 <button key={c} className={`btn btn-petit ${champ === c ? 'btn-or' : ''}`} aria-pressed={champ === c} onClick={() => (setChamp(c), setValeur(null))}>
@@ -427,14 +453,15 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
                 </button>
               ))}
             </div>
-            <div className="cartes" style={{ marginTop: 10 }}>
+            <h4 className="titre-reponse">2. Ce que les autres verront à la place de « {nomElement(f.original[champ])} »</h4>
+            <div className="cartes">
               {options.map((o) => (
                 <Carte key={o} id={o} onClick={() => setValeur(o)} presse={valeur === o} />
               ))}
             </div>
             <div className="modale-pied">
               <button className="btn btn-discret" disabled={envoi} onClick={() => void envoyer({ type: 'passerFalsification' })}>
-                Laisser passer
+                Ne rien changer
               </button>
               <button className="btn btn-danger" disabled={!valeur || envoi} onClick={() => valeur && void envoyer({ type: 'falsifier', champ, valeur })}>
                 Falsifier ({nomElement(f.original[champ])} → {valeur ? nomElement(valeur) : '…'})

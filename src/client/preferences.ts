@@ -11,10 +11,14 @@ export interface Preferences {
   son: boolean;
   /** Volume des bruitages, de 0 à 1. */
   volume: number;
+  /** Conseils pendant les premières parties. */
+  conseils: boolean;
+  /** Conseils déjà lus (« Compris »). */
+  conseilsVus: string[];
 }
 
 const CLE = 'dossier-secret:preferences';
-const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false, son: true, volume: 0.6 };
+const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false, son: true, volume: 0.6, conseils: true, conseilsVus: [] };
 
 function lire(): Preferences {
   try {

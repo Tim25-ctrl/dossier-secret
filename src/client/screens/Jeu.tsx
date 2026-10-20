@@ -14,6 +14,7 @@ import { connexion } from '../connexion';
 import { useSonMessages, useSonsPartie, useTicTac } from '../components/jeu/useSons';
 import type { Preferences } from '../preferences';
 import { MenuPrincipal } from '../components/Menu';
+import { ConseilsEnPartie } from '../components/jeu/Conseils';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
 
@@ -70,6 +71,14 @@ export function Jeu({
   }, [monTour]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const erreur = (e: string) => afficher(e, true);
+
+  // Annonce de la dernière manche (une fois, quand elle commence).
+  const derniereManche = vue.manche === vue.regles.manchesMax && vue.etape !== 'terminee';
+  const mancheVue = useRef(vue.manche);
+  useEffect(() => {
+    if (derniereManche && mancheVue.current !== vue.manche) afficher('⏳ Dernière manche ! Chacun joue son dernier tour.');
+    mancheVue.current = vue.manche;
+  }, [vue.manche]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Partie en pause (joueur absent) : fenêtre « attendre ou remplacer par un bot », après une courte grâce.
   const maintenant = useHeureServeur(decalage, !!vue.pause);
@@ -141,7 +150,14 @@ export function Jeu({
               <span className="libelle-long">Fin du tour</span>
               <span className="libelle-court">Temps</span>
             </small>
-            {vue.pause ? <strong>en pause</strong> : vue.echeanceTour >= SANS_LIMITE ? <strong>sans limite</strong> : <Chrono echeance={vue.echeanceTour} decalage={decalage} />}
+            {vue.pause ? <strong>en pause</strong> : vue.echeanceTour >= SANS_LIMITE ? (
+              <strong>
+                <span className="libelle-long">sans limite</span>
+                <span className="libelle-court" title="Sans limite">
+                  ∞
+                </span>
+              </strong>
+            ) : <Chrono echeance={vue.echeanceTour} decalage={decalage} />}
           </div>
         )}
         </div>
@@ -183,6 +199,16 @@ export function Jeu({
 
           {onglet === 'enquete' && (
             <>
+              {derniereManche && (
+                <div className="info derniere-manche" role="status">
+                  ⏳ <strong>Dernière manche</strong> : c'est le dernier tour de chacun.{' '}
+                  {vue.moi.role === 'complice'
+                    ? 'Tenez bon : si personne ne trouve la solution d’ici la fin, vous gagnez.'
+                    : vue.moi.peutAccuser
+                      ? 'Si personne ne trouve d’ici la fin, le complice gagne : pensez à votre accusation finale !'
+                      : 'Si personne ne trouve d’ici la fin, le complice gagne.'}
+                </div>
+              )}
               {vue.pause && (
                 <div className="info" role="status">
                   ⏸ <strong>Partie en pause</strong> : en attente de {vue.pause.absents.map((a) => nom(a.id)).join(', ')}.{' '}
@@ -233,7 +259,7 @@ export function Jeu({
                   )}
                   {vue.regles.modeComplice === 'ruse' && (
                     <button
-                      className="btn"
+                      className="btn btn-denoncer"
                       disabled={!monTour || !vue.moi.peutDenoncer || vue.pointsAction < 1}
                       onClick={() => setModale('denonciation')}
                       title={vue.compliceDemasque ? 'Le complice est déjà démasqué.' : !vue.moi.peutDenoncer ? 'Vous avez déjà dénoncé quelqu’un.' : undefined}
@@ -241,7 +267,7 @@ export function Jeu({
                       🎭 Dénoncer le complice (1 PA)
                     </button>
                   )}
-                  <button className="btn" disabled={!monTour} onClick={() => void agir({ type: 'finTour' })}>
+                  <button className="btn btn-fin-tour" disabled={!monTour} onClick={() => void agir({ type: 'finTour' })}>
                     Terminer mon tour
                   </button>
                 </div>
@@ -341,6 +367,9 @@ export function Jeu({
         />
       )}
       {peutFalsifier && !doitRepondre && !vue.pause && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
+      {!etat.salon.code.startsWith('GUIDE') && (
+        <ConseilsEnPartie vue={vue} monTour={monTour} doitRepondre={doitRepondre} prefs={prefs} majPrefs={majPrefs} />
+      )}
       {notification}
     </div>
   );

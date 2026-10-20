@@ -5,6 +5,8 @@ import { Fin } from './screens/Fin';
 import { Jeu } from './screens/Jeu';
 import { Lobby } from './screens/Lobby';
 import { Sceau } from './components/Emblemes';
+import { CONSEILS_DU_TUTORIEL } from './components/jeu/Conseils';
+import { GuideTutoriel } from './tutoriel/Guide';
 
 export function App() {
   const c = useConnexion();
@@ -59,8 +61,13 @@ export function App() {
 
   return (
     <>
-      {bandeau}
+      {!c.tutoriel && bandeau}
       {ecran}
+      {c.tutoriel && c.etat?.partie && (
+        <GuideTutoriel
+          onTermine={() => majPrefs({ tutorielVu: true, conseilsVus: [...new Set([...prefs.conseilsVus, ...CONSEILS_DU_TUTORIEL])] })}
+        />
+      )}
     </>
   );
 }

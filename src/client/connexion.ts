@@ -24,6 +24,17 @@ export interface Instantane {
   decalage: number;
   expulsion: string | null;
   reprise: boolean;
+  /** Partie guidée en cours : la partie tourne sur cet appareil, sans serveur. */
+  tutoriel: boolean;
+}
+
+/**
+ * Moteur de partie local (partie guidée). Quand il est branché, les demandes de jeu ne partent
+ * pas au serveur : il les traite lui-même et publie l'état avec `connexion.majLocale`.
+ */
+export interface MoteurLocal {
+  envoyer(ev: keyof EvenementsClient, payload: unknown): Reponse<object>;
+  arreter(): void;
 }
 
 function lire(stockage: Storage, cle: string): Session | null {
@@ -74,7 +85,9 @@ class Connexion {
     decalage: 0,
     expulsion: null,
     reprise: false,
+    tutoriel: false,
   };
+  private local: MoteurLocal | null = null;
 
   constructor() {
     this.etat.reprise = this.etat.session !== null;
@@ -82,11 +95,13 @@ class Connexion {
     this.socket.on('connect', () => {
       this.maj({ statut: 'connecte' });
       // Reconnexion automatique (rafraîchissement, coupure réseau, mise en veille du téléphone).
-      if (this.etat.session && !this.etat.expulsion) void this.reprendre(this.etat.session);
+      if (this.etat.session && !this.etat.expulsion && !this.local) void this.reprendre(this.etat.session);
     });
     this.socket.on('disconnect', () => this.maj({ statut: 'deconnecte' }));
     this.socket.on('connect_error', () => this.maj({ statut: 'deconnecte' }));
-    this.socket.on('etat', (e) => this.maj({ etat: e, decalage: e.heureServeur - Date.now() }));
+    this.socket.on('etat', (e) => {
+      if (!this.local) this.maj({ etat: e, decalage: e.heureServeur - Date.now() });
+    });
     this.socket.on('expulse', ({ raison }) => {
       this.maj({ expulsion: raison, etat: null });
     });
@@ -106,6 +121,7 @@ class Connexion {
   }
 
   private envoyer<T extends object>(ev: keyof EvenementsClient, payload: unknown): Promise<Reponse<T>> {
+    if (this.local) return Promise.resolve(this.local.envoyer(ev, payload) as Reponse<T>);
     return new Promise((resolve) => {
       if (!this.socket.connected) {
         resolve({ ok: false, erreur: 'Connexion au serveur perdue. Nouvelle tentative en cours…' });
@@ -161,7 +177,28 @@ class Connexion {
     return r;
   }
 
+  /** Branche une partie locale (partie guidée) : rien n'est envoyé au serveur ni mémorisé. */
+  demarrerLocal(moteur: MoteurLocal, etat: EtatClient) {
+    this.local?.arreter();
+    this.local = moteur;
+    this.maj({ session: { code: etat.salon.code, joueurId: etat.moi, jeton: '' }, etat, decalage: 0, expulsion: null, tutoriel: true });
+  }
+
+  majLocale(etat: EtatClient) {
+    if (this.local) this.maj({ etat });
+  }
+
+  arreterLocal() {
+    this.local?.arreter();
+    this.local = null;
+    this.maj({ session: null, etat: null, tutoriel: false });
+  }
+
   async quitter() {
+    if (this.local) {
+      this.arreterLocal();
+      return { ok: true } as Reponse<{ ferme: boolean }>;
+    }
     const r = await this.envoyer<{ ferme: boolean }>('salon:quitter', {});
     ecrire(sessionStorage, CLE_SESSION, null);
     ecrire(localStorage, CLE_DERNIERE, null);

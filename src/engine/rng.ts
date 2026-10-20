@@ -1,8 +1,6 @@
 // Générateur pseudo-aléatoire déterministe (mulberry32) pour les tests et les
 // simulations, et générateur cryptographique pour les vraies parties.
 
-import { randomInt } from 'node:crypto';
-
 export interface Rng {
   /** Entier dans [0, max[ */
   int(max: number): number;
@@ -21,7 +19,21 @@ export function seededRng(seed: number): Rng {
 }
 
 /** Aléa cryptographique : utilisé par le serveur pour tirer la solution et les rôles. */
-export const cryptoRng: Rng = { int: (max) => (max <= 1 ? 0 : randomInt(max)) };
+export const cryptoRng: Rng = { int: (max) => (max <= 1 ? 0 : entierCrypto(max)) };
+
+/**
+ * Entier uniforme dans [0, max[ tiré par l'API Web Crypto (disponible dans Node 20+ et dans
+ * tous les navigateurs : le moteur peut ainsi tourner aussi côté client, pour la partie guidée).
+ * Tirage par rejet : aucun biais de modulo.
+ */
+function entierCrypto(max: number): number {
+  const plafond = Math.floor(0x1_0000_0000 / max) * max;
+  const tampon = new Uint32Array(1);
+  for (;;) {
+    globalThis.crypto.getRandomValues(tampon);
+    if (tampon[0] < plafond) return tampon[0] % max;
+  }
+}
 
 export function pick<T>(rng: Rng, items: readonly T[]): T {
   if (items.length === 0) throw new Error('pick: liste vide');

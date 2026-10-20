@@ -9,8 +9,17 @@
 // Le générateur ne retient une carte que si toutes ses règles sont vraies pour la
 // solution tirée au sort : un indice ne peut donc jamais exclure la vraie solution.
 
-import { ARMES, LIEUX, SUSPECTS, type ArmeId, type CarteIndice } from '../types';
+import { ARMES, LIEUX, SUSPECTS, type ArmeId, type CarteIndice, type LieuId, type RegleIndice, type SuspectId } from '../types';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from './manoir';
+
+/**
+ * Témoignage partiel : « si le crime a eu lieu là (ou avec cette arme), le coupable est l'un de
+ * ces deux suspects ». Traduit en une règle « pas X avec Y » pour chacun des quatre autres suspects :
+ * l'indice n'écarte rien à lui seul et laisse toujours deux coupables possibles.
+ */
+function seulsSuspects(pivot: LieuId | ArmeId, suspects: SuspectId[]): RegleIndice[] {
+  return SUSPECTS.filter((s) => !suspects.includes(s)).map((s) => ({ type: 'pasEnsemble', a: s, b: pivot }));
+}
 
 export const INDICES: CarteIndice[] = [
   {
@@ -736,7 +745,149 @@ export const INDICES: CarteIndice[] = [
     regles: [{ type: 'pasEnsemble', a: 'marchand', b: 'revolver' }],
     disponibleDesManche: 1,
   },
+
+  // --- Témoignages partiels : une trace qui désigne deux coupables possibles pour un lieu ou une arme ---
+  {
+    id: 'IND-67',
+    titre: "L'empreinte de la serre",
+    categorie: 'trace',
+    texte:
+      "Dans la terre meuble de la serre, les policiers ont relevé une empreinte toute fraîche de chaussure d'homme, pointure 42, au talon usé du côté gauche. Seuls deux hommes du manoir chaussent du 42 : Victor Delorme et Gabriel Roche. Si le crime a eu lieu dans la serre, le coupable est l'un des deux.",
+    concerne: ['serre', 'victor', 'gabriel'],
+    regles: seulsSuspects('serre', ['victor', 'gabriel']),
+    incompatibleAvec: ['IND-56'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-68',
+    titre: 'Le parfum de violette',
+    categorie: 'trace',
+    texte:
+      "Une odeur de violette flottait encore dans la bibliothèque à minuit. Ce parfum, un flacon rare acheté à Paris, n'est porté que par deux personnes au manoir : Éléonore et Camille. Si le crime a eu lieu dans la bibliothèque, la coupable est l'une des deux.",
+    concerne: ['bibliotheque', 'eleonore', 'camille'],
+    regles: seulsSuspects('bibliotheque', ['eleonore', 'camille']),
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-69',
+    titre: 'Le gant oublié',
+    categorie: 'objet',
+    texte:
+      "Au pied du chandelier en bronze, on a retrouvé un gant d'homme en cuir fin, taille 9. Deux hommes seulement portent des gants de cette taille : Victor et le docteur Morel. Si l'arme est le chandelier, le coupable est l'un des deux.",
+    concerne: ['chandelier', 'victor', 'morel'],
+    regles: seulsSuspects('chandelier', ['victor', 'morel']),
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-70',
+    titre: 'La cendre de cigare',
+    categorie: 'trace',
+    texte:
+      "Sur une marche de l'escalier de la cave, une cendre de cigare cubain encore fraîche. Au manoir, seuls Victor et Gabriel fument ces cigares : Victor en a offert une boîte à Gabriel le soir de son arrivée. Si le crime a eu lieu dans la cave, le coupable est l'un des deux.",
+    concerne: ['cave', 'victor', 'gabriel'],
+    regles: seulsSuspects('cave', ['victor', 'gabriel']),
+    incompatibleAvec: ['IND-74'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-71',
+    titre: 'Le bouton arraché',
+    categorie: 'objet',
+    texte:
+      "Sous la panoplie du salon de musique, juste à l'endroit où pendait la dague, un bouton de gilet en nacre a été arraché. Deux gilets du manoir portent ces boutons : celui de Marchand et celui du docteur Morel. Si l'arme est la dague, le coupable est l'un des deux.",
+    concerne: ['dague', 'marchand', 'morel'],
+    regles: seulsSuspects('dague', ['marchand', 'morel']),
+    incompatibleAvec: ['IND-75'],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-72',
+    titre: 'La partition annotée',
+    categorie: 'document',
+    texte:
+      "Sur le pupitre du piano, une partition porte des annotations au crayon, tracées pendant la soirée. Deux personnes seulement savent lire la musique au manoir : Éléonore et le docteur Morel. Si le crime a eu lieu dans le salon de musique, le coupable est l'un des deux.",
+    concerne: ['salon_musique', 'eleonore', 'morel'],
+    regles: seulsSuspects('salon_musique', ['eleonore', 'morel']),
+    disponibleDesManche: 1,
+  },
+
+  // --- Le journal d'Armand : sept pages, du 11 au 17 octobre ---
+  {
+    id: 'IND-73',
+    titre: "Journal d'Armand — 11 octobre",
+    categorie: 'journal',
+    texte:
+      "« Éléonore a encore crié ce soir à propos du testament. Quand j'ai sorti le revolver de mon père pour le nettoyer, elle a pâli et quitté la pièce. Depuis l'accident de chasse de sa mère, elle ne supporte même pas de le voir. Ma fille ne touchera jamais à cette arme. »",
+    concerne: ['eleonore', 'revolver'],
+    regles: [{ type: 'pasEnsemble', a: 'eleonore', b: 'revolver' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-74',
+    titre: "Journal d'Armand — 12 octobre",
+    categorie: 'journal',
+    texte:
+      "« Victor m'a encore demandé d'aller chercher le bourgogne moi-même. Il refuse de descendre à la cave depuis qu'il y est resté enfermé toute une nuit, il y a des années. Un homme qui a peur du noir et prétend me faire peur… »",
+    concerne: ['victor', 'cave'],
+    regles: [{ type: 'pasEnsemble', a: 'victor', b: 'cave' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-75',
+    titre: "Journal d'Armand — 13 octobre",
+    categorie: 'journal',
+    texte:
+      "« Lucien a refusé de m'ôter une simple écharde. Ses mains tremblent dès qu'il voit une lame, depuis cette opération ratée dont il ne parle jamais. Et c'est cet homme qu'on appelle docteur. »",
+    concerne: ['morel', 'dague'],
+    regles: [{ type: 'pasEnsemble', a: 'morel', b: 'dague' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-76',
+    titre: "Journal d'Armand — 14 octobre",
+    categorie: 'journal',
+    texte:
+      "« J'ai surpris Étienne à lire mes lettres dans la bibliothèque. Je lui ai repris la clé : il n'y entrera plus. Trente ans de service, et voilà comment il me remercie. Je lui annoncerai son renvoi demain. »",
+    concerne: ['marchand', 'bibliotheque'],
+    regles: [{ type: 'pasEnsemble', a: 'marchand', b: 'bibliotheque' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-77',
+    titre: "Journal d'Armand — 15 octobre",
+    categorie: 'journal',
+    texte:
+      "« La journaliste fouille partout. J'ai fait poser un second verrou à mon bureau, dont je garde l'unique clé sur moi. Mademoiselle Vasseur n'y mettra plus jamais les pieds. »",
+    concerne: ['camille', 'bureau'],
+    regles: [{ type: 'pasEnsemble', a: 'camille', b: 'bureau' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-78',
+    titre: "Journal d'Armand — 16 octobre",
+    categorie: 'journal',
+    texte:
+      "« Gabriel est revenu. Il a refusé de s'asseoir à ma table et jure qu'il ne remettra jamais les pieds dans cette salle à manger où je l'ai humilié il y a dix ans. Qu'il garde sa fierté : j'ai toujours sa lettre. »",
+    concerne: ['gabriel', 'salle_a_manger'],
+    regles: [{ type: 'pasEnsemble', a: 'gabriel', b: 'salle_a_manger' }],
+    disponibleDesManche: 1,
+  },
+  {
+    id: 'IND-79',
+    titre: "Journal d'Armand — 17 octobre",
+    categorie: 'journal',
+    texte:
+      "« J'ai fait retirer le chandelier du salon de musique : la cire a encore taché le piano. Demain, je parlerai au notaire. Tant de gens dans cette maison auraient intérêt à ce que je me taise… »",
+    concerne: ['salon_musique', 'chandelier'],
+    regles: [{ type: 'pasEnsemble', a: 'salon_musique', b: 'chandelier' }],
+    disponibleDesManche: 1,
+  },
 ];
+
+/** Date d'une page du journal (« Journal d'Armand — 12 octobre » -> 12), pour les trier. */
+export function jourDuJournal(c: CarteIndice): number {
+  return Number(/(\d+) octobre/.exec(c.titre)?.[1] ?? 0);
+}
 
 /**
  * Modèles de FAUX indices « pas X avec Y » pour toutes les paires d'éléments.
@@ -787,6 +938,66 @@ function modelesFaux(): CarteIndice[] {
       });
     }
   }
+  return [...out, ...modelesFauxJournal()];
+}
+
+/**
+ * Fausses pages du journal d'Armand, une par paire d'éléments : un dossier « Journal » trafiqué
+ * doit rester une page de journal, datée de la même semaine que les vraies.
+ */
+function modelesFauxJournal(): CarteIndice[] {
+  const prenom: Record<SuspectId, string> = {
+    eleonore: 'Éléonore',
+    victor: 'Victor',
+    morel: 'Lucien',
+    marchand: 'Étienne',
+    camille: 'Mademoiselle Vasseur',
+    gabriel: 'Gabriel',
+  };
+  const out: CarteIndice[] = [];
+  let n = 0;
+  const page = (id: string, texte: string, concerne: CarteIndice['concerne'], regle: RegleIndice) =>
+    out.push({
+      id,
+      titre: `Journal d'Armand — ${11 + (n++ % 6)} octobre`,
+      categorie: 'journal',
+      texte,
+      concerne,
+      regles: [regle],
+      disponibleDesManche: 1,
+    });
+  for (const s of SUSPECTS) {
+    for (const l of LIEUX) {
+      const lieu = LIEUX_FICHES[l].article;
+      page(
+        `FAUX-J-${s}-${l}`,
+        `« ${prenom[s]} m'a juré ce soir de ne plus jamais mettre les pieds ${lieu}, pas même pour me faire plaisir. Pour une fois, je le crois : il y a des souvenirs qu'on ne veut pas réveiller. »`,
+        [s, l],
+        { type: 'pasEnsemble', a: s, b: l },
+      );
+    }
+    for (const a of ARMES) {
+      const arme = ARMES_FICHES[a].article.replace(/^avec /, '');
+      page(
+        `FAUX-J-${s}-${a}`,
+        `« J'ai mis ${arme} sous clé, et ${prenom[s]} ignore tout de la cachette. Voilà au moins une chose qui ne pourra pas se retourner contre moi dans cette maison. »`,
+        [s, a],
+        { type: 'pasEnsemble', a: s, b: a },
+      );
+    }
+  }
+  for (const l of LIEUX) {
+    const lieu = LIEUX_FICHES[l].article;
+    for (const a of ARMES) {
+      const arme = ARMES_FICHES[a].article.replace(/^avec /, '');
+      page(
+        `FAUX-J-${l}-${a}`,
+        `« Ce matin, j'ai fait retirer ${arme} : il n'y a plus rien de tel ${lieu}, et je suis le seul à connaître sa cachette. Les domestiques chuchotent ; qu'ils chuchotent. »`,
+        [l, a],
+        { type: 'pasEnsemble', a: l, b: a },
+      );
+    }
+  }
   return out;
 }
 
@@ -802,6 +1013,7 @@ export const LIBELLES_CATEGORIE_INDICE: Record<CarteIndice['categorie'], string>
   document: 'Document',
   trace: 'Trace',
   contradiction: 'Contradiction',
+  journal: "Journal d'Armand",
 };
 
 /** Libellés des dossiers d'archives (indices + pièces à conviction). */

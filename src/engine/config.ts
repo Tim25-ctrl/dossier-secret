@@ -79,8 +79,10 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   // Volume d'indices choisi d'après les simulations (voir docs/EQUILIBRAGE.md) :
   // assez pour enquêter, sans rendre l'affaire triviale.
   nbDossiersArchives: 6,
-  nbIndicesPublicsDepart: 1,
-  manchesIndicesPublics: [6],
+  // Plus d'indice public gratuit (décision du 20/10/2026) : toute l'information passe par les
+  // cartes, les hypothèses et les archives. Le moteur sait toujours en publier si on le règle.
+  nbIndicesPublicsDepart: 0,
+  manchesIndicesPublics: [],
   ouvertureDossiers: [1, 2, 3, 5, 7, 9],
   minCombinaisonsIndices: 4,
   indicesRelationnels: true,
@@ -102,6 +104,8 @@ export const REGLES_INITIALES: Partial<ConfigPartie> = {
   modeComplice: 'classique',
   coutHypothese: 1,
   cartesRestantes: 'publiques',
+  nbIndicesPublicsDepart: 1,
+  manchesIndicesPublics: [6],
   pouvoirs: {
     3: { mensonges: 2, falsifications: 1 },
     4: { mensonges: 2, falsifications: 1 },

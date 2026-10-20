@@ -144,3 +144,39 @@ Les bots « experts » (qui raisonnent sur les cartes) sont peu affectés ; les 
 L'enquête est désormais **exigeante** : les indices ne valent que combinés aux cartes. Un joueur qui raisonne sur les mains des autres (profil expert) gagne environ une partie sur deux ; un joueur qui se contente de cocher ce qu'il voit gagne rarement.
 
 Pistes testées si les parties s'avèrent trop dures en vrai : hypothèse à 1 PA (enquêteurs 60–80 %, testé mais non retenu), ou plus d'indices (peu d'effet : chaque indice « pas X avec Y » apporte peu).
+
+## Mise à jour : témoignages partiels et journal d'Armand (20/10/2026)
+
+**Ajout** : 13 nouveaux indices, tous construits uniquement avec des règles « pas X avec Y » (rien n'est écarté seul).
+
+- **6 témoignages partiels** (IND-67 à IND-72) : une trace désigne deux coupables possibles pour un lieu ou une arme (« si le crime a eu lieu dans la serre, le coupable est Victor ou Gabriel »). Chacun équivaut à 4 règles « pas X avec Y ». C'est le seul type d'indice où connaître un élément ne laisse que **2** possibilités dans une autre catégorie (au lieu de 4 au moins) ; le test automatique a été adapté en conséquence, avec l'accord de l'auteur du jeu. Trois témoignages sont déclarés incompatibles avec une page ou un indice qui les contredirait narrativement (ex. la cendre de cigare de Victor dans la cave et la page du 12 octobre où Victor refuse d'y descendre).
+- **7 pages du journal d'Armand** (IND-73 à IND-79), datées du 11 au 17 octobre : chacune raconte une dispute et écarte une paire. Elles s'affichent sur papier jauni. L'écran de fin montre toutes les pages vraies pour la solution, dans l'ordre, en signalant celles lues pendant la partie.
+- **108 fausses pages du journal** (modèles) : un dossier « Journal d'Armand » trafiqué par le complice contient une page de journal fausse, datée de la même semaine, pour ne pas se trahir.
+
+36 indices « pas X avec Y » sont désormais tirables (contre 23).
+
+**Effet mesuré (200 parties par taille, réglages par défaut, mode rusé)** :
+
+| Joueurs | Enquêteurs gagnent (expert / occasionnel) | Avant (expert / occasionnel) | Complice démasqué |
+|---:|---:|---:|---:|
+| 3 | 59 % / 29 % | 50 % / 22 % | 54 % |
+| 4 | 47 % / 32 % | 48 % / 27 % | 63 % |
+| 5 | 60 % / 29 % | 54 % / 19 % | 68 % |
+| 6 | 64 % / 34 % | 58 % / 30 % | 47 % |
+
+Les témoignages partiels rendent l'enquête un peu moins dure, surtout pour les joueurs « occasionnels », sans la rendre facile.
+
+## Mise à jour : plus de dossier public (20/10/2026)
+
+**Décision de l'auteur du jeu** : le dossier public est supprimé. Il n'y a plus d'indice gratuit au départ ni à la manche 6 (`nbIndicesPublicsDepart: 0`, `manchesIndicesPublics: []`) ; tous les indices sont dans les 6 dossiers d'archives (1 PA chacun, lus en secret). Le moteur sait toujours publier des indices si on le règle (les « règles initiales » des simulations historiques gardent 1 + 1 indice public). Le panneau « Dossier public » n'apparaît plus que s'il contient quelque chose (anciennes parties).
+
+**Effet mesuré (200 parties par taille, réglages par défaut, mode rusé)** :
+
+| Joueurs | Enquêteurs gagnent (expert / occasionnel) | Avec dossier public | Complice démasqué |
+|---:|---:|---:|---:|
+| 3 | 56 % / 26 % | 59 % / 29 % | 54 % |
+| 4 | 39 % / 26 % | 47 % / 32 % | 62 % |
+| 5 | 59 % / 19 % | 60 % / 29 % | 62 % |
+| 6 | 66 % / 35 % | 64 % / 34 % | 40 % |
+
+Les enquêteurs perdent quelques points, surtout à 4 joueurs et chez les joueurs « occasionnels ». Sur 200 parties, l'incertitude est d'environ ± 7 points : seules les baisses à 4 joueurs (expert) et à 5 joueurs (occasionnel) sont nettes. Si les parties deviennent trop dures, la piste la plus simple est d'ajouter un 7ᵉ dossier d'archives.

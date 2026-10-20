@@ -98,7 +98,7 @@ Ce que couvrent les tests (`tests/`) :
 
 | Fichier | Contenu |
 |---|---|
-| `generation.test.ts` | Données de l'affaire, 36 indices, génération valide pour les 216 solutions, détection des affaires incohérentes, distribution des cartes pour 3 à 6 joueurs |
+| `generation.test.ts` | Données de l'affaire, 79 indices, témoignages partiels, journal d'Armand, génération valide pour les 216 solutions, détection des affaires incohérentes, distribution des cartes pour 3 à 6 joueurs |
 | `regles.test.ts` | Rôles, points d'action, tours, hypothèses, ordre d'interrogation, une seule carte révélée, Mensonge, Hypothèse falsifiée, accusations, victoire, carnet |
 | `parties-completes.test.ts` | 100 parties complètes simulées (3 à 6 joueurs) avec contrôle des invariants après chaque action, fin par limite de manches, reconnexion en cours de partie |
 | `salons.test.ts` | Pseudonymes, codes, transfert d'hôte, sauvegarde/restauration après redémarrage |
@@ -158,7 +158,7 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 ## 8. Ce qui est terminé
 
 - Moteur de règles complet et indépendant de l'interface : affaire, solution secrète, rôles, cartes, tours, 2 PA (hypothèse 2 PA, archive 1 PA), hypothèses, interrogations (1/2/2/3 interrogés), règle « une seule carte », pouvoirs **Mensonge** (2, ou 3 à 5–6 joueurs) et **Hypothèse falsifiée** (1, ou 2 à 5–6 joueurs) avec versions originale/publique — l'auteur n'est jamais prévenu —, pièces à conviction dans les archives, accusations finales, conditions de victoire, 12 manches.
-- Générateur d'affaires avec 36 cartes d'indice (7 catégories), règles logiques, faits chronologiques, détection des contradictions, validation automatique avant chaque partie.
+- Générateur d'affaires avec 79 cartes d'indice (8 catégories, dont le journal d'Armand ; 36 « pas X avec Y » tirées en partie), règles logiques, faits chronologiques, détection des contradictions, validation automatique avant chaque partie.
 - 6 personnages (fiches complètes et portraits), 6 lieux, 6 armes illustrés en SVG.
 - Serveur multijoueur autoritaire : salons privés (codes de 6 caractères, liens d'invitation), 6 joueurs maximum, validation de toutes les entrées, filtrage des données par joueur, limitation de débit, reconnexion, sauvegarde/restauration, transfert d'hôte, journal d'audit.
 - Interface : accueil, tutoriel de premier lancement, règles, paramètres (taille du texte, animations), lobby, écran de jeu, interrogation, pouvoirs du complice (avec infobulles), carnet de déduction, archives, historique, discussion, écran de fin (solution, récit, indices décisifs, complice, pouvoirs utilisés, mains de chacun), « Rejouer », durée de tour réglable par l'hôte (1 à 10 min ou sans limite), bouton « Quitter » avec confirmation (le dernier joueur présent ferme le salon).

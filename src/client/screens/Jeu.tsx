@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../shared/data/indices';
-import { nomElement } from '../../shared/data/manoir';
+import { nomCourt, nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
-import { SANS_LIMITE, type VueJoueur } from '../../shared/types';
+import { SANS_LIMITE, categorieDe, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
 import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification } from '../components/Commun';
-import { Icone } from '../components/Emblemes';
+import { Embleme, Icone } from '../components/Emblemes';
 import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
@@ -13,18 +13,21 @@ import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
 import { BoutonQuitter } from '../components/Quitter';
 
-type Onglet = 'enquete' | 'cartes' | 'archives' | 'carnet' | 'historique' | 'discussion';
+type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
 
 export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) {
   const vue = etat.partie!;
   const moi = vue.moi.id;
   const [onglet, setOnglet] = useState<Onglet>('enquete');
+  const [historiqueComplet, setHistoriqueComplet] = useState(false);
   const [modale, setModale] = useState<'hypothese' | 'accusation' | 'denonciation' | 'regles' | null>(null);
   const { afficher, vue: notification } = useNotification();
   const noms = useMemo(() => new Map(vue.joueurs.map((j) => [j.id, j.nom])), [vue.joueurs]);
   const nom: Noms = useCallback((id: string) => noms.get(id) ?? '?', [noms]);
   const sources = useMemo(() => sourcesConnues(vue, nom), [vue, nom]);
   const monTour = vue.joueurActif === moi && vue.etape === 'tour';
+  // Les boutons d'action n'apparaissent que pendant mon tour (y compris pendant l'interrogation de mon hypothèse).
+  const actionsVisibles = vue.joueurActif === moi && vue.etape !== 'terminee';
   const h = vue.hypotheseEnCours;
   const doitRepondre = !!h?.aRepondre && h.repondantActuel === moi;
   const peutFalsifier = !!h?.falsification && h.etape === 'falsification';
@@ -70,13 +73,12 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   const dossiersDispo = vue.archives.filter((a) => a.disponible && !a.consulte);
   const raisonArchive = !monTour ? null : vue.pointsAction < 1 ? 'Plus de point d’action.' : dossiersDispo.length === 0 ? 'Aucun dossier disponible.' : null;
 
-  const onglets: { id: Onglet; libelle: string; classe?: string; badge?: number }[] = [
-    { id: 'enquete', libelle: 'Enquête' },
-    { id: 'cartes', libelle: 'Mes cartes', classe: 'onglet-mobile-seulement' },
-    { id: 'archives', libelle: 'Archives', badge: dossiersDispo.length || undefined },
-    { id: 'carnet', libelle: 'Carnet' },
-    { id: 'historique', libelle: 'Historique' },
-    { id: 'discussion', libelle: 'Discussion', classe: 'onglet-chat', badge: onglet !== 'discussion' && nonLus ? nonLus : undefined },
+  // Sur téléphone, ces onglets forment une barre fixe en bas de l'écran.
+  const onglets: { id: Onglet; libelle: string; icone: Parameters<typeof Icone>[0]['nom']; classe?: string; badge?: number }[] = [
+    { id: 'enquete', libelle: 'Enquête', icone: 'loupe' },
+    { id: 'archives', libelle: 'Archives', icone: 'dossier', badge: dossiersDispo.length || undefined },
+    { id: 'carnet', libelle: 'Carnet', icone: 'plume' },
+    { id: 'discussion', libelle: 'Discussion', icone: 'bulle', classe: 'onglet-chat', badge: onglet !== 'discussion' && nonLus ? nonLus : undefined },
   ];
 
   return (
@@ -115,6 +117,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
           <Icone nom="livre" /> Règles
         </button>
         <BoutonQuitter etat={etat} classe="btn btn-discret btn-petit" />
+        <BandeMesCartes vue={vue} />
       </header>
 
       <div className="disposition">
@@ -127,7 +130,10 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
           <div className="onglets" role="tablist" aria-label="Sections du jeu">
             {onglets.map((o) => (
               <button key={o.id} role="tab" aria-selected={onglet === o.id} className={`onglet ${o.classe ?? ''}`} onClick={() => setOnglet(o.id)}>
-                {o.libelle}
+                <span className="icone-onglet">
+                  <Icone nom={o.icone} />
+                </span>
+                <span className="libelle-onglet">{o.libelle}</span>
                 {o.badge ? <span className="badge">{o.badge}</span> : null}
               </button>
             ))}
@@ -154,89 +160,95 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
                 </div>
               )}
 
-              <div className="actions">
-                <button className="btn btn-or" disabled={!monTour || !!raisonHypothese} onClick={() => setModale('hypothese')}>
-                  <Icone nom="loupe" /> Hypothèse ({vue.regles.coutHypothese} PA)
-                </button>
-                <button className="btn" disabled={!monTour || !!raisonArchive} onClick={() => setOnglet('archives')}>
-                  <Icone nom="livre" /> Consulter les archives (1 PA)
-                </button>
-                {/* Le complice ne peut pas accuser : le bouton n'existe que sur l'écran des enquêteurs. */}
-                {vue.moi.role !== 'complice' && (
-                  <button className="btn btn-danger" disabled={!monTour || !vue.moi.peutAccuser} onClick={() => setModale('accusation')}>
-                    Accusation finale
+              {actionsVisibles && (
+                <div className="actions">
+                  <button className="btn btn-or" disabled={!monTour || !!raisonHypothese} onClick={() => setModale('hypothese')}>
+                    <Icone nom="loupe" /> Hypothèse ({vue.regles.coutHypothese} PA)
                   </button>
-                )}
-                {vue.regles.modeComplice === 'ruse' && (
-                  <button
-                    className="btn"
-                    disabled={!monTour || !vue.moi.peutDenoncer || vue.pointsAction < 1}
-                    onClick={() => setModale('denonciation')}
-                    title={vue.compliceDemasque ? 'Le complice est déjà démasqué.' : !vue.moi.peutDenoncer ? 'Vous avez déjà dénoncé quelqu’un.' : undefined}
-                  >
-                    🎭 Dénoncer le complice (1 PA)
+                  <button className="btn" disabled={!monTour || !!raisonArchive} onClick={() => setOnglet('archives')}>
+                    <Icone nom="livre" /> Consulter les archives (1 PA)
                   </button>
-                )}
-                <button className="btn" disabled={!monTour} onClick={() => void agir({ type: 'finTour' })}>
-                  Terminer mon tour
-                </button>
-              </div>
+                  {/* Le complice ne peut pas accuser : le bouton n'existe que sur l'écran des enquêteurs. */}
+                  {vue.moi.role !== 'complice' && (
+                    <button className="btn btn-danger" disabled={!monTour || !vue.moi.peutAccuser} onClick={() => setModale('accusation')}>
+                      Accusation finale
+                    </button>
+                  )}
+                  {vue.regles.modeComplice === 'ruse' && (
+                    <button
+                      className="btn"
+                      disabled={!monTour || !vue.moi.peutDenoncer || vue.pointsAction < 1}
+                      onClick={() => setModale('denonciation')}
+                      title={vue.compliceDemasque ? 'Le complice est déjà démasqué.' : !vue.moi.peutDenoncer ? 'Vous avez déjà dénoncé quelqu’un.' : undefined}
+                    >
+                      🎭 Dénoncer le complice (1 PA)
+                    </button>
+                  )}
+                  <button className="btn" disabled={!monTour} onClick={() => void agir({ type: 'finTour' })}>
+                    Terminer mon tour
+                  </button>
+                </div>
+              )}
               {monTour && (raisonHypothese || raisonArchive) && (
                 <p className="raison">{[raisonHypothese && `Hypothèse : ${raisonHypothese}`, raisonArchive && `Archives : ${raisonArchive}`].filter(Boolean).join(' · ')}</p>
               )}
-              {!monTour && vue.etape !== 'terminee' && <p className="raison">Les actions s'activeront pendant votre tour. Le carnet et la discussion restent disponibles.</p>}
+              {!actionsVisibles && vue.etape !== 'terminee' && (
+                <p className="raison">Vos actions apparaîtront à votre tour. En attendant, le carnet et la discussion restent disponibles.</p>
+              )}
 
               <SuiviHypothese vue={vue} nom={nom} decalage={decalage} delaiFalsification={vue.regles.delaiFalsificationMs} />
 
-              <section className="panneau">
-                <EntetePublic>Dossier public</EntetePublic>
-                {vue.cartesPubliques.length > 0 && (
-                  <>
-                    <h4>
-                      Cartes publiques <Aide>Ces cartes n'ont été distribuées à personne : elles ne font pas partie de la solution.</Aide>
-                    </h4>
-                    <div className="ligne" style={{ marginBottom: 12 }}>
-                      {vue.cartesPubliques.map((c) => (
-                        <Carte key={c} id={c} taille="mini" />
-                      ))}
-                    </div>
-                  </>
-                )}
-                <h4>Indices publics</h4>
-                <div className="indices">
-                  {vue.indicesPublics.map((i) => (
-                    <CarteIndice key={i.indice} id={i.indice} ouvert={false} />
-                  ))}
-                </div>
-              </section>
+              {/* Plus d'indice public par défaut : le panneau ne reste que pour d'anciennes parties ou d'autres réglages. */}
+              {(vue.cartesPubliques.length > 0 || vue.indicesPublics.length > 0) && (
+                <section className="panneau">
+                  <EntetePublic>Dossier public</EntetePublic>
+                  {vue.cartesPubliques.length > 0 && (
+                    <>
+                      <h4>
+                        Cartes publiques <Aide>Ces cartes n'ont été distribuées à personne : elles ne font pas partie de la solution.</Aide>
+                      </h4>
+                      <div className="ligne" style={{ marginBottom: 12 }}>
+                        {vue.cartesPubliques.map((c) => (
+                          <Carte key={c} id={c} taille="mini" />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {vue.indicesPublics.length > 0 && (
+                    <>
+                      <h4>Indices publics</h4>
+                      <div className="indices">
+                        {vue.indicesPublics.map((i) => (
+                          <CarteIndice key={i.indice} id={i.indice} ouvert={false} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
 
               <section className="panneau">
-                <EntetePublic>Derniers événements</EntetePublic>
-                <Journal vue={vue} nom={nom} limite={8} />
-                <button className="btn btn-discret btn-petit" onClick={() => setOnglet('historique')}>
-                  Tout l'historique
+                <EntetePublic>{historiqueComplet ? 'Historique complet de la partie' : 'Derniers événements'}</EntetePublic>
+                <Journal vue={vue} nom={nom} limite={historiqueComplet ? undefined : 8} />
+                <button className="btn btn-discret btn-petit" aria-expanded={historiqueComplet} onClick={() => setHistoriqueComplet(!historiqueComplet)}>
+                  {historiqueComplet ? 'Réduire l’historique' : 'Tout l’historique'}
                 </button>
               </section>
-            </>
-          )}
 
-          {onglet === 'cartes' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <PanneauRole vue={vue} />
-              <PanneauJoueurs vue={vue} nom={nom} />
-            </div>
+              {/* Sur téléphone, la colonne de gauche est masquée : rôle et joueurs sont ici, repliables. */}
+              <details className="panneau mobile-seulement">
+                <summary>Mon rôle et les joueurs</summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+                  <PanneauRole vue={vue} />
+                  <PanneauJoueurs vue={vue} nom={nom} />
+                </div>
+              </details>
+            </>
           )}
 
           {onglet === 'archives' && <Archives vue={vue} monTour={monTour} onAgir={agir} />}
 
           {onglet === 'carnet' && <Carnet vue={vue} nom={nom} onErreur={erreur} />}
-
-          {onglet === 'historique' && (
-            <section className="panneau">
-              <EntetePublic>Historique public de la partie</EntetePublic>
-              <Journal vue={vue} nom={nom} />
-            </section>
-          )}
 
           {onglet === 'discussion' && (
             <section className="panneau">
@@ -261,6 +273,26 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
       {doitRepondre && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {peutFalsifier && !doitRepondre && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
       {notification}
+    </div>
+  );
+}
+
+/** Téléphone uniquement : vos cartes (et, pour le complice, le meurtrier) toujours visibles dans la barre du haut. */
+function BandeMesCartes({ vue }: { vue: VueJoueur }) {
+  return (
+    <div className="bande-cartes" aria-label="Mes cartes, visibles par vous seul">
+      <Icone nom="cadenas" taille={12} />
+      {vue.moi.role === 'complice' && (
+        <span className="puce-carte puce-meurtrier" title="Le meurtrier (vous seul le savez)">
+          🎭 {nomCourt(vue.moi.meurtrier!)}
+        </span>
+      )}
+      {vue.moi.main.map((c) => (
+        <span key={c} className={`puce-carte puce-${categorieDe(c)}`} title={nomElement(c)}>
+          <Embleme id={c} taille={16} />
+          {nomCourt(c)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -394,18 +426,23 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
               </span>
             </div>
             <span className="espace" />
-            <button className="btn btn-or btn-petit" disabled={!monTour || !a.disponible || vue.pointsAction < 1} onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier })}>
-              Consulter (1 PA)
-            </button>
-            {peutTrafiquer && a.categorie !== 'piece' && (
-              <button
-                className="btn btn-danger btn-petit"
-                disabled={!monTour || !a.disponible || vue.pointsAction < 1}
-                onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier, trafiquer: true })}
-                title="Vous lisez le vrai indice ; les joueurs qui ouvriront ce dossier après vous liront un faux indice."
-              >
-                🎭 Consulter et trafiquer (1 PA + {vue.regles.coutRuses.trafic} ruse)
-              </button>
+            {/* Boutons seulement pendant mon tour, sur un dossier ouvert. */}
+            {monTour && a.disponible && (
+              <>
+                <button className="btn btn-or btn-petit" disabled={vue.pointsAction < 1} onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier })}>
+                  Consulter (1 PA)
+                </button>
+                {peutTrafiquer && a.categorie !== 'piece' && (
+                  <button
+                    className="btn btn-danger btn-petit"
+                    disabled={vue.pointsAction < 1}
+                    onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier, trafiquer: true })}
+                    title="Vous lisez le vrai indice ; les joueurs qui ouvriront ce dossier après vous liront un faux indice."
+                  >
+                    🎭 Consulter et trafiquer (1 PA + {vue.regles.coutRuses.trafic} ruse)
+                  </button>
+                )}
+              </>
             )}
           </section>
         ),

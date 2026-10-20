@@ -199,7 +199,7 @@ export function Sceau({ taille = 96 }: { taille?: number }) {
 }
 
 /** Petites icônes d'interface. */
-export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' | 'couronne' | 'robot' | 'loupe' | 'reglages' | 'livre' | 'plume'; taille?: number }) {
+export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' | 'couronne' | 'robot' | 'loupe' | 'reglages' | 'livre' | 'plume' | 'dossier' | 'bulle'; taille?: number }) {
   const chemins: Record<typeof nom, ReactNode> = {
     cadenas: <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" />,
     oeil: (
@@ -215,6 +215,8 @@ export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' 
     reglages: <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12h3M2 12h3M12 2v3M12 19v3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" />,
     livre: <path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6M20 4v14h-6" />,
     plume: <path d="M20 4C10 4 6 10 5 19l3-3c4 0 9-2 12-12zM5 19l-2 2" />,
+    dossier: <path d="M3 6h6l2 2h10v11H3z" />,
+    bulle: <path d="M4 5h16v11H10l-5 4v-4H4z" />,
   };
   return (
     <svg width={taille} height={taille} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

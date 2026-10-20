@@ -20,7 +20,7 @@
 src/
   shared/            Code partagé (aucun secret) : types, données de l'affaire, logique des indices, protocole
     data/manoir.ts     Personnages, lieux, armes (fiches complètes)
-    data/indices.ts    36 cartes d'indice avec leurs règles logiques et faits chronologiques
+    data/indices.ts    79 cartes d'indice (règles logiques, faits chronologiques, témoignages partiels, journal d'Armand) + modèles de faux indices
     logique.ts         Évaluation des règles, énumération des 216 combinaisons, conflits horaires
     types.ts           Types du jeu (actions, événements publics, journal privé, vue d'un joueur)
     protocole.ts       Messages WebSocket client <-> serveur
@@ -70,7 +70,7 @@ Le moteur conserve `original` (jamais modifiée, utilisée pour calculer les car
 1. La solution est tirée au sort (aléa cryptographique).
 2. Seules les cartes d'indice dont **toutes les règles sont vraies** pour cette solution sont candidates. Les règles d'une carte : `pas X`, `pas X et Y ensemble`, `parmi [X, Y…]`, `si X alors Y`, plus les règles **déduites automatiquement des faits chronologiques** (une personne ou une arme placée ailleurs pendant toute la fenêtre du crime est écartée).
 3. Sélection aléatoire en excluant les paires contradictoires (contradiction déclarée ou chevauchement horaire : même personne à deux endroits en même temps).
-4. **Validation automatique** avant chaque démarrage : aucun indice n'exclut la solution, pas de contradiction, au moins 4 combinaisons restent possibles avec les seuls indices (pas de révélation immédiate), les indices publics de départ laissent au moins 2 possibilités par catégorie, et avec toutes les informations de la partie une seule combinaison reste possible. En cas d'échec : régénération.
+4. **Validation automatique** avant chaque démarrage : aucun indice n'exclut la solution, pas de contradiction, au moins 4 combinaisons restent possibles avec les seuls indices (pas de révélation immédiate), les indices publics de départ (aucun par défaut depuis le 20/10/2026) laissent au moins 2 possibilités par catégorie, et avec toutes les informations de la partie une seule combinaison reste possible. En cas d'échec : régénération.
 
 Testé pour les 216 solutions possibles.
 

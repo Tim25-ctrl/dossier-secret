@@ -168,13 +168,21 @@ export function ContenuRegles() {
 
       <h3>Indices</h3>
       <p>
-        Des indices sont versés au dossier public au début de la partie et en cours de partie. D'autres dorment dans les archives. Tous les indices sont vrais et
-        cohérents entre eux : aucun n'exclut la vraie solution.
+        Tous les indices dorment dans les dossiers d'archives : il n'y a pas d'indice gratuit, il faut aller les chercher (1 PA chacun). Tous les indices sont vrais
+        et cohérents entre eux : aucun n'exclut la vraie solution.
       </p>
       <p>
         Chaque indice relie deux éléments : « si le crime a eu lieu dans la cave, ce n'était pas avec le revolver », « si Gabriel est coupable, ce n'est pas avec le
         chandelier »… Un indice n'innocente jamais à lui seul un suspect, un lieu ou une arme : il ne devient décisif qu'en le croisant avec les cartes que vous
         connaissez.
+      </p>
+      <p>
+        <strong>Témoignages partiels.</strong> Certaines traces désignent deux coupables possibles pour un lieu ou une arme : « si le crime a eu lieu dans la serre, le
+        coupable est Victor ou Gabriel ». Seules, elles ne tranchent pas ; croisées avec une carte, elles peuvent tout changer.
+      </p>
+      <p>
+        <strong>Le journal d'Armand.</strong> Des pages du journal intime de la victime, datées du 11 au 17 octobre, sont glissées dans les dossiers. Chacune raconte
+        une dispute avec un proche… et écarte une combinaison. À la fin de la partie, toute sa dernière semaine est révélée.
       </p>
     </div>
   );

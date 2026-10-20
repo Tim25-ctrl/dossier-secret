@@ -72,10 +72,11 @@ export function CarteIndice({ id, dossier, ouvert = true, categorie }: { id: str
   const c = INDICES_PAR_ID[id];
   const [details, setDetails] = useState(ouvert);
   if (!c) return null;
+  const affichee = categorie ?? c.categorie;
   return (
-    <article className="indice">
+    <article className={affichee === 'journal' ? 'indice page-journal' : 'indice'}>
       <div className="meta">
-        <span>{LIBELLES_CATEGORIE_INDICE[categorie ?? c.categorie]}</span>
+        <span>{LIBELLES_CATEGORIE_INDICE[affichee]}</span>
         {dossier !== undefined && <span>Dossier n° {dossier}</span>}
         <span>Précision {precision(c)}</span>
       </div>

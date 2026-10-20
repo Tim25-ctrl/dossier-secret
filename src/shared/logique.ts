@@ -2,12 +2,15 @@
 // énumération des combinaisons possibles. Utilisée par le moteur (génération,
 // validation) et par le client (affichage de ce qu'un indice permet d'écarter).
 
-import { AFFAIRE, nomElement } from './data/manoir';
+import { AFFAIRE, ARMES_FICHES, LIEUX_FICHES, nomElement } from './data/manoir';
 import {
   ARMES,
   LIEUX,
   SUSPECTS,
+  TOUS_ELEMENTS,
   categorieDe,
+  type ArmeId,
+  type Categorie,
   type CarteIndice,
   type ElementId,
   type FaitChronologique,
@@ -142,6 +145,46 @@ export function descriptionRegle(r: RegleIndice): string {
   }
 }
 
+const PAR_CATEGORIE: Record<Categorie, readonly ElementId[]> = { suspect: SUSPECTS, lieu: LIEUX, arme: ARMES };
+
+/** « si le crime a eu lieu dans la serre » / « si l'arme est le chandelier en bronze » / « si Victor Delorme est coupable ». */
+function conditionSur(e: ElementId): string {
+  const cat = categorieDe(e);
+  if (cat === 'lieu') return `si le crime a eu lieu ${LIEUX_FICHES[e as LieuId].article}`;
+  if (cat === 'arme') return `si le crime a été commis ${ARMES_FICHES[e as ArmeId].article}`;
+  return `si ${nomElement(e)} est coupable`;
+}
+
+/** « le coupable est X ou Y » / « le crime a eu lieu dans X ou dans Y » / « l'arme est X ou Y ». */
+function seulsPossibles(cat: Categorie, elements: ElementId[]): string {
+  if (cat === 'lieu') return `le crime a eu lieu ${elements.map((e) => LIEUX_FICHES[e as LieuId].article).join(' ou ')}`;
+  if (cat === 'arme') return `le crime a été commis ${elements.map((e) => ARMES_FICHES[e as ArmeId].article).join(' ou ')}`;
+  return `le coupable est ${elements.map(nomElement).join(' ou ')}`;
+}
+
+/**
+ * Phrases lisibles décrivant ce que l'indice permet d'écarter. Plusieurs « pas X avec Y »
+ * autour d'un même élément (témoignage partiel) sont résumés en une seule phrase :
+ * « Si le crime a eu lieu dans la serre, le coupable est Victor Delorme ou Gabriel Roche ».
+ */
 export function ceQueLIndiceEcarte(carte: CarteIndice): string[] {
-  return reglesEffectives(carte).map(descriptionRegle);
+  const regles = reglesEffectives(carte);
+  const resumees = new Set<RegleIndice>();
+  const phrases: string[] = [];
+  for (const pivot of TOUS_ELEMENTS) {
+    for (const cat of ['suspect', 'lieu', 'arme'] as const) {
+      if (categorieDe(pivot) === cat) continue;
+      const groupe = regles.filter(
+        (r): r is Extract<RegleIndice, { type: 'pasEnsemble' }> =>
+          r.type === 'pasEnsemble' && !resumees.has(r) && (r.a === pivot || r.b === pivot) && categorieDe(r.a === pivot ? r.b : r.a) === cat,
+      );
+      if (groupe.length < 3) continue;
+      const exclus = new Set(groupe.map((r) => (r.a === pivot ? r.b : r.a)));
+      const restants = PAR_CATEGORIE[cat].filter((e) => !exclus.has(e));
+      const phrase = `${conditionSur(pivot)}, ${seulsPossibles(cat, restants)}`;
+      phrases.push(phrase.charAt(0).toUpperCase() + phrase.slice(1));
+      for (const r of groupe) resumees.add(r);
+    }
+  }
+  return [...phrases, ...regles.filter((r) => !resumees.has(r)).map(descriptionRegle)];
 }

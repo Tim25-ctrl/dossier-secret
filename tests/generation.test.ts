@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { FAUX_INDICES, INDICES, INDICES_PAR_ID } from '../src/shared/data/indices';
+import { FAUX_INDICES, INDICES, INDICES_PAR_ID, jourDuJournal } from '../src/shared/data/indices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../src/shared/data/manoir';
 import {
   TOUS_TRIPLETS,
+  ceQueLIndiceEcarte,
   combinaisonsPossibles,
   couvreFenetreCrime,
   indiceValide,
@@ -21,7 +22,10 @@ import {
   type Affaire,
 } from '../src/engine/generateur';
 import { seededRng } from '../src/engine/rng';
-import { TOUS_ELEMENTS, categorieDe, elementsDuTriplet } from '../src/shared/types';
+import { TOUS_ELEMENTS, categorieDe, elementsDuTriplet, type CarteIndice } from '../src/shared/types';
+
+/** Témoignage partiel : quatre « pas X avec Y » autour d'un même lieu ou d'une même arme. */
+const estTemoignagePartiel = (c: CarteIndice) => reglesEffectives(c).length === 4 && reglesEffectives(c).every((r) => r.type === 'pasEnsemble' && (r.b === c.concerne[0] || r.a === c.concerne[0]));
 
 describe('Données de l\'affaire', () => {
   it('contient 6 personnages, 6 lieux et 6 armes avec des fiches complètes', () => {
@@ -234,6 +238,8 @@ describe('Indices relationnels : les cartes des joueurs gardent leur valeur', ()
   });
 
   it("aucun indice ne déduit un élément d'un autre (connaître le coupable ne donne ni le lieu ni l'arme)", () => {
+    // Un témoignage partiel (« si c'est dans la serre, le coupable est Victor ou Gabriel ») laisse
+    // deux possibilités ; tous les autres indices en laissent au moins quatre.
     for (let seed = 0; seed < 200; seed++) {
       const a = genererAffaire(seededRng(seed), CONFIG_PAR_DEFAUT);
       for (const c of tousLesIndicesDeLAffaire(a)) {
@@ -242,7 +248,7 @@ describe('Indices relationnels : les cartes des joueurs gardent leur valeur', ()
           const avecE = possibles.filter((t) => t.suspect === e || t.lieu === e || t.arme === e);
           for (const cat of ['suspect', 'lieu', 'arme'] as const) {
             if (categorieDe(e) === cat) continue;
-            expect(new Set(avecE.map((t) => t[cat])).size, `${c.id} : ${e} impose le ${cat}`).toBeGreaterThanOrEqual(4);
+            expect(new Set(avecE.map((t) => t[cat])).size, `${c.id} : ${e} impose le ${cat}`).toBeGreaterThanOrEqual(estTemoignagePartiel(c) ? 2 : 4);
           }
         }
       }
@@ -254,8 +260,34 @@ describe('Indices relationnels : les cartes des joueurs gardent leur valeur', ()
     expect(relationnels.length).toBeGreaterThanOrEqual(20);
   });
 
+  it('les témoignages partiels désignent exactement deux suspects pour un lieu ou une arme', () => {
+    const temoignages = INDICES.filter(estTemoignagePartiel);
+    expect(temoignages).toHaveLength(6);
+    for (const c of temoignages) {
+      const regles = reglesEffectives(c);
+      expect(regles).toHaveLength(4);
+      const possibles = combinaisonsPossibles([c]);
+      const pivot = c.concerne[0];
+      expect(new Set(possibles.filter((t) => t.lieu === pivot || t.arme === pivot).map((t) => t.suspect))).toEqual(new Set(c.concerne.slice(1)));
+      // Affichage : une seule phrase lisible au lieu de quatre combinaisons.
+      expect(ceQueLIndiceEcarte(c)).toHaveLength(1);
+      expect(ceQueLIndiceEcarte(c)[0]).toMatch(/^Si le crime (a eu lieu|a été commis) .+, le coupable est .+ ou .+$/);
+    }
+    expect(ceQueLIndiceEcarte(INDICES_PAR_ID['IND-67'])).toEqual(['Si le crime a eu lieu dans la serre, le coupable est Victor Delorme ou Gabriel Roche']);
+  });
+
+  it("le journal d'Armand : sept pages datées du 11 au 17 octobre, chacune « pas X avec Y »", () => {
+    const pages = INDICES.filter((c) => c.categorie === 'journal');
+    expect(pages.map(jourDuJournal).sort((a, b) => a - b)).toEqual([11, 12, 13, 14, 15, 16, 17]);
+    for (const c of pages) {
+      expect(reglesEffectives(c)).toHaveLength(1);
+      expect(reglesEffectives(c)[0].type).toBe('pasEnsemble');
+      expect(c.texte).toMatch(/^« .+ »$/);
+    }
+  });
+
   it('les modèles de faux indices couvrent toutes les paires et sont bien rédigés', () => {
-    expect(FAUX_INDICES).toHaveLength(108);
+    expect(FAUX_INDICES).toHaveLength(216); // 108 modèles classiques + 108 fausses pages du journal
     for (const c of FAUX_INDICES) {
       expect(c.texte.length).toBeGreaterThan(60);
       expect(c.texte).not.toMatch(/undefined|\$\{/);

@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import { INDICES_PAR_ID } from '../../shared/data/indices';
+import { INDICES, INDICES_PAR_ID, jourDuJournal } from '../../shared/data/indices';
+import { indiceValide } from '../../shared/logique';
 import { nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
 import { Carte, CarteIndice, TripletVue, useNotification } from '../components/Commun';
@@ -24,6 +25,9 @@ export function Fin({ etat }: { etat: EtatClient }) {
   const { afficher, vue: notification } = useNotification();
   const gagne = (r.vainqueur === 'complice') === (vue.moi.role === 'complice');
   const gagnant = r.accusations.find((a) => a.correcte);
+  // Pages du journal vraies pour la solution : elles racontent la dernière semaine d'Armand sans contradiction.
+  const pagesJournal = INDICES.filter((c) => c.categorie === 'journal' && indiceValide(c, r.solution)).sort((a, b) => jourDuJournal(a) - jourDuJournal(b));
+  const pagesLues = new Set([...vue.moi.indicesConsultes.map((i) => i.indice), ...vue.indicesPublics.map((i) => i.indice)]);
 
   return (
     <main className="page">
@@ -78,6 +82,20 @@ export function Fin({ etat }: { etat: EtatClient }) {
             <p className="muet petit" style={{ marginTop: 10 }}>
               Les cartes distribuées aux joueurs permettaient, elles aussi, d'éliminer les autres pistes.
             </p>
+          </section>
+          <section className="panneau">
+            <h2>Le journal d'Armand</h2>
+            <p className="muet petit">
+              La dernière semaine de la victime, telle qu'on peut la reconstituer maintenant que l'affaire est close. Les pages lues pendant la partie sont signalées.
+            </p>
+            <div className="indices">
+              {pagesJournal.map((c) => (
+                <div key={c.id}>
+                  {pagesLues.has(c.id) && <p className="petit muet" style={{ margin: '0 0 4px' }}>✓ Lue pendant la partie</p>}
+                  <CarteIndice id={c.id} ouvert={false} />
+                </div>
+              ))}
+            </div>
           </section>
         </div>
         <div>

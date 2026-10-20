@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { abandonner, avancer, cartesCorrespondantes, definirConnexion, type EtatPartie } from '../src/engine/partie';
 import { vuePour } from '../src/engine/vue';
+import { CONFIG_PAR_DEFAUT } from '../src/engine/config';
 import { categorieDe, elementsDuTriplet, type ElementId, type Triplet } from '../src/shared/types';
 import {
   FALSIF_MS,
@@ -199,8 +200,26 @@ describe('Tours et points d\'action', () => {
     expect(etat.echeanceTour).toBeGreaterThanOrEqual(T0 + 20 + 20_000);
   });
 
-  it('les indices publics différés sont publiés aux manches prévues', () => {
-    const etat = nouvellePartie(3);
+  it('par défaut, aucun indice public : tout passe par les cartes, les hypothèses et les archives', () => {
+    const etat = nouvellePartie(3, { config: { nbIndicesPublicsDepart: CONFIG_PAR_DEFAUT.nbIndicesPublicsDepart, manchesIndicesPublics: CONFIG_PAR_DEFAUT.manchesIndicesPublics } });
+    expect(etat.indicesPublics).toEqual([]);
+    expect(etat.affaire.indicesPublicsDifferes).toEqual([]);
+    expect(vuePour(etat, 'j1').indicesPublics).toEqual([]);
+  });
+
+  it("à 4 et 6 joueurs, les pièces à conviction sont numérotées et rangées avec les dossiers de la même manche", () => {
+    for (const n of [4, 6]) {
+      const etat = nouvellePartie(n, { config: { cartesRestantes: 'archives' } });
+      const archives = vuePour(etat, 'j1').archives;
+      expect(archives).toHaveLength(9);
+      expect(archives.map((a) => a.dossier)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(archives.map((a) => a.disponibleDesManche)).toEqual([1, 2, 2, 3, 4, 5, 6, 7, 9]);
+      expect(archives.map((a) => a.categorie === 'piece')).toEqual([false, false, true, false, true, false, true, false, false]);
+    }
+  });
+
+  it('si on les active, les indices publics différés sont publiés aux manches prévues', () => {
+    const etat = nouvellePartie(3, { config: { nbIndicesPublicsDepart: 1, manchesIndicesPublics: [6] } });
     const h = new Horloge();
     const { nbIndicesPublicsDepart, manchesIndicesPublics } = etat.config;
     expect(etat.indicesPublics).toHaveLength(nbIndicesPublicsDepart);

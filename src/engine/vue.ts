@@ -73,7 +73,10 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
     archives: [
       ...etat.affaire.archives.map((a) => ({ dossier: a.dossier, categorie: INDICES_PAR_ID[a.indice].categorie, disponibleDesManche: a.disponibleDesManche })),
       ...(etat.pieces ?? []).map((p) => ({ dossier: p.dossier, categorie: 'piece' as const, disponibleDesManche: p.disponibleDesManche })),
-    ].map((a) => ({ ...a, disponible: a.disponibleDesManche <= etat.manche, consulte: moi.dossiersConsultes.includes(a.dossier) })),
+    ]
+      // Dans l'ordre d'ouverture (les parties créées avant la renumérotation restent bien rangées).
+      .sort((a, b) => a.disponibleDesManche - b.disponibleDesManche || a.dossier - b.dossier)
+      .map((a) => ({ ...a, disponible: a.disponibleDesManche <= etat.manche, consulte: moi.dossiersConsultes.includes(a.dossier) })),
     historique,
     compliceDemasque: etat.compliceDemasque ? etat.complice : null,
   };

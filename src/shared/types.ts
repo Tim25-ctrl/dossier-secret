@@ -51,7 +51,9 @@ export type CategorieIndice =
   | 'deplacement'
   | 'document'
   | 'trace'
-  | 'contradiction';
+  | 'contradiction'
+  /** Pages du journal intime d'Armand (affichage « papier jauni »). */
+  | 'journal';
 
 /**
  * Règle logique portée par un indice. Toutes les règles d'un indice doivent être

@@ -187,6 +187,11 @@ export function creerPartie(params: {
         disponibleDesManche: config.ouverturePieces[i] ?? 1,
       }))
     : [];
+  // Numérotation des dossiers dans l'ordre d'ouverture : une pièce qui s'ouvre à la manche 2 suit
+  // le dossier d'indice de la manche 2 (à manche égale, l'indice passe avant la pièce).
+  [...affaire.archives, ...pieces]
+    .sort((a, b) => a.disponibleDesManche - b.disponibleDesManche)
+    .forEach((d, i) => (d.dossier = i + 1));
   const pouvoirs = pouvoirsPour(config, joueurs.length);
   const modeRuse = config.modeComplice === 'ruse';
 
@@ -654,8 +659,12 @@ function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
   // utilisable, on prend un modèle « pas X avec Y » sur une paire de la solution (toujours faux).
   const relationnels = tousFaux.filter((c) => !etat.config.indicesRelationnels || estRelationnel(c));
   const faux = relationnels.length ? relationnels : etat.config.indicesRelationnels ? FAUX_INDICES.filter(estFaux) : tousFaux;
-  const memeCategorie = faux.filter((c) => c.categorie === INDICES_PAR_ID[indiceVrai].categorie);
-  const choix = memeCategorie.length ? memeCategorie : faux;
+  // Le faux garde la catégorie du dossier (une page du journal reste une page du journal) :
+  // indice rédigé de même catégorie, sinon modèle de même catégorie, sinon n'importe quel faux.
+  const categorie = INDICES_PAR_ID[indiceVrai].categorie;
+  const memeCategorie = faux.filter((c) => c.categorie === categorie);
+  const modelesMemeCategorie = etat.config.indicesRelationnels ? FAUX_INDICES.filter((c) => c.categorie === categorie && estFaux(c)) : [];
+  const choix = memeCategorie.length ? memeCategorie : modelesMemeCategorie.length ? modelesMemeCategorie : faux;
   return choix[alea(etat, choix.length)].id;
 }
 

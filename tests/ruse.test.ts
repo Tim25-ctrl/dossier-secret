@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { avancer, cartesCorrespondantes, type EtatPartie } from '../src/engine/partie';
 import { vuePour } from '../src/engine/vue';
-import { INDICES_PAR_ID } from '../src/shared/data/indices';
+import { INDICES, INDICES_PAR_ID } from '../src/shared/data/indices';
 import { indiceValide } from '../src/shared/logique';
 import { categorieDe, elementsDuTriplet, type Triplet } from '../src/shared/types';
 import { FALSIF_MS, Horloge, SOLUTION, act, actif, allerAuTourDe, autres, nouvellePartie, passerFalsification, tripletAvec } from './aide';
@@ -125,6 +125,19 @@ describe('Ruse : le Dossier trafiqué', () => {
     expect(lu.categorie ?? INDICES_PAR_ID[lu.indice].categorie).toBe(categorieDossier);
     const vl = vuePour(etat, premierLecteur);
     expect(JSON.stringify([vl.historique, vl.moi])).not.toMatch(/trafi/);
+  });
+
+  it("un dossier « Journal d'Armand » trafiqué contient une fausse page du journal", () => {
+    for (const seed of [64, 65, 66, 67]) {
+      const { etat, c, h, dossier } = trafic(seed);
+      const dejaLa = new Set(etat.affaire.archives.map((d) => d.indice));
+      dossier.indice = INDICES.find((x) => x.categorie === 'journal' && indiceValide(x, etat.affaire.solution) && !dejaLa.has(x.id))!.id;
+      expect(act(etat, c, { type: 'consulterArchive', dossier: dossier.dossier, trafiquer: true }, h.avance(1)).ok).toBe(true);
+      const faux = INDICES_PAR_ID[etat.trafics![0].indiceFaux];
+      expect(faux.categorie).toBe('journal');
+      expect(faux.titre).toMatch(/^Journal d'Armand — 1[1-7] octobre$/);
+      expect(indiceValide(faux, etat.affaire.solution)).toBe(false);
+    }
   });
 
   it('impossible pour un enquêteur, sur une pièce à conviction, ou deux fois le même dossier', () => {

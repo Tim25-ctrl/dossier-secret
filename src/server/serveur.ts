@@ -149,7 +149,8 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   /** Les bots jouent avec un léger délai, à partir de leur vue filtrée uniquement. */
   const planifierBots = (code: string) => {
     const s = gestionnaire.salons.get(code);
-    if (!s?.partie || s.statut !== 'partie' || minuteursBots.has(code)) return;
+    // Partie en pause (joueur absent) : les bots attendent eux aussi.
+    if (!s?.partie || s.statut !== 'partie' || s.partie.pause || minuteursBots.has(code)) return;
     const partie = s.partie;
     const bots = s.joueurs.filter((j) => j.bot);
     const prochaine = bots.map((b) => ({ id: b.id, action: decisionBot(vuePour(partie, b.id), cryptoRng) })).find((x) => x.action);
@@ -335,6 +336,12 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
         cible.data.joueurId = undefined;
       }
     });
+    actionSalon('salon:remplacer', (code, id, p) => {
+      const { joueurId } = schemaRetirer.parse(p);
+      gestionnaire.remplacerParBot(code, id, joueurId);
+      log(`Salon ${code} : un joueur absent est remplacé par un bot.`);
+    });
+    actionSalon('salon:continuerSans', (code, id, p) => gestionnaire.continuerSans(code, id, schemaRetirer.parse(p).joueurId));
     actionSalon('salon:message', (code, id, p) => gestionnaire.message(code, id, schemaMessage.parse(p).texte));
     actionSalon('salon:reglages', (code, id, p) => {
       const r = schemaReglages.parse(p);

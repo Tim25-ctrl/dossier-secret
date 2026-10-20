@@ -234,16 +234,40 @@ describe('Partie en ligne : sécurité et synchronisation', () => {
     [...tous, nouveau, pirate].forEach((x) => x.fermer());
   });
 
-  it('la déconnexion d\'un joueur est visible par tous et ne bloque pas la partie', async () => {
-    const { tous, etatServeur } = await partieLancee(3);
+  it('un joueur déconnecté met la partie en pause ; remplacé par un bot, la partie reprend ; revenu, il reprend sa place', async () => {
+    const { code, tous, etatServeur } = await partieLancee(3);
     const actifId = etatServeur.ordre[etatServeur.indexTour];
     const actif = tous.find((j) => j.session!.joueurId === actifId)!;
+    const jeton = actif.session!.jeton;
     const autres = tous.filter((j) => j !== actif);
     actif.fermer();
-    await attendre(() => autres.every((j) => j.etat!.partie!.joueurs.find((p) => p.id === actifId)?.connecte === false));
-    // Son tour est raccourci (300 ms ici) puis passe automatiquement.
-    await attendre(() => autres.every((j) => j.etat!.partie!.joueurActif !== actifId), 3000, 'tour sauté');
-    autres.forEach((x) => x.fermer());
+    await attendre(() => autres.every((j) => j.etat!.partie!.pause?.absents.some((a) => a.id === actifId && !a.parti)), 4000, 'pause visible');
+    // En pause, le tour ne passe pas, même après le délai « déconnecté » (300 ms ici).
+    await new Promise((r) => setTimeout(r, 600));
+    expect(autres[0].etat!.partie!.joueurActif).toBe(actifId);
+    // Remplacement par un bot : la partie reprend et le bot joue à sa place.
+    expect((await autres[0].emit('salon:remplacer', { joueurId: actifId })).ok).toBe(true);
+    await attendre(() => autres.every((j) => j.etat!.partie!.pause === null), 4000, 'fin de pause');
+    expect(autres[1].etat!.salon.joueurs.find((j) => j.id === actifId)).toMatchObject({ bot: true });
+    expect(autres[1].etat!.partie!.historique.some((e) => e.type === 'remplacement' && e.joueur === actifId)).toBe(true);
+    await attendre(() => autres.every((j) => j.etat!.partie!.joueurActif !== actifId), 8000, 'le bot a joué');
+    // Le joueur revient avec son jeton : il retrouve sa place, ses cartes et son rôle.
+    const retour = await new Joueur().pret();
+    expect((await retour.emit('salon:reprendre', { code, jeton })).ok).toBe(true);
+    await attendre(() => retour.etat?.partie?.moi.id === actifId, 4000, 'retour');
+    expect(retour.etat!.salon.joueurs.find((j) => j.id === actifId)).toMatchObject({ bot: false, connecte: true });
+    expect(retour.etat!.partie!.moi.main).toEqual(etatServeur.joueurs[actifId].main);
+    expect(serveur.gestionnaire.salons.get(code)!.partie!.joueurs[actifId].bot).toBe(false);
+    [...autres, retour].forEach((x) => x.fermer());
+  });
+
+  it('on ne peut pas remplacer un joueur connecté, ni soi-même', async () => {
+    const { tous } = await partieLancee(3);
+    const [a, b] = tous;
+    expect(await a.emit('salon:remplacer', { joueurId: b.session!.joueurId })).toMatchObject({ ok: false, erreur: 'Ce joueur est connecté.' });
+    expect((await a.emit('salon:remplacer', { joueurId: a.session!.joueurId })).ok).toBe(false);
+    expect((await a.emit('salon:remplacer', { joueurId: 42 })).ok).toBe(false);
+    tous.forEach((x) => x.fermer());
   });
 
   it('partie complète en ligne : 3 navigateurs pilotés par des bots, état final identique pour tous', async () => {

@@ -8,6 +8,7 @@ import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification 
 import { Embleme, Icone } from '../components/Emblemes';
 import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
+import { GRACE_PAUSE_MS, ModalePause, useHeureServeur } from '../components/jeu/Pause';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
@@ -25,7 +26,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   const noms = useMemo(() => new Map(vue.joueurs.map((j) => [j.id, j.nom])), [vue.joueurs]);
   const nom: Noms = useCallback((id: string) => noms.get(id) ?? '?', [noms]);
   const sources = useMemo(() => sourcesConnues(vue, nom), [vue, nom]);
-  const monTour = vue.joueurActif === moi && vue.etape === 'tour';
+  const monTour = vue.joueurActif === moi && vue.etape === 'tour' && !vue.pause;
   // Les boutons d'action n'apparaissent que pendant mon tour (y compris pendant l'interrogation de mon hypothèse).
   const actionsVisibles = vue.joueurActif === moi && vue.etape !== 'terminee';
   const h = vue.hypotheseEnCours;
@@ -34,9 +35,6 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
 
   // Messages non lus (onglet Discussion sur petit écran).
   const [lus, setLus] = useState(etat.salon.messages.length);
-  useEffect(() => {
-    if (onglet === 'discussion') setLus(etat.salon.messages.length);
-  }, [onglet, etat.salon.messages.length]);
   const nonLus = Math.max(0, etat.salon.messages.length - lus);
 
   // Signal discret quand c'est mon tour (titre de l'onglet + notification).
@@ -58,6 +56,16 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   }, [monTour]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const erreur = (e: string) => afficher(e, true);
+
+  // Partie en pause (joueur absent) : fenêtre « attendre ou remplacer par un bot », après une courte grâce.
+  const maintenant = useHeureServeur(decalage, !!vue.pause);
+  const clePause = vue.pause ? vue.pause.absents.map((a) => `${a.id}:${a.parti}`).join(',') : null;
+  const [pauseMasquee, setPauseMasquee] = useState<string | null>(null);
+  const fenetrePause = !!vue.pause && pauseMasquee !== clePause && maintenant - vue.pause.depuis >= GRACE_PAUSE_MS;
+  // Messages lus : onglet Discussion ouvert, ou fenêtre de pause (qui contient la discussion).
+  useEffect(() => {
+    if (onglet === 'discussion' || fenetrePause) setLus(etat.salon.messages.length);
+  }, [onglet, fenetrePause, etat.salon.messages.length]);
   const agir = async (a: Parameters<typeof connexion.action>[0]) => {
     const r = await connexion.action(a);
     if (!r.ok) erreur(r.erreur);
@@ -106,7 +114,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
         {vue.etape === 'tour' && (
           <div className="indicateur">
             <small>Fin du tour</small>
-            {vue.echeanceTour >= SANS_LIMITE ? <strong>sans limite</strong> : <Chrono echeance={vue.echeanceTour} decalage={decalage} />}
+            {vue.pause ? <strong>en pause</strong> : vue.echeanceTour >= SANS_LIMITE ? <strong>sans limite</strong> : <Chrono echeance={vue.echeanceTour} decalage={decalage} />}
           </div>
         )}
         <span className="espace" />
@@ -141,6 +149,16 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
 
           {onglet === 'enquete' && (
             <>
+              {vue.pause && (
+                <div className="info" role="status">
+                  ⏸ <strong>Partie en pause</strong> : en attente de {vue.pause.absents.map((a) => nom(a.id)).join(', ')}.{' '}
+                  {!fenetrePause && maintenant - vue.pause.depuis >= GRACE_PAUSE_MS && (
+                    <button className="btn btn-petit" onClick={() => setPauseMasquee(null)}>
+                      Ouvrir la fenêtre
+                    </button>
+                  )}
+                </div>
+              )}
               <div className={`bandeau-tour${monTour ? ' mon-tour' : ''}`} aria-live="polite">
                 {monTour ? (
                   <strong>C'est votre tour : {vue.pointsAction} point(s) d'action.</strong>
@@ -155,8 +173,10 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
               </div>
               {vue.compliceDemasque && (
                 <div className="info" role="status">
-                  🎭 <strong>{vue.compliceDemasque === moi ? 'Vous avez été démasqué' : `${nom(vue.compliceDemasque)} est le complice`}</strong> : ses ruses sont
-                  épuisées. Il continue à jouer et doit répondre honnêtement.
+                  🎭 <strong>{vue.compliceDemasque === moi ? 'Vous avez été démasqué' : `${nom(vue.compliceDemasque)} est le complice`}</strong> :{' '}
+                  {vue.retourRuses !== null
+                    ? `ses ruses sont suspendues jusqu'à la manche ${vue.retourRuses} ; d'ici là, ses réponses sont honnêtes.`
+                    : 'ses ruses sont de nouveau actives : méfiez-vous de ses réponses.'}
                 </div>
               )}
 
@@ -270,8 +290,20 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
       {modale === 'accusation' && <ModaleAccusation sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'regles' && <ModaleRegles vue={vue} onFermer={() => setModale(null)} />}
-      {doitRepondre && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
-      {peutFalsifier && !doitRepondre && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
+      {doitRepondre && !vue.pause && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
+      {fenetrePause && (
+        <ModalePause
+          pause={vue.pause!}
+          nom={nom}
+          maintenant={maintenant}
+          botsAutorises={etat.salon.botsAutorises}
+          messages={etat.salon.messages}
+          moi={moi}
+          onAttendre={() => setPauseMasquee(clePause)}
+          onErreur={erreur}
+        />
+      )}
+      {peutFalsifier && !doitRepondre && !vue.pause && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
       {notification}
     </div>
   );
@@ -314,7 +346,8 @@ function PanneauRole({ vue }: { vue: VueJoueur }) {
                   Ruses : {vue.moi.rusesRestantes}/{vue.regles.ruses}
                 </span>
                 <Aide libelle="Aide sur les ruses">
-                  Chaque ruse peut laisser, une ou deux manches plus tard, une empreinte publique qui innocente un autre joueur : abusez-en et vous serez démasqué.
+                  Chaque ruse peut laisser une empreinte publique, deux ou trois manches plus tard (jamais avant la manche {vue.regles.premiereMancheEmpreinte}) : abusez-en et
+                  vous serez démasqué. Démasqué, vos ruses sont suspendues {vue.regles.suspensionDemasque} manches, puis reviennent.
                 </Aide>
               </div>
               <ul style={{ margin: 0, paddingLeft: '1.1em' }}>
@@ -392,7 +425,7 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
 function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; onAgir: (a: { type: 'consulterArchive'; dossier: number; trafiquer?: boolean }) => Promise<void> }) {
   const consultes = new Map(vue.moi.indicesConsultes.map((i) => [i.dossier, i]));
   const mesTrafics = new Map(vue.moi.journal.flatMap((e) => (e.type === 'ruse' && e.ruse === 'trafic' ? [[e.dossier!, e.indiceFaux!] as const] : [])));
-  const peutTrafiquer = vue.regles.modeComplice === 'ruse' && (vue.moi.rusesRestantes ?? 0) >= vue.regles.coutRuses.trafic;
+  const peutTrafiquer = vue.regles.modeComplice === 'ruse' && vue.retourRuses === null && (vue.moi.rusesRestantes ?? 0) >= vue.regles.coutRuses.trafic;
   const pieces = new Map(vue.moi.piecesConsultees.map((p) => [p.dossier, p.carte]));
   return (
     <div className="indices">

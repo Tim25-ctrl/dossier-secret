@@ -143,12 +143,14 @@ export function ContenuRegles() {
         </li>
       </ul>
       <p>
-        <strong>Les empreintes.</strong> Une ruse peut laisser une empreinte, publiée une ou deux manches plus tard : « L'empreinte n'appartient pas à X ». Une
-        empreinte est toujours vraie et innocente un joueur. En les recoupant, on peut identifier le complice. Elles sont plus rares à 3 et 4 joueurs.
+        <strong>Les empreintes.</strong> Une ruse peut laisser une empreinte, publiée deux ou trois manches plus tard, et jamais avant la manche 4 :
+        « L'empreinte n'appartient pas à X ». Une empreinte est toujours vraie et innocente un joueur. En les recoupant, on peut identifier le complice. Elles sont
+        plus rares à petite table. À 3 joueurs, l'empreinte ne nomme personne (elle désignerait directement le complice) : elle indique seulement la manche
+        pendant laquelle le complice a rusé.
       </p>
       <p>
         <strong>Dénoncer le complice (1 PA).</strong> Chaque joueur peut, une fois par partie et pendant son tour, désigner le complice. Si c'est juste, le complice est
-        démasqué devant tous et perd toutes ses ruses (il continue de jouer et répond honnêtement). Si c'est faux, le dénonciateur perd son prochain tour. La victoire
+        démasqué devant tous et ses ruses sont suspendues pendant 3 manches (il répond honnêtement) ; il les retrouve ensuite. Si c'est faux, le dénonciateur perd son prochain tour. La victoire
         reste la même : trouver le meurtrier, le lieu et l'arme.
       </p>
       <p className="muet">

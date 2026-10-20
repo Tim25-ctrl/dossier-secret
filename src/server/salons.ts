@@ -3,7 +3,19 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, REGLES_INITIALES, type ConfigPartie } from '../engine/config';
-import { abandonner, appliquerAction, avancer, creerPartie, definirConnexion, recalerEcheances, type EtatPartie } from '../engine/partie';
+import {
+  abandonner,
+  appliquerAction,
+  avancer,
+  continuerSans,
+  creerPartie,
+  definirConnexion,
+  majPause,
+  recalerEcheances,
+  remplacerParBot,
+  reprendreSiege,
+  type EtatPartie,
+} from '../engine/partie';
 import { cryptoRng, type Rng } from '../engine/rng';
 import { vuePour } from '../engine/vue';
 import { ALPHABET_CODE, LONGUEUR_CODE, MESSAGE_MAX, PSEUDO_MAX, type EtatClient, type MessageChat, type ReglagesSalon, type SalonVue } from '../shared/protocole';
@@ -21,6 +33,8 @@ export interface JoueurSalon {
   deconnecteLe: number | null;
   /** A quitté volontairement la partie en cours. */
   parti?: boolean;
+  /** Humain absent remplacé par un bot : il retrouve sa place s'il revient avec son jeton. */
+  remplaceParBot?: boolean;
 }
 
 export interface Salon {
@@ -185,8 +199,18 @@ export class GestionnaireSalons {
     const s = this.salon(codeBrut as string);
     if (typeof jeton !== 'string' || jeton.length < 10 || jeton.length > 100) throw new ErreurJeu('Session invalide.');
     const h = hacher(jeton);
-    const joueur = s.joueurs.find((j) => !j.bot && j.jetonHash === h);
+    const joueur = s.joueurs.find((j) => (!j.bot || j.remplaceParBot) && j.jetonHash === h);
     if (!joueur) throw new ErreurJeu('Session expirée ou invalide : rejoignez le salon à nouveau.');
+    if (joueur.remplaceParBot) {
+      // Remplacé par un bot pendant son absence : il reprend sa place, le bot s'efface.
+      joueur.bot = false;
+      joueur.remplaceParBot = false;
+      joueur.connecte = false; // la connexion du joueur la rétablit juste après
+      joueur.deconnecteLe = this.now();
+      // Côté partie, il reste « connecté » : pas de second message « est de retour » dans l'historique.
+      if (s.partie) reprendreSiege(s.partie, joueur.id, this.now());
+      this.toucher(s);
+    }
     return { salon: s, joueur };
   }
 
@@ -232,6 +256,42 @@ export class GestionnaireSalons {
     if (s.hote === id) this.transfererHote(s);
     this.toucher(s);
     return { ferme: false };
+  }
+
+  /** Un joueur présent remplace un joueur absent par un bot (partie en cours). */
+  remplacerParBot(code: string, id: string, cible: string) {
+    const s = this.salon(code);
+    this.joueur(s, id);
+    if (!this.botsAutorises) throw new ErreurJeu('Les joueurs automatiques sont désactivés sur ce serveur.');
+    const j = this.absentRemplacable(s, id, cible);
+    const r = remplacerParBot(s.partie!, cible, this.now());
+    if (!r.ok) throw new ErreurJeu(r.erreur);
+    j.bot = true;
+    j.remplaceParBot = true;
+    j.connecte = true;
+    j.parti = false;
+    j.deconnecteLe = null;
+    if (s.hote === cible) this.transfererHote(s);
+    this.toucher(s);
+  }
+
+  /** Les joueurs présents continuent sans l'absent (ses tours passent automatiquement). */
+  continuerSans(code: string, id: string, cible: string) {
+    const s = this.salon(code);
+    this.joueur(s, id);
+    this.absentRemplacable(s, id, cible);
+    const r = continuerSans(s.partie!, cible, this.now());
+    if (!r.ok) throw new ErreurJeu(r.erreur);
+    this.toucher(s);
+  }
+
+  private absentRemplacable(s: Salon, id: string, cible: string): JoueurSalon {
+    if (s.statut !== 'partie' || !s.partie) throw new ErreurJeu("Aucune partie n'est en cours.");
+    if (cible === id) throw new ErreurJeu('Vous ne pouvez pas vous remplacer vous-même.');
+    const j = this.joueur(s, cible);
+    if (j.bot) throw new ErreurJeu('Ce joueur est déjà un bot.');
+    if (j.connecte) throw new ErreurJeu('Ce joueur est connecté.');
+    return j;
   }
 
   private transfererHote(s: Salon) {
@@ -453,6 +513,7 @@ export class GestionnaireSalons {
         s.partie.config = { ...CONFIG_PAR_DEFAUT, ...REGLES_INITIALES, ...s.partie.config };
         if (!s.partie.graine) s.partie.config.modeComplice = 'classique';
         recalerEcheances(s.partie, t);
+        majPause(s.partie, t); // en attente du retour des joueurs
       }
       this.salons.set(s.code, s);
     }

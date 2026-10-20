@@ -161,8 +161,11 @@ export type EvenementPublic = { t: number } & (
   | { type: 'accusation'; joueur: string; triplet: Triplet; correcte: boolean }
   | { type: 'connexion'; joueur: string; connecte: boolean }
   | { type: 'depart'; joueur: string }
+  | { type: 'remplacement'; joueur: string }
+  | { type: 'reprise_siege'; joueur: string }
   /** Empreinte laissée par une ruse : elle innocente un joueur (indice VRAI et anonyme). */
-  | { type: 'empreinte'; innocente: string; manche: number }
+  /** Empreinte : innocente un joueur, ou (petite table) date seulement la ruse (`mancheRuse`). */
+  | { type: 'empreinte'; manche: number; innocente?: string; mancheRuse?: number }
   | { type: 'denonciation'; joueur: string; cible: string; correcte: boolean }
   | { type: 'fin_partie'; vainqueur: Vainqueur; raison: RaisonFin }
 );
@@ -272,6 +275,10 @@ export interface VueJoueur {
     /** Mode « rusé » : nombre total de ruses du complice. */
     ruses: number;
     coutRuses: Record<TypeRuse, number>;
+    /** Mode « rusé » : aucune empreinte publiée avant cette manche. */
+    premiereMancheEmpreinte: number;
+    /** Mode « rusé » : manches de suspension des ruses d'un complice démasqué. */
+    suspensionDemasque: number;
   };
   manche: number;
   joueurActif: string;
@@ -287,5 +294,9 @@ export interface VueJoueur {
   hypotheseEnCours?: HypotheseEnCoursVue;
   /** Le complice a été démasqué par une dénonciation : son identité est publique. */
   compliceDemasque: string | null;
+  /** Complice démasqué : manche à laquelle ses ruses reviennent (null : pas de suspension en cours). */
+  retourRuses: number | null;
+  /** Partie en pause : joueurs humains absents (déconnectés ou partis) et début de la pause. */
+  pause: { depuis: number; absents: { id: string; parti: boolean }[] } | null;
   resultat?: ResultatPartie;
 }

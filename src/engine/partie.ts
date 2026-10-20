@@ -60,6 +60,10 @@ export interface EtatJoueur {
   peutDenoncer?: boolean;
   /** A dénoncé à tort : son prochain tour est passé. */
   tourPerdu?: boolean;
+  /** Joueur humain absent remplacé par un bot (il peut reprendre sa place en revenant). */
+  remplaceParBot?: boolean;
+  /** Les autres ont choisi de continuer sans lui : son absence ne met plus la partie en pause. */
+  absenceAcceptee?: boolean;
 }
 
 export interface ReponseInterne {
@@ -126,11 +130,15 @@ export interface EtatPartie {
   graine?: number;
   compteurAlea?: number;
   /** Mode « rusé » : empreintes à publier au début d'une manche. */
-  empreintesPrevues?: { manche: number; innocente: string }[];
+  empreintesPrevues?: { manche: number; innocente?: string; mancheRuse?: number }[];
   /** Mode « rusé » : dossiers trafiqués par le complice. */
   trafics?: { dossier: number; par: string; indiceFaux: string; manche: number }[];
   denonciations?: { joueur: string; cible: string; correcte: boolean; manche: number }[];
   compliceDemasque?: boolean;
+  /** Complice démasqué : ses ruses reviennent au début de cette manche. */
+  retourRuses?: number;
+  /** Partie suspendue : un joueur humain est absent (déconnecté ou parti) et n'a pas été remplacé. */
+  pause?: { depuis: number };
 }
 
 export type ResultatAction = { ok: true } | { ok: false; erreur: string };
@@ -325,11 +333,20 @@ const modeRuse = (etat: EtatPartie) => etat.config.modeComplice === 'ruse';
 /** Le complice peut-il utiliser cette ruse / ce pouvoir ? (décision 100 % serveur) */
 export function rusePossible(etat: EtatPartie, joueur: string, ruse: TypeRuse): boolean {
   const j = etat.joueurs[joueur];
-  if (!j || j.role !== 'complice' || etat.compliceDemasque) return false;
+  if (!j || j.role !== 'complice' || rusesSuspendues(etat)) return false;
   if (modeRuse(etat)) return (j.rusesRestantes ?? 0) >= coutRuse(etat.config, ruse);
   if (ruse === 'mensonge') return j.mensongesRestants > 0;
   if (ruse === 'falsification') return j.falsificationsRestantes > 0;
   return false; // emprunt et trafic n'existent qu'en mode « rusé »
+}
+
+/**
+ * Complice démasqué : ses ruses sont suspendues jusqu'à la manche `retourRuses`.
+ * (Parties antérieures à la suspension, sans `retourRuses` : ruses perdues définitivement.)
+ */
+export function rusesSuspendues(etat: EtatPartie): boolean {
+  if (!etat.compliceDemasque) return false;
+  return etat.retourRuses === undefined || etat.manche < etat.retourRuses;
 }
 
 /** Consomme une ruse ; en mode « rusé », planifie l'empreinte correspondante. Retourne les ruses restantes. */
@@ -341,7 +358,8 @@ function consommerRuse(etat: EtatPartie, joueur: string, ruse: TypeRuse): number
   }
   j.rusesRestantes = (j.rusesRestantes ?? 0) - coutRuse(etat.config, ruse);
   const proba = etat.config.probaEmpreinte?.[etat.ordre.length] ?? 0.6;
-  if (alea(etat, 1000) < proba * 1000) planifierEmpreinte(etat, joueur);
+  // Une fois démasqué, plus d'empreinte : tout le monde sait déjà qui il est.
+  if (!etat.compliceDemasque && alea(etat, 1000) < proba * 1000) planifierEmpreinte(etat, joueur);
   return j.rusesRestantes;
 }
 
@@ -353,10 +371,17 @@ function consommerRuse(etat: EtatPartie, joueur: string, ruse: TypeRuse): number
  */
 function planifierEmpreinte(etat: EtatPartie, complice: string) {
   const prevues = (etat.empreintesPrevues ??= []);
+  const [min, max] = etat.config.delaiEmpreinte ?? [1, 2];
+  const manche = Math.max(etat.manche + min + alea(etat, max - min + 1), etat.config.premiereMancheEmpreinte ?? 1);
+  // Petite table : l'empreinte ne nomme personne, elle date seulement la ruse.
+  if (etat.ordre.length <= (etat.config.empreinteAnonymeJusqua ?? 0)) {
+    prevues.push({ manche, mancheRuse: etat.manche });
+    return;
+  }
   const deja = new Set(prevues.map((e) => e.innocente));
   const innocentables = etat.ordre.filter((id) => id !== complice && !deja.has(id));
   if (innocentables.length === 0) return;
-  prevues.push({ manche: etat.manche + 1 + alea(etat, 2), innocente: innocentables[alea(etat, innocentables.length)] });
+  prevues.push({ manche, innocente: innocentables[alea(etat, innocentables.length)] });
 }
 
 /** Cartes que le complice peut « emprunter » : éléments de l'hypothèse originale qu'il n'a pas, hors meurtrier. */
@@ -409,6 +434,7 @@ function traiter(etat: EtatPartie, joueur: string, action: ActionJeu, now: numbe
   if (!etat.joueurs[joueur]) return refus("Vous ne faites pas partie de cette partie.");
   if (action.type === 'carnet') return majCarnet(etat, joueur, action);
   if (etat.etape === 'terminee') return refus('La partie est terminée.');
+  if (etat.pause) return refus('La partie est en pause : un joueur est absent.');
 
   switch (action.type) {
     case 'hypothese':
@@ -727,11 +753,9 @@ function denoncer(etat: EtatPartie, joueur: string, cible: string, now: number):
   (etat.denonciations ??= []).push({ joueur, cible, correcte, manche: etat.manche });
   publier(etat, { t: now, type: 'denonciation', joueur, cible, correcte });
   if (correcte) {
+    // Démasqué : ses ruses sont suspendues quelques manches (il les garde pour la suite).
     etat.compliceDemasque = true;
-    const c = etat.joueurs[etat.complice];
-    c.rusesRestantes = 0;
-    c.mensongesRestants = 0;
-    c.falsificationsRestantes = 0;
+    etat.retourRuses = etat.manche + (etat.config.suspensionDemasque ?? 3);
   } else {
     j.tourPerdu = true;
   }
@@ -781,7 +805,9 @@ function avancerSiege(etat: EtatPartie, now: number): boolean {
       }
     }
     for (const e of etat.empreintesPrevues ?? []) {
-      if (e.manche === etat.manche) publier(etat, { t: now, type: 'empreinte', innocente: e.innocente, manche: etat.manche });
+      if (e.manche !== etat.manche || etat.compliceDemasque) continue;
+      if (e.innocente) publier(etat, { t: now, type: 'empreinte', innocente: e.innocente, manche: etat.manche });
+      else publier(etat, { t: now, type: 'empreinte', manche: etat.manche, mancheRuse: e.mancheRuse });
     }
   }
   return true;
@@ -848,7 +874,7 @@ function majCarnet(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, 
 // ---------------------------------------------------------------------------
 
 export function prochaineEcheance(etat: EtatPartie): number | null {
-  if (etat.etape === 'terminee') return null;
+  if (etat.etape === 'terminee' || etat.pause) return null;
   if (etat.etape === 'hypothese' && etat.hypothese) return etat.hypothese.echeance;
   return etat.echeanceTour;
 }
@@ -920,6 +946,7 @@ export function abandonner(etat: EtatPartie, joueur: string, now: number) {
     if (etat.etape === 'hypothese' && etat.hypothese?.etape === 'interrogation' && repondantActuel(etat) === joueur)
       etat.hypothese.echeance = Math.min(etat.hypothese.echeance, limite);
   }
+  majPause(etat, now);
   etat.version++;
 }
 
@@ -928,12 +955,16 @@ export function definirConnexion(etat: EtatPartie, joueur: string, connecte: boo
   const j = etat.joueurs[joueur];
   if (!j || j.connecte === connecte) return;
   j.connecte = connecte;
-  if (connecte) j.parti = false; // revenu avec son jeton : il reprend sa place
+  if (connecte) {
+    j.parti = false; // revenu avec son jeton : il reprend sa place
+    j.absenceAcceptee = false; // une prochaine absence remettra la partie en pause
+  }
   publier(etat, { t: now, type: 'connexion', joueur, connecte });
   if (etat.etape === 'terminee') {
     etat.version++;
     return;
   }
+  majPause(etat, now);
   const concerneTour = etat.etape === 'tour' && joueurActif(etat) === joueur;
   const concerneReponse = etat.etape === 'hypothese' && etat.hypothese?.etape === 'interrogation' && repondantActuel(etat) === joueur;
   if (!connecte) {
@@ -942,12 +973,85 @@ export function definirConnexion(etat: EtatPartie, joueur: string, connecte: boo
     if (concerneReponse) etat.hypothese!.echeance = Math.min(etat.hypothese!.echeance, limite);
   } else {
     // De retour (page rechargée, réseau rétabli) : on lui rend un délai raisonnable.
-    if (concerneTour)
-      etat.echeanceTour =
-        etat.config.delaiTourMs === null
-          ? SANS_LIMITE
-          : Math.max(etat.echeanceTour, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiTourMs));
-    if (concerneReponse) etat.hypothese!.echeance = Math.max(etat.hypothese!.echeance, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiReponseMs));
+    rendreDelais(etat, joueur, now);
   }
+  etat.version++;
+}
+
+/** Rend un délai raisonnable au joueur s'il doit jouer ou répondre (retour, remplacement par un bot). */
+function rendreDelais(etat: EtatPartie, joueur: string, now: number) {
+  if (etat.etape === 'tour' && joueurActif(etat) === joueur)
+    etat.echeanceTour =
+      etat.config.delaiTourMs === null ? SANS_LIMITE : Math.max(etat.echeanceTour, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiTourMs));
+  if (etat.etape === 'hypothese' && etat.hypothese?.etape === 'interrogation' && repondantActuel(etat) === joueur)
+    etat.hypothese.echeance = Math.max(etat.hypothese.echeance, now + Math.min(etat.config.delaiRepriseTourMs, etat.config.delaiReponseMs));
+}
+
+/** Joueurs humains absents (déconnectés ou partis) qui bloquent la partie. */
+export function absentsBloquants(etat: EtatPartie): string[] {
+  return etat.ordre.filter((id) => {
+    const j = etat.joueurs[id];
+    return !j.bot && !j.connecte && !j.absenceAcceptee;
+  });
+}
+
+/**
+ * Met la partie en pause dès qu'un joueur humain est absent, et la reprend quand plus
+ * personne ne manque. À la reprise, les échéances sont décalées de la durée de la pause :
+ * personne ne perd de temps.
+ */
+export function majPause(etat: EtatPartie, now: number) {
+  if (etat.etape === 'terminee') {
+    delete etat.pause;
+    return;
+  }
+  const bloque = absentsBloquants(etat).length > 0;
+  if (bloque && !etat.pause) {
+    etat.pause = { depuis: now };
+  } else if (!bloque && etat.pause) {
+    const duree = Math.max(0, now - etat.pause.depuis);
+    if (etat.echeanceTour < SANS_LIMITE) etat.echeanceTour += duree;
+    if (etat.hypothese && etat.hypothese.echeance < SANS_LIMITE) etat.hypothese.echeance += duree;
+    delete etat.pause;
+  }
+}
+
+/** Un joueur absent est remplacé par un bot, qui joue à sa place avec ses cartes et son rôle. */
+export function remplacerParBot(etat: EtatPartie, joueur: string, now: number): ResultatAction {
+  const j = etat.joueurs[joueur];
+  if (!j) return refus("Ce joueur ne fait pas partie de la partie.");
+  if (etat.etape === 'terminee') return refus('La partie est terminée.');
+  if (j.bot) return refus('Ce joueur est déjà un bot.');
+  if (j.connecte) return refus("Ce joueur est connecté : inutile de le remplacer.");
+  j.bot = true;
+  j.remplaceParBot = true;
+  j.connecte = true;
+  j.parti = false;
+  j.absenceAcceptee = false;
+  publier(etat, { t: now, type: 'remplacement', joueur });
+  majPause(etat, now);
+  rendreDelais(etat, joueur, now);
+  etat.version++;
+  return { ok: true };
+}
+
+/** Les autres joueurs continuent sans l'absent : ses tours et ses réponses passent automatiquement. */
+export function continuerSans(etat: EtatPartie, joueur: string, now: number): ResultatAction {
+  const j = etat.joueurs[joueur];
+  if (!j) return refus("Ce joueur ne fait pas partie de la partie.");
+  if (j.bot || j.connecte) return refus("Ce joueur n'est pas absent.");
+  j.absenceAcceptee = true;
+  majPause(etat, now);
+  etat.version++;
+  return { ok: true };
+}
+
+/** Le joueur remplacé par un bot revient : il reprend sa place (le bot s'efface). */
+export function reprendreSiege(etat: EtatPartie, joueur: string, now: number) {
+  const j = etat.joueurs[joueur];
+  if (!j?.remplaceParBot) return;
+  j.bot = false;
+  j.remplaceParBot = false;
+  publier(etat, { t: now, type: 'reprise_siege', joueur });
   etat.version++;
 }

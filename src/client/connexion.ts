@@ -160,6 +160,8 @@ class Connexion {
   rejouer = () => this.envoyer('salon:rejouer', {});
   ajouterBot = () => this.envoyer('salon:ajouterBot', {});
   retirer = (joueurId: string) => this.envoyer('salon:retirer', { joueurId });
+  remplacerParBot = (joueurId: string) => this.envoyer('salon:remplacer', { joueurId });
+  continuerSans = (joueurId: string) => this.envoyer('salon:continuerSans', { joueurId });
   message = (texte: string) => this.envoyer('salon:message', { texte });
   reglerDureeTour = (dureeTourS: number | null) => this.envoyer('salon:reglages', { dureeTourS });
   reglerModeComplice = (modeComplice: 'classique' | 'ruse') => this.envoyer('salon:reglages', { modeComplice });

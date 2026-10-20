@@ -69,7 +69,7 @@ export function candidatsComplice(vue: VueJoueur): string[] {
   let candidats = ordre.filter((id) => id !== vue.moi.id);
   if (vue.moi.role === 'complice') return candidats;
   for (const e of vue.historique) {
-    if (e.type === 'empreinte') candidats = candidats.filter((c) => c !== e.innocente);
+    if (e.type === 'empreinte' && e.innocente) candidats = candidats.filter((c) => c !== e.innocente);
     if (e.type === 'denonciation' && !e.correcte) candidats = candidats.filter((c) => c !== e.cible);
   }
   return candidats;

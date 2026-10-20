@@ -27,6 +27,14 @@ export interface ConfigPartie {
   coutRuses: Record<TypeRuse, number>;
   /** Mode « rusé » : probabilité qu'une ruse laisse une empreinte, selon la taille de la table. */
   probaEmpreinte: Record<number, number>;
+  /** Mode « rusé » : une empreinte est publiée entre [min, max] manches après la ruse… */
+  delaiEmpreinte: [number, number];
+  /** … et jamais avant cette manche. */
+  premiereMancheEmpreinte: number;
+  /** Mode « rusé » : jusqu'à cette taille de table, l'empreinte ne nomme personne (seulement la manche de la ruse). */
+  empreinteAnonymeJusqua: number;
+  /** Mode « rusé » : nombre de manches pendant lesquelles les ruses d'un complice démasqué sont suspendues. */
+  suspensionDemasque: number;
 
 
   /** Durée fixe de l'étape de falsification (identique pour chaque hypothèse, pour ne rien trahir). */
@@ -68,7 +76,14 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   ruses: { 3: 2, 4: 4, 5: 5, 6: 5 },
   coutRuses: { mensonge: 1, falsification: 1, emprunt: 2, trafic: 1 },
   // Peu de suspects à 3 ou 4 joueurs : une seule empreinte y pèse lourd, elles y sont donc plus rares.
-  probaEmpreinte: { 3: 0.35, 4: 0.5, 5: 0.6, 6: 0.7 },
+  probaEmpreinte: { 3: 0.35, 4: 0.4, 5: 0.5, 6: 0.6 },
+  // Empreintes tardives (décision du 20/10/2026) : le complice peut ruser en début de partie sans se griller.
+  delaiEmpreinte: [2, 3],
+  premiereMancheEmpreinte: 4,
+  // À 3 joueurs, « n'appartient pas à X » désignerait directement le complice : l'empreinte y est anonyme.
+  empreinteAnonymeJusqua: 3,
+  // Démasqué, le complice ne perd plus ses ruses : elles sont suspendues 3 manches.
+  suspensionDemasque: 3,
 
   delaiFalsificationMs: 8_000,
   delaiReponseMs: 60_000,

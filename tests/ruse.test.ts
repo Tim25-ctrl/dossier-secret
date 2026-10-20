@@ -157,7 +157,7 @@ describe('Ruse : le Dossier trafiqué', () => {
 });
 
 describe('Empreintes', () => {
-  it('une ruse laisse (souvent) une empreinte VRAIE et anonyme, publiée 1 à 2 manches plus tard', () => {
+  it('une ruse laisse (souvent) une empreinte VRAIE, publiée 2 à 3 manches plus tard et jamais avant la manche 4', () => {
     for (let seed = 70; seed < 90; seed++) {
       const { etat, auteur, c, h } = scenario(5, seed);
       act(etat, auteur, hyp(tripletAvec(etat, [etat.joueurs[c].main[0]]), autres(etat, auteur).slice(0, 2)), h.avance(1));
@@ -165,16 +165,37 @@ describe('Empreintes', () => {
       if (etat.hypothese?.interroges[0] !== c) continue;
       expect(act(etat, c, { type: 'mentir' }, h.avance(1)).ok).toBe(true);
       expect(etat.historique.some((e) => e.type === 'empreinte')).toBe(false); // jamais immédiatement
-      allerALaManche(etat, 4, h);
+      allerALaManche(etat, 3, h);
+      expect(etat.historique.some((e) => e.type === 'empreinte')).toBe(false); // ruse en manche 1 : rien avant la manche 4
+      allerALaManche(etat, 5, h);
       const empreintes = etat.historique.filter((e) => e.type === 'empreinte');
       if (empreintes.length === 0) continue; // toutes les ruses ne laissent pas d'empreinte
       expect(empreintes).toHaveLength(1);
       const e = empreintes[0] as Extract<(typeof empreintes)[number], { type: 'empreinte' }>;
-      expect([2, 3]).toContain(e.manche);
+      expect(e.manche).toBe(4);
       expect(e.innocente).not.toBe(c); // l'empreinte est vraie
       expect(etat.ordre).toContain(e.innocente);
       expect(Object.keys(e).sort()).toEqual(['innocente', 'manche', 't', 'type']); // aucune mention de la ruse utilisée
     }
+  });
+
+  it('à 3 joueurs, l’empreinte ne nomme personne : elle date seulement la ruse', () => {
+    let vues = 0;
+    for (let seed = 70; seed < 110; seed++) {
+      const { etat, auteur, c, h } = scenario(3, seed);
+      act(etat, auteur, hyp(tripletAvec(etat, [etat.joueurs[c].main[0]]), [c]), h.avance(1));
+      passerFalsification(etat, h);
+      if (etat.hypothese?.interroges[0] !== c) continue;
+      expect(act(etat, c, { type: 'mentir' }, h.avance(1)).ok).toBe(true);
+      allerALaManche(etat, 5, h);
+      const empreintes = etat.historique.filter((e) => e.type === 'empreinte');
+      for (const e of empreintes) {
+        expect(e).toMatchObject({ type: 'empreinte', manche: 4, mancheRuse: 1 });
+        expect('innocente' in e).toBe(false);
+        vues++;
+      }
+    }
+    expect(vues).toBeGreaterThan(0);
   });
 
   it('pas d’empreinte en mode classique', () => {
@@ -185,12 +206,12 @@ describe('Empreintes', () => {
 });
 
 describe('Dénoncer le complice', () => {
-  it('dénonciation juste : le complice est démasqué publiquement et perd ses ruses', () => {
+  it('dénonciation juste : le complice est démasqué publiquement, ses ruses sont suspendues 3 manches puis reviennent', () => {
     const { etat, auteur, c, h } = scenario(4, 66);
     expect(act(etat, auteur, { type: 'denoncer', joueur: c }, h.avance(1)).ok).toBe(true);
     expect(etat.pointsAction).toBe(1);
-    expect(etat.joueurs[c].rusesRestantes).toBe(0);
-    for (const id of etat.ordre) expect(vuePour(etat, id).compliceDemasque).toBe(c);
+    expect(etat.joueurs[c].rusesRestantes).toBe(4); // aucune ruse perdue
+    for (const id of etat.ordre) expect(vuePour(etat, id)).toMatchObject({ compliceDemasque: c, retourRuses: 4 });
     expect(etat.historique.at(-1)).toMatchObject({ type: 'denonciation', joueur: auteur, cible: c, correcte: true });
     // Plus personne ne peut dénoncer, et le complice ne peut plus rien faire.
     expect(act(etat, auteur, { type: 'denoncer', joueur: c }, h.avance(1)).ok).toBe(false);
@@ -199,6 +220,15 @@ describe('Dénoncer le complice', () => {
     allerAuTourDe(etat, auteur, h);
     act(etat, auteur, hyp(t, autres(etat, auteur).slice(0, 2)), h.avance(1));
     expect(act(etat, c, { type: 'falsifier', champ: 'arme', valeur: 'poison' }, h.avance(1)).ok).toBe(false);
+    // Manche 4 : la suspension est levée, le complice retrouve ses ruses.
+    allerALaManche(etat, 4, h);
+    expect(vuePour(etat, auteur).retourRuses).toBeNull();
+    allerAuTourDe(etat, auteur, h);
+    act(etat, auteur, hyp(tripletAvec(etat, [etat.joueurs[c].main[0]]), autres(etat, auteur).slice(0, 2)), h.avance(1));
+    const champ = elementsDuTriplet(etat.hypothese!.original).includes('poison') ? 'lieu' : 'arme';
+    const valeur = champ === 'lieu' ? (etat.hypothese!.original.lieu === 'serre' ? 'cave' : 'serre') : 'poison';
+    expect(act(etat, c, { type: 'falsifier', champ, valeur }, h.avance(1)).ok).toBe(true);
+    expect(etat.joueurs[c].rusesRestantes).toBe(3);
   });
 
   it('dénonciation fausse : le dénonciateur perd son prochain tour, et ne peut plus dénoncer', () => {

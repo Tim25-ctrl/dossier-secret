@@ -78,7 +78,8 @@ Testé pour les 216 solutions possibles.
 
 - L'hôte lance la partie, ajoute des bots et relance une partie terminée. Pendant la partie, il n'a **aucun pouvoir** sur le jeu.
 - S'il quitte le lobby, le rôle passe immédiatement au joueur suivant ; s'il est déconnecté plus de 30 s, le rôle passe à un joueur connecté.
-- Un joueur déconnecté garde sa place ; son tour et ses réponses expirent plus vite (25 s) pour ne pas bloquer la table ; à son retour, il récupère un délai normal.
+- Un joueur humain déconnecté (ou parti) garde sa place et **met la partie en pause** : plus aucune échéance ne court, les bots attendent, les actions de jeu sont refusées (le carnet et la discussion restent libres). Les autres joueurs voient, après 3 s de grâce, une fenêtre « Partie en pause » avec la discussion : attendre son retour, ou le **remplacer par un bot** (ou « continuer sans lui » si les bots sont désactivés : ses tours expirent alors en 25 s). À la reprise, les échéances sont décalées de la durée de la pause.
+- Un joueur remplacé par un bot qui revient avec son jeton reprend sa place ; le bot s'efface.
 - Dans le lobby, un joueur déconnecté depuis 2 minutes est retiré. Un salon sans humain connecté depuis 2 heures est supprimé.
 
 ## Journal d'audit

@@ -67,7 +67,16 @@ export function texteEvenement(
         classe: 'important',
         contenu: (
           <>
-            🔍 <strong>Empreinte relevée</strong> sur les lieux d'une manigance : elle n'appartient pas à <strong>{ev.innocente === moi ? 'vous' : nom(ev.innocente)}</strong>.
+            {ev.innocente ? (
+              <>
+                🔍 <strong>Empreinte relevée</strong> sur les lieux d'une manigance : elle n'appartient pas à <strong>{ev.innocente === moi ? 'vous' : nom(ev.innocente)}</strong>.
+              </>
+            ) : (
+              <>
+                🔍 <strong>Empreinte relevée</strong> : le complice a rusé pendant la <strong>manche {ev.mancheRuse}</strong>. Qui a répondu, falsifié ou consulté quoi à ce
+                moment-là ?
+              </>
+            )}
           </>
         ),
       };
@@ -76,8 +85,8 @@ export function texteEvenement(
         classe: 'important',
         contenu: ev.correcte ? (
           <>
-            {qui(ev.joueur)} {ev.joueur === moi ? 'dénoncez' : 'dénonce'} {ev.cible === moi ? 'vous' : nom(ev.cible)} : <strong style={{ color: 'var(--vert)' }}>c'est bien le complice !</strong> Il
-            perd ses ruses.
+            {qui(ev.joueur)} {ev.joueur === moi ? 'dénoncez' : 'dénonce'} {ev.cible === moi ? 'vous' : nom(ev.cible)} : <strong style={{ color: 'var(--vert)' }}>c'est bien le complice !</strong> Ses
+            ruses sont suspendues pendant quelques manches.
           </>
         ) : (
           <>
@@ -87,7 +96,11 @@ export function texteEvenement(
         ),
       };
     case 'depart':
-      return { classe: 'important', contenu: ev.joueur === moi ? 'Vous avez quitté la partie.' : `${nom(ev.joueur)} a quitté la partie : ses tours seront passés automatiquement.` };
+      return { classe: 'important', contenu: ev.joueur === moi ? 'Vous avez quitté la partie.' : `${nom(ev.joueur)} a quitté la partie.` };
+    case 'remplacement':
+      return { classe: 'important', contenu: `Un bot remplace ${nom(ev.joueur)} et joue désormais à sa place.` };
+    case 'reprise_siege':
+      return { classe: 'important', contenu: `${nom(ev.joueur)} est de retour et reprend sa place.` };
     case 'connexion':
       return { contenu: ev.connecte ? `${nom(ev.joueur)} est de retour.` : `${nom(ev.joueur)} a perdu la connexion.` };
     case 'fin_partie':

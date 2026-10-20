@@ -73,6 +73,10 @@ const variantes: [string, Partial<ConfigPartie>][] = [
   ['Rusé, empreinte à chaque ruse', { probaEmpreinte: { 3: 1, 4: 1, 5: 1, 6: 1 } }],
   ['Rusé, 6 ruses à 6 joueurs', { ruses: { 3: 3, 4: 4, 5: 5, 6: 6 } }],
   ['Règles initiales (avant toute correction)', REGLES_INITIALES],
+  [
+    'Rusé, anciennes empreintes (avant le 20/10/2026 : dès la manche 2, nominatives à 3, ruses perdues si démasqué)',
+    { probaEmpreinte: { 3: 0.35, 4: 0.5, 5: 0.6, 6: 0.7 }, delaiEmpreinte: [1, 2], premiereMancheEmpreinte: 1, empreinteAnonymeJusqua: 0, suspensionDemasque: 99 },
+  ],
 ];
 const idx = process.argv.indexOf('--variante');
 const filtre = idx > 0 ? [variantes[Number(process.argv[idx + 1])]] : process.argv.includes('--rapide') ? variantes.slice(0, 1) : variantes;

@@ -72,6 +72,9 @@ export interface EvenementsClient {
   'salon:rejouer': (p: object, ack: (r: Reponse) => void) => void;
   'salon:ajouterBot': (p: object, ack: (r: Reponse) => void) => void;
   'salon:retirer': (p: { joueurId: string }, ack: (r: Reponse) => void) => void;
+  /** Partie en pause : remplacer un joueur absent par un bot, ou continuer sans lui. */
+  'salon:remplacer': (p: { joueurId: string }, ack: (r: Reponse) => void) => void;
+  'salon:continuerSans': (p: { joueurId: string }, ack: (r: Reponse) => void) => void;
   'salon:message': (p: { texte: string }, ack: (r: Reponse) => void) => void;
   'salon:reglages': (p: Partial<ReglagesSalon>, ack: (r: Reponse) => void) => void;
   'jeu:action': (p: ActionJeu, ack: (r: Reponse) => void) => void;

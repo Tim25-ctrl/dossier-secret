@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { abandonner, avancer, cartesCorrespondantes, definirConnexion, type EtatPartie } from '../src/engine/partie';
+import {
+  abandonner,
+  avancer,
+  cartesCorrespondantes,
+  continuerSans,
+  definirConnexion,
+  remplacerParBot,
+  reprendreSiege,
+  type EtatPartie,
+} from '../src/engine/partie';
 import { vuePour } from '../src/engine/vue';
 import { CONFIG_PAR_DEFAUT } from '../src/engine/config';
 import { categorieDe, elementsDuTriplet, type ElementId, type Triplet } from '../src/shared/types';
@@ -161,12 +170,49 @@ describe('Tours et points d\'action', () => {
     expect(etat.historique.some((e) => e.type === 'fin_tour' && e.raison === 'temps_ecoule')).toBe(true);
   });
 
-  it('un joueur actif déconnecté voit son tour raccourci', () => {
+  it('un joueur déconnecté met la partie en pause ; si les autres continuent sans lui, son tour est raccourci', () => {
     const etat = nouvellePartie(3);
     const premier = actif(etat);
+    const autre = autres(etat, premier)[0];
     definirConnexion(etat, premier, false, T0 + 10);
-    avancer(etat, T0 + 10 + 5_001);
+    expect(vuePour(etat, autre).pause).toEqual({ depuis: T0 + 10, absents: [{ id: premier, parti: false }] });
+    avancer(etat, T0 + 3_600_000);
+    expect(actif(etat)).toBe(premier); // en pause, rien ne bouge
+    continuerSans(etat, premier, T0 + 3_600_000);
+    expect(vuePour(etat, autre).pause).toBeNull();
+    avancer(etat, T0 + 3_600_000 + 5_001);
     expect(actif(etat)).not.toBe(premier);
+  });
+
+  it('pendant la pause, aucune action de jeu ; à la reprise, personne ne perd de temps', () => {
+    const etat = nouvellePartie(3);
+    const premier = actif(etat);
+    const absent = autres(etat, premier)[0];
+    const echeance = etat.echeanceTour;
+    definirConnexion(etat, absent, false, T0 + 1_000);
+    expect(act(etat, premier, { type: 'finTour' }, T0 + 2_000)).toMatchObject({ ok: false, erreur: 'La partie est en pause : un joueur est absent.' });
+    expect(act(etat, premier, { type: 'carnet', marques: {}, notes: 'en attendant' }, T0 + 2_000).ok).toBe(true);
+    definirConnexion(etat, absent, true, T0 + 61_000);
+    expect(etat.pause).toBeUndefined();
+    expect(etat.echeanceTour).toBe(echeance + 60_000);
+  });
+
+  it("remplacé par un bot, l'absent garde ses cartes et son rôle ; revenu, il reprend sa place", () => {
+    const etat = nouvellePartie(3);
+    const premier = actif(etat);
+    const main = [...etat.joueurs[premier].main];
+    abandonner(etat, premier, T0 + 10);
+    expect(etat.pause).toBeDefined();
+    expect(remplacerParBot(etat, premier, T0 + 5_000).ok).toBe(true);
+    expect(etat.pause).toBeUndefined();
+    expect(etat.joueurs[premier]).toMatchObject({ bot: true, connecte: true, parti: false, main });
+    expect(etat.historique.at(-1)).toMatchObject({ type: 'remplacement', joueur: premier });
+    // Le bot dispose d'un délai normal pour jouer (le départ l'avait réduit à 2 s).
+    expect(etat.echeanceTour).toBeGreaterThanOrEqual(T0 + 5_000 + 20_000);
+    expect(remplacerParBot(etat, premier, T0 + 6_000).ok).toBe(false);
+    reprendreSiege(etat, premier, T0 + 7_000);
+    expect(etat.joueurs[premier].bot).toBe(false);
+    expect(etat.historique.at(-1)).toMatchObject({ type: 'reprise_siege', joueur: premier });
   });
 
   it('tour sans limite : aucun délai tant que le joueur est connecté, délai court s\'il se déconnecte', () => {
@@ -186,6 +232,7 @@ describe('Tours et points d\'action', () => {
     avancer(etat, T0 + 20 * 3600_000);
     expect(actif(etat)).toBe(second);
     definirConnexion(etat, second, false, T0 + 20 * 3600_000);
+    continuerSans(etat, second, T0 + 20 * 3600_000);
     avancer(etat, T0 + 20 * 3600_000 + 5_001);
     expect(actif(etat)).not.toBe(second);
   });
@@ -695,6 +742,8 @@ describe("Corrections d'équilibrage", () => {
     abandonner(etat, premier, T0 + 10);
     expect(vuePour(etat, autres(etat, premier)[0]).joueurs.find((j) => j.id === premier)).toMatchObject({ parti: true, connecte: false });
     expect(etat.historique.at(-1)).toMatchObject({ type: 'depart', joueur: premier });
+    expect(vuePour(etat, autres(etat, premier)[0]).pause?.absents).toEqual([{ id: premier, parti: true }]);
+    continuerSans(etat, premier, T0 + 10);
     avancer(etat, T0 + 10 + 2_001);
     expect(actif(etat)).not.toBe(premier);
     // Au tour suivant de ce joueur, même chose.

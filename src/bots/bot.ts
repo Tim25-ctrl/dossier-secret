@@ -149,7 +149,8 @@ function tourComplice(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
   if (vue.pointsAction >= 1 && dossier !== null) {
     // Dossier trafiqué : les prochains lecteurs liront un faux indice (mode « rusé »).
     const estIndice = vue.archives.find((a) => a.dossier === dossier)?.categorie !== 'piece';
-    const trafiquer = profil.pouvoirs && estIndice && (vue.moi.rusesRestantes ?? 0) > 0 && rng.int(1000) < profil.trafic * 1000;
+    const suspendu = vue.compliceDemasque !== null && (vue.retourRuses === null || vue.manche < vue.retourRuses);
+    const trafiquer = profil.pouvoirs && estIndice && !suspendu && (vue.moi.rusesRestantes ?? 0) >= vue.regles.coutRuses.trafic && rng.int(1000) < profil.trafic * 1000;
     return { type: 'consulterArchive', dossier, ...(trafiquer ? { trafiquer: true } : {}) };
   }
   return { type: 'finTour' };

@@ -9,6 +9,7 @@ Le 17 octobre, à 23 h 17, Armand de Valombre est retrouvé mort dans son manoir
 - Rôles secrets, cartes privées, interrogations, deux pouvoirs du complice, accusations finales
 - Carnet de déduction privé, discussion écrite, archives à consulter
 - Reconnexion automatique (rafraîchissement, coupure réseau, redémarrage du serveur)
+- Joueur déconnecté ou parti : la partie se met en pause ; les autres peuvent attendre son retour ou le remplacer par un bot (fenêtre avec la discussion)
 - Joueurs automatiques (bots) pour compléter une table ou tester seul
 - Deux modes de complice : **Rusé** (réserve de ruses discrètes, empreintes, dénonciation) ou **Classique**
 - 130 tests automatisés, dont des parties complètes jouées en réseau
@@ -116,7 +117,7 @@ Toutes les valeurs ont un défaut raisonnable : **aucune configuration n'est obl
 | `FALSIFICATION_WINDOW_SECONDS` | `8` | Durée fixe laissée au complice pour falsifier une hypothèse |
 | `RESPONSE_TIMEOUT_SECONDS` | `60` | Délai pour répondre à une interrogation (puis réponse automatique honnête) |
 | `TURN_TIMEOUT_SECONDS` | `180` | Durée maximale d'un tour |
-| `DISCONNECTED_TURN_SECONDS` | `25` | Délai réduit quand le joueur concerné est déconnecté |
+| `DISCONNECTED_TURN_SECONDS` | `25` | Délai réduit pour un joueur absent quand les autres ont choisi de continuer sans lui |
 | `CORS_ORIGINS` | *(vide)* | Origines autorisées si le site est servi depuis un autre domaine |
 
 Les règles du jeu elles-mêmes (12 manches, 2 PA, pouvoirs, nombre d'indices…) sont dans `src/engine/config.ts`.

@@ -9,7 +9,7 @@ import { ceQueLIndiceEcarte, combinaisonsPossibles } from '../shared/logique';
 import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
 import { coutRuse, nbInterroges, pouvoirsPour, rusesPour } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
-import { cartesCorrespondantes, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
+import { absentsBloquants, cartesCorrespondantes, rusesSuspendues, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
 
 export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
   const moi = etat.joueurs[joueurId];
@@ -57,6 +57,8 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       modeComplice: etat.config.modeComplice ?? 'classique',
       ruses: rusesPour(etat.config, etat.ordre.length),
       coutRuses: { mensonge: coutRuse(etat.config, 'mensonge'), falsification: coutRuse(etat.config, 'falsification'), emprunt: coutRuse(etat.config, 'emprunt'), trafic: coutRuse(etat.config, 'trafic') },
+      premiereMancheEmpreinte: etat.config.premiereMancheEmpreinte ?? 1,
+      suspensionDemasque: etat.config.suspensionDemasque ?? 3,
     },
     manche: etat.manche,
     joueurActif: joueurActif(etat),
@@ -79,6 +81,8 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       .map((a) => ({ ...a, disponible: a.disponibleDesManche <= etat.manche, consulte: moi.dossiersConsultes.includes(a.dossier) })),
     historique,
     compliceDemasque: etat.compliceDemasque ? etat.complice : null,
+    retourRuses: rusesSuspendues(etat) ? (etat.retourRuses ?? null) : null,
+    pause: etat.pause ? { depuis: etat.pause.depuis, absents: absentsBloquants(etat).map((id) => ({ id, parti: !!etat.joueurs[id].parti })) } : null,
   };
 
   if (estComplice) {

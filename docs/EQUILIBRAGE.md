@@ -180,3 +180,29 @@ Les témoignages partiels rendent l'enquête un peu moins dure, surtout pour les
 | 6 | 66 % / 35 % | 64 % / 34 % | 40 % |
 
 Les enquêteurs perdent quelques points, surtout à 4 joueurs et chez les joueurs « occasionnels ». Sur 200 parties, l'incertitude est d'environ ± 7 points : seules les baisses à 4 joueurs (expert) et à 5 joueurs (occasionnel) sont nettes. Si les parties deviennent trop dures, la piste la plus simple est d'ajouter un 7ᵉ dossier d'archives.
+
+## Mise à jour : empreintes plus tardives, suspension au lieu de perte des ruses (20/10/2026)
+
+**Problème signalé en partie** : l'empreinte arrivait dès la manche 2 et, à 3 joueurs, « n'appartient pas à X » désignait directement le complice (chaque enquêteur n'a que deux suspects).
+
+**Corrections (validées par l'auteur du jeu)** :
+
+- empreinte publiée **2 à 3 manches** après la ruse (au lieu de 1 à 2), et **jamais avant la manche 4** (`delaiEmpreinte`, `premiereMancheEmpreinte`) ;
+- **à 3 joueurs, empreinte anonyme** : « le complice a rusé pendant la manche N », sans nommer personne (`empreinteAnonymeJusqua: 3`) ;
+- probabilités un peu plus basses : 35 / 40 / 50 / 60 % (3 / 4 / 5 / 6 joueurs) ;
+- complice démasqué : ses ruses sont **suspendues 3 manches** puis reviennent (`suspensionDemasque: 3`), **sans aucune perte de ruse** (choix de l'auteur) ; plus aucune empreinte après le démasquage.
+
+**Effet mesuré, à code identique** (200 parties par taille ; « avant » = anciennes empreintes rejouées avec `npm run simulate -- --variante 7`) :
+
+| Joueurs | Enquêteurs gagnent, expert (avant → après) | Occasionnel (avant → après) | Complice démasqué (avant → après) |
+|---:|---:|---:|---:|
+| 3 | 56 % → 62 % | 26 % → 26 % | 54 % → 0 % * |
+| 4 | 46 % → 45 % | 28 % → 28 % | 62 % → 44 % |
+| 5 | 59 % → 64 % | 19 % → 17 % | 62 % → 46 % |
+| 6 | 74 % → 72 % | 42 % → 45 % | 40 % → 22 % |
+
+\* Les bots ne savent pas exploiter l'empreinte anonyme (ils ne raisonnent que sur des noms) : à 3 joueurs, ils ne démasquent donc jamais le complice. Des joueurs humains qui recoupent les événements de la manche indiquée y parviendront parfois.
+
+Le complice est nettement moins souvent démasqué, et les victoires restent dans la marge d'incertitude (± 7 points) : chez les bots, démasquer le complice change peu l'issue de l'enquête.
+
+Remarque : depuis la renumérotation des archives par manche d'ouverture, les bots consultent les pièces à conviction plus tôt (ils ouvrent les dossiers dans l'ordre) ; c'est ce qui fait monter la colonne « sans pouvoirs » par rapport aux tableaux précédents, indépendamment des empreintes.

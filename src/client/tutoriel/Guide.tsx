@@ -5,7 +5,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { nomElement } from '../../shared/data/manoir';
 import type { ElementId, VueJoueur } from '../../shared/types';
 import { connexion, useConnexion } from '../connexion';
-import { MOI, suggestionPartieGuidee } from './partieLocale';
+import { CONFIG_PAR_DEFAUT } from '../../engine/config';
+import { MOI, figerPartieGuidee, suggestionPartieGuidee } from './partieLocale';
 
 interface Contexte {
   vue: VueJoueur;
@@ -23,7 +24,18 @@ interface Etape {
   texte: (c: Contexte) => ReactNode;
   /** Condition qui fait passer à l'étape suivante ; sans condition, un bouton « Suivant ». */
   attendre?: (c: Contexte) => boolean;
+  /**
+   * Bouton « Suivant » : tant qu'il est affiché, la partie est en pause (bots et chronos arrêtés),
+   * pour lire tranquillement.
+   */
   bouton?: string;
+  /**
+   * Événement attendu avant d'afficher l'étape (coup d'un bot, réponse…) : en attendant, la partie
+   * continue et la bulle affiche `attente`. Une fois arrivé, l'étape s'affiche (et fige la partie si
+   * elle a un bouton).
+   */
+  quand?: (c: Contexte) => boolean;
+  attente?: (c: Contexte) => ReactNode;
   /** Avancement de l'étape : s'il ne change plus pendant DELAI_AIDE_MS, le guide passe en mode aide. */
   progres?: (vue: VueJoueur) => string;
 }
@@ -104,12 +116,15 @@ const ETAPES_ENQUETEUR: Etape[] = [
     cible: ['.suivi-hypothese'],
     texte: () => (
       <>
-        Le greffier enregistre votre hypothèse quelques secondes (c'est à ce moment que le complice peut la falsifier en secret), puis le joueur interrogé répond…
+        Le greffier enregistre votre hypothèse quelques secondes : c'est à ce moment que le complice peut la falsifier en secret. Ensuite, le joueur interrogé
+        répond.
       </>
     ),
-    attendre: ({ vue }) => reponseMonHypothese(vue) !== null,
+    bouton: 'Suivant',
   },
   {
+    quand: ({ vue }) => reponseMonHypothese(vue) !== null,
+    attente: () => <>Le joueur interrogé répond…</>,
     cible: ['.resultat-hypothese'],
     texte: ({ vue }) => {
       const r = reponseMonHypothese(vue);
@@ -190,10 +205,17 @@ const ETAPES_ENQUETEUR: Etape[] = [
   },
   {
     cible: ['.panneau-historique'],
-    texte: () => <>Au tour des bots. Observez l'historique : chaque hypothèse et chaque réponse y apparaissent. Hercule va bientôt vous interroger…</>,
-    attendre: ({ vue }) => (vue.hypotheseEnCours?.aRepondre !== undefined && vue.hypotheseEnCours.repondantActuel === MOI) || aMontreUneCarte(vue),
+    texte: () => (
+      <>
+        Votre tour est fini : place aux bots. Suivez l'<strong>historique</strong> : chaque hypothèse et chaque réponse y apparaissent. Hercule va bientôt vous
+        interroger.
+      </>
+    ),
+    bouton: 'Suivant',
   },
   {
+    quand: ({ vue }) => (vue.hypotheseEnCours?.aRepondre !== undefined && vue.hypotheseEnCours.repondantActuel === MOI) || aMontreUneCarte(vue),
+    attente: () => <>Hercule joue… suivez l'historique.</>,
     cible: ['.modale'],
     texte: () => (
       <>
@@ -206,12 +228,14 @@ const ETAPES_ENQUETEUR: Etape[] = [
     cible: ['.panneau-historique'],
     texte: () => (
       <>
-        Bien joué. Marple joue maintenant son tour ; si elle vous interroge à son tour, répondez de la même façon. Le vôtre revient ensuite…
+        Bien joué : seul Hercule a vu votre carte. C'est ensuite au tour de Marple ; si elle vous interroge, répondez de la même façon. Puis votre tour reviendra.
       </>
     ),
-    attendre: ({ vue }) => monTour(vue),
+    bouton: 'Suivant',
   },
   {
+    quand: ({ vue }) => monTour(vue),
+    attente: () => <>Les bots jouent… Si l'on vous interroge, répondez. Votre tour revient ensuite.</>,
     onglet: 'Archives',
     cible: ['.btn-consulter:not(.piece)', '.btn-consulter'],
     texte: () => (
@@ -303,6 +327,10 @@ const ETAPES_COMPLICE: Etape[] = [
       <>
         Votre rôle reste <strong>secret</strong>. Comme tout le monde, vous avez des cartes et vous répondez quand on vous interroge. Mais vous avez aussi{' '}
         <strong>{ruses(vue)}</strong> en réserve : des tricheries que personne ne voit. Essayons-les une par une.
+        <span className="guide-progres">
+          {ruses(vue)}, c'est seulement pour cette partie guidée, afin de tout essayer. En vraie partie, le complice en a {CONFIG_PAR_DEFAUT.ruses[3]} à 3 joueurs,{' '}
+          {CONFIG_PAR_DEFAUT.ruses[4]} à 4 et {CONFIG_PAR_DEFAUT.ruses[5]} à 5 ou 6.
+        </span>
       </>
     ),
     bouton: 'Suivant',
@@ -345,9 +373,11 @@ const ETAPES_COMPLICE: Etape[] = [
         Au tour d'Hercule. Quand un joueur formule une hypothèse, <strong>vous la voyez avant tout le monde</strong> : c'est le moment d'une autre ruse…
       </>
     ),
-    attendre: ({ vue }) => (!!vue.hypotheseEnCours && vue.hypotheseEnCours.auteur !== MOI) || aFalsifie(vue) || !!maReponse(vue),
+    bouton: 'Suivant',
   },
   {
+    quand: ({ vue }) => (!!vue.hypotheseEnCours && vue.hypotheseEnCours.auteur !== MOI) || aFalsifie(vue) || !!maReponse(vue) || monTour(vue),
+    attente: () => <>Hercule réfléchit à son hypothèse…</>,
     cible: ['.modale'],
     texte: ({ vue }) => (
       <>
@@ -361,10 +391,12 @@ const ETAPES_COMPLICE: Etape[] = [
     },
   },
   {
+    quand: ({ vue }) => (vue.hypotheseEnCours?.repondantActuel === MOI && !!vue.hypotheseEnCours.aRepondre) || !!maReponse(vue) || monTour(vue),
+    attente: () => <>Le greffier enregistre l'hypothèse, puis Hercule vous interroge…</>,
     cible: ['.modale'],
     texte: ({ vue }) => {
       const a = vue.hypotheseEnCours?.repondantActuel === MOI ? vue.hypotheseEnCours.aRepondre : undefined;
-      if (!a || a.cartesCorrespondantes.length === 0) return <>Hercule va vous interroger…</>;
+      if (!a || a.cartesCorrespondantes.length === 0) return <>Hercule vous interroge : répondez.</>;
       return (
         <>
           Hercule vous interroge, et vous avez <strong>{liste(a.cartesCorrespondantes)}</strong>. Un enquêteur devrait la montrer. Vous, vous pouvez{' '}
@@ -407,13 +439,15 @@ const ETAPES_COMPLICE: Etape[] = [
     cible: ['.panneau-historique'],
     texte: ({ vue }) => (
       <>
-        Marple joue. Si elle formule une hypothèse, la fenêtre de falsification s'ouvrira : il vous reste <strong>{ruses(vue)}</strong>. Vous pouvez aussi choisir{' '}
-        <strong>Ne rien changer</strong> : gardez vos ruses pour plus tard !
+        C'est ensuite au tour de Marple. Si elle formule une hypothèse, la fenêtre de falsification s'ouvrira : il vous reste <strong>{ruses(vue)}</strong>. Vous
+        pouvez aussi choisir <strong>Ne rien changer</strong> : gardez vos ruses pour plus tard !
       </>
     ),
-    attendre: ({ vue }) => monTour(vue),
+    bouton: 'Suivant',
   },
   {
+    quand: ({ vue }) => monTour(vue),
+    attente: () => <>Les bots jouent… Si la fenêtre de falsification s'ouvre, à vous de choisir ; si l'on vous interroge, répondez.</>,
     cible: ['.actions .btn-or', '.modale'],
     texte: ({ vue }) => (
       <>
@@ -424,9 +458,23 @@ const ETAPES_COMPLICE: Etape[] = [
     attendre: ({ vue }) => mesHypotheses(vue) > 0,
   },
   {
-    cible: ['.suivi-hypothese', '.resultat-hypothese'],
-    texte: () => <>Le joueur interrogé vous répond…</>,
-    attendre: ({ vue }) => reponseMonHypothese(vue) !== null,
+    quand: ({ vue }) => reponseMonHypothese(vue) !== null,
+    attente: () => <>Le joueur interrogé vous répond…</>,
+    cible: ['.resultat-hypothese'],
+    texte: ({ vue }) => {
+      const r = reponseMonHypothese(vue);
+      return r?.type === 'carte_vue' ? (
+        <>
+          {nom(vue, r.de)} vous montre <strong>{nomElement(r.carte)}</strong> : elle ne fait donc pas partie de la solution. Hypothèse après hypothèse, vous
+          découvrirez le lieu et l'arme… et saurez mieux mentir.
+        </>
+      ) : (
+        <>
+          Personne n'a de carte à vous montrer : le lieu ou l'arme de votre hypothèse fait peut-être partie de la solution. Bonne piste pour vos ruses !
+        </>
+      );
+    },
+    bouton: 'Suivant',
   },
   {
     texte: () => (
@@ -528,7 +576,17 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
   const aide = avancement.current.aideEtape === i;
   const contexte: Contexte | null = vue ? { vue, aide } : null;
 
-  const cible = !termine && !reduit && contexte ? trouverCible(etape, contexte) : null;
+  // Étape « prête » : l'événement qu'elle attend est arrivé (une fois arrivé, il le reste).
+  const pretPour = useRef(-1);
+  if (contexte && !termine && (!etape.quand || etape.quand(contexte))) pretPour.current = i;
+  const pret = pretPour.current === i;
+
+  // Pendant une explication (bouton « Suivant »), la partie est figée : rien ne se passe sans vous.
+  const gel = !!contexte && !termine && !reduit && pret && !!etape.bouton && contexte.vue.etape !== 'terminee';
+  useEffect(() => figerPartieGuidee(gel), [gel]);
+  useEffect(() => () => figerPartieGuidee(false), []);
+
+  const cible = !termine && !reduit && pret && contexte ? trouverCible(etape, contexte) : null;
   useEffect(() => {
     if (!cible) return;
     cible.classList.add('tuto-cible');
@@ -560,6 +618,7 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
 
   if (!contexte || termine || contexte.vue.etape === 'terminee') return null;
   const modaleOuverte = !!document.querySelector('.voile');
+  const enPause = gel && (contexte.vue.joueurActif !== MOI || contexte.vue.etape === 'hypothese');
 
   if (reduit)
     return (
@@ -572,7 +631,7 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
   const ongletAOuvrir = etape.onglet && cible?.getAttribute('role') === 'tab' ? etape.onglet : null;
   // Une fenêtre ouverte (interrogation, hypothèse…) passe au premier plan : pas de voile par-dessus.
   // Sans élément à montrer, le voile ne couvre tout que sur une étape d'explication (rien à cliquer).
-  const voile = !modaleOuverte && (cible || etape.bouton) ? <VoileGuide cible={cible} trouActif={!etape.bouton || !!ongletAOuvrir} /> : null;
+  const voile = pret && !modaleOuverte && (cible || etape.bouton) ? <VoileGuide cible={cible} trouActif={!etape.bouton || !!ongletAOuvrir} /> : null;
 
   return (
     <>
@@ -581,17 +640,20 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
         <div className="guide-entete">
           <span>
             🎓 Partie guidée · {i + 1}/{etapes.length}
+            {enPause && <span className="guide-pause"> · ⏸ partie en pause</span>}
           </span>
           <button type="button" className="btn btn-discret btn-petit" onClick={() => setReduit(true)} aria-label="Réduire le guide">
             ▾
           </button>
         </div>
-        <p className="guide-texte">{etape.texte(contexte)}</p>
+        <p className="guide-texte">{pret ? etape.texte(contexte) : (etape.attente?.(contexte) ?? 'La partie continue…')}</p>
         <div className="guide-pied">
           <button type="button" className="btn btn-discret btn-petit" onClick={() => connexion.arreterLocal()}>
             Quitter la partie guidée
           </button>
-          {ongletAOuvrir ? (
+          {!pret ? (
+            <span className="petit muet">⏳ La partie continue…</span>
+          ) : ongletAOuvrir ? (
             <span className="petit muet">👉 Ouvrez l'onglet « {ongletAOuvrir} »</span>
           ) : etape.bouton ? (
             <button type="button" className="btn btn-or btn-petit" onClick={() => setI((x) => x + 1)}>

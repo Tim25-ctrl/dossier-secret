@@ -56,6 +56,9 @@ class PartieLocale implements MoteurLocal {
   private boucle: ReturnType<typeof setInterval>;
   private minuteurBot: ReturnType<typeof setTimeout> | null = null;
   private herculeAInterroge = false;
+  /** Partie figée par le guide pendant une explication : bots arrêtés, chronos décalés. */
+  private gelee = false;
+  private dernierTic = Date.now();
 
   constructor(
     private nom: string,
@@ -150,7 +153,27 @@ class PartieLocale implements MoteurLocal {
     return decisionBot(vuePour(e, id), cryptoRng, PROFIL_OCCASIONNEL);
   }
 
+  figer(gel: boolean) {
+    if (gel && this.minuteurBot) {
+      clearTimeout(this.minuteurBot);
+      this.minuteurBot = null;
+    }
+    this.gelee = gel;
+  }
+
   private tic() {
+    const maintenant = Date.now();
+    const ecoule = maintenant - this.dernierTic;
+    this.dernierTic = maintenant;
+    if (this.gelee) {
+      // Le temps ne compte pas pendant la pause : on repousse les échéances d'autant.
+      this.etat.echeanceTour += ecoule;
+      if (this.etat.hypothese) {
+        this.etat.hypothese.echeance += ecoule;
+        this.publier();
+      }
+      return;
+    }
     // Complice : la fenêtre de falsification se referme dès que vous avez choisi (ou si vous ne pouvez pas falsifier).
     const h = this.etat.hypothese;
     if (this.role === 'complice' && h?.etape === 'falsification' && !peutFalsifier(this.etat, MOI)) h.echeance = Math.min(h.echeance, Date.now() + 1_500);
@@ -167,7 +190,7 @@ class PartieLocale implements MoteurLocal {
       if (r.ok && action.type === 'hypothese' && bot === HERCULE) this.herculeAInterroge = true;
       if (!r.ok && this.etat.etape === 'tour' && this.etat.ordre[this.etat.indexTour] === bot) appliquerAction(this.etat, bot, { type: 'finTour' }, Date.now());
       this.publier();
-    }, 1_400 + Math.floor(Math.random() * 900));
+    }, 2_000 + Math.floor(Math.random() * 1_000));
   }
 }
 
@@ -178,6 +201,11 @@ export function lancerPartieGuidee(nom: string, role: RoleGuide = 'enqueteur') {
   const p = new PartieLocale(nom || 'Vous', role);
   courante = p;
   connexion.demarrerLocal(p, p.etatClient());
+}
+
+/** Fige ou relance la partie guidée (le guide la fige pendant ses explications). */
+export function figerPartieGuidee(gel: boolean) {
+  courante?.figer(gel);
 }
 
 /** Hypothèse conseillée au premier tour (Hercule aura une carte à montrer). */

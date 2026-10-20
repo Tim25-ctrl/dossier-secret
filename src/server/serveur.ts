@@ -16,6 +16,7 @@ import { vuePour } from '../engine/vue';
 import type { ConfigPartie } from '../engine/config';
 import type { EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import { ErreurJeu, GestionnaireSalons } from './salons';
+import { Coffre } from './sauvegarde';
 import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRetirer } from './validation';
 
 export interface OptionsServeur {
@@ -28,6 +29,10 @@ export interface OptionsServeur {
   delaiBotsMs?: [number, number];
   originesAutorisees?: string[];
   journaliser?: boolean;
+  /** Secret des sauvegardes gardées par les joueurs (CLE_SAUVEGARDE). Sans lui, elles ne survivent pas à un redémarrage. */
+  cleSauvegarde?: string | null;
+  /** Délai minimal entre deux envois de sauvegarde aux joueurs d'un salon. */
+  intervalleSauvegardeMs?: number;
 }
 
 interface DonneesSocket {
@@ -58,6 +63,9 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       log('Sauvegarde illisible, ignorée :', (e as Error).message);
     }
   }
+  // Sauvegardes gardées sur les appareils des joueurs (voir sauvegarde.ts).
+  const coffre = new Coffre(o.cleSauvegarde);
+  if (coffre.provisoire) log('CLE_SAUVEGARDE absente : les sauvegardes des joueurs ne survivront pas à un redémarrage.');
   let sauvegardePrevue: NodeJS.Timeout | null = null;
   const sauvegarder = () => {
     if (!fichier || sauvegardePrevue) return;
@@ -90,6 +98,26 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   });
   app.get('/api/sante', (_req, res) => {
     res.json({ ok: true, salons: gestionnaire.salons.size });
+  });
+  // Reprise d'un salon depuis la sauvegarde gardée par un joueur (après un redémarrage du serveur).
+  app.post('/api/restaurer', express.json({ limit: '3mb' }), (req, res) => {
+    const ouverte = coffre.ouvrir((req.body as { sauvegarde?: unknown } | undefined)?.sauvegarde);
+    if (!ouverte) {
+      res.status(400).json({ ok: false, erreur: 'Sauvegarde illisible, trop ancienne ou venant d’une autre version du serveur.' });
+      return;
+    }
+    if (!gestionnaire.salons.has(ouverte.salon.code) && gestionnaire.salons.size >= 500) {
+      res.status(503).json({ ok: false, erreur: 'Serveur complet, réessayez plus tard.' });
+      return;
+    }
+    const restaure = gestionnaire.restaurer(ouverte.salon);
+    if (restaure) {
+      log(`Salon ${ouverte.salon.code} restauré depuis la sauvegarde d'un joueur.`);
+      planifier(ouverte.salon.code);
+      planifierBots(ouverte.salon.code);
+      sauvegarder();
+    }
+    res.json({ ok: true, code: ouverte.salon.code, restaure });
   });
   const dossierClient = o.dossierClient;
   // Version du client servi (nom du script principal) : envoyée à chaque connexion pour qu'une page
@@ -132,6 +160,26 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     planifier(code);
     planifierBots(code);
     sauvegarder();
+    envoyerSauvegarde(code);
+  };
+
+  /** Envoie à chaque joueur humain connecté la sauvegarde chiffrée de son salon (au plus toutes les quelques secondes). */
+  const minuteursSauvegarde = new Map<string, NodeJS.Timeout>();
+  const envoyerSauvegarde = (code: string) => {
+    if (minuteursSauvegarde.has(code)) return;
+    minuteursSauvegarde.set(
+      code,
+      setTimeout(() => {
+        minuteursSauvegarde.delete(code);
+        const s = gestionnaire.salons.get(code);
+        // Partie terminée : plus rien à sauvegarder (les appareils effacent leur copie).
+        if (!s || s.statut === 'terminee') return;
+        const destinataires = s.joueurs.flatMap((j) => (j.bot ? [] : [sockets.get(`${code}|${j.id}`)])).filter((x) => x !== undefined);
+        if (destinataires.length === 0) return;
+        const sauvegarde = coffre.sceller(s);
+        for (const sock of destinataires) sock.emit('sauvegarde', { code, sauvegarde });
+      }, o.intervalleSauvegardeMs ?? 3_000),
+    );
   };
 
   const planifier = (code: string) => {
@@ -189,8 +237,10 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   const nettoyerSalon = (code: string) => {
     clearTimeout(minuteurs.get(code));
     clearTimeout(minuteursBots.get(code));
+    clearTimeout(minuteursSauvegarde.get(code));
     minuteurs.delete(code);
     minuteursBots.delete(code);
+    minuteursSauvegarde.delete(code);
   };
 
   // ---------------------------------------------------------------------------
@@ -386,6 +436,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       clearInterval(entretien);
       for (const t of minuteurs.values()) clearTimeout(t);
       for (const t of minuteursBots.values()) clearTimeout(t);
+      for (const t of minuteursSauvegarde.values()) clearTimeout(t);
       if (sauvegardePrevue) clearTimeout(sauvegardePrevue);
       io.close();
       await new Promise<void>((resolve) => http.close(() => resolve()));

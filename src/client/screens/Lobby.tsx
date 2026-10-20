@@ -4,6 +4,7 @@ import { DUREES_TOUR, type EtatClient } from '../../shared/protocole';
 import { Chat } from '../components/Chat';
 import { Aide, useNotification } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
+import { ModaleQr, partageDisponible, partagerInvitation } from '../components/Invitation';
 import { connexion } from '../connexion';
 import { MenuPrincipal } from '../components/Menu';
 import type { Preferences } from '../preferences';
@@ -20,6 +21,7 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
   const estHote = salon.hote === moi;
   const { afficher, vue: notification } = useNotification();
   const [lancement, setLancement] = useState(false);
+  const [qr, setQr] = useState(false);
   const lien = `${location.origin}/?salon=${salon.code}`;
   useSonMessages(salon.messages, moi);
   const n = salon.joueurs.length;
@@ -62,6 +64,19 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
               {salon.code}
             </div>
             <div className="ligne" style={{ marginTop: 10 }}>
+              {partageDisponible() && (
+                <button
+                  className="btn btn-or btn-petit"
+                  onClick={() =>
+                    void partagerInvitation(lien, salon.code).then((r) => r === 'impossible' && afficher('Partage impossible : copiez le lien.', true))
+                  }
+                >
+                  📤 Partager l'invitation
+                </button>
+              )}
+              <button className="btn btn-petit" onClick={() => setQr(true)}>
+                ▦ QR code
+              </button>
               <button className="btn btn-petit" onClick={() => void copier(salon.code, 'Code')}>
                 <Icone nom="copie" /> Copier le code
               </button>
@@ -70,8 +85,9 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
               </button>
             </div>
             <p className="muet petit" style={{ marginTop: 10, marginBottom: 0 }}>
-              Envoyez ce code ou ce lien aux autres joueurs. Ils choisiront leur pseudonyme en arrivant.
+              Envoyez ce code ou ce lien aux autres joueurs, ou faites-leur scanner le QR code. Ils choisiront leur pseudonyme en arrivant.
             </p>
+            {qr && <ModaleQr lien={lien} code={salon.code} onFermer={() => setQr(false)} />}
           </section>
 
           <section className="panneau" aria-labelledby="titre-joueurs">

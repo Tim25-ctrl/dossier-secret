@@ -17,3 +17,7 @@ services:
       # ne protège donc les parties que tant que le service ne redémarre pas.
       - key: DATA_DIR
         value: ./data
+      # Les parties survivent malgré tout : chaque joueur garde une copie chiffrée de son salon.
+      # Clé secrète de ces copies : définie dans le tableau de bord Render, à ne pas changer.
+      - key: CLE_SAUVEGARDE
+        sync: false

@@ -511,26 +511,39 @@ export class GestionnaireSalons {
   charger(json: string) {
     const data = JSON.parse(json) as { version: number; salons: Salon[] };
     if (data.version !== 1) return;
+    for (const s of data.salons) this.integrer(s);
+  }
+
+  /**
+   * Remet en service un salon venu d'une sauvegarde (disque du serveur ou appareil d'un joueur).
+   * Retourne false si un salon de même code existe déjà (il est plus récent : on le garde).
+   */
+  restaurer(s: Salon): boolean {
+    if (this.salons.has(s.code)) return false;
+    this.integrer(s);
+    return true;
+  }
+
+  private integrer(s: Salon) {
     const t = this.now();
-    for (const s of data.salons) {
-      // Après un redémarrage, tous les humains sont considérés comme déconnectés
-      // jusqu'à leur retour ; leurs rôles, cartes et compteurs sont intacts.
-      for (const j of s.joueurs) {
-        if (!j.bot) {
-          j.connecte = false;
-          j.deconnecteLe = t;
-          if (s.partie?.joueurs[j.id]) s.partie.joueurs[j.id].connecte = false;
-        }
+    // Après un redémarrage, tous les humains sont considérés comme déconnectés
+    // jusqu'à leur retour ; leurs rôles, cartes et compteurs sont intacts.
+    for (const j of s.joueurs) {
+      if (!j.bot) {
+        j.connecte = false;
+        j.deconnecteLe = t;
+        if (s.partie?.joueurs[j.id]) s.partie.joueurs[j.id].connecte = false;
       }
-      s.reglages = { ...this.reglagesParDefaut(), ...s.reglages }; // sauvegardes antérieures aux réglages
-      if (s.partie) {
-        // Parties sauvegardées par une version antérieure : elles gardent les règles avec lesquelles elles ont commencé.
-        s.partie.config = { ...CONFIG_PAR_DEFAUT, ...REGLES_INITIALES, ...s.partie.config };
-        if (!s.partie.graine) s.partie.config.modeComplice = 'classique';
-        recalerEcheances(s.partie, t);
-        majPause(s.partie, t); // en attente du retour des joueurs
-      }
-      this.salons.set(s.code, s);
     }
+    s.reglages = { ...this.reglagesParDefaut(), ...s.reglages }; // sauvegardes antérieures aux réglages
+    if (s.partie) {
+      // Parties sauvegardées par une version antérieure : elles gardent les règles avec lesquelles elles ont commencé.
+      s.partie.config = { ...CONFIG_PAR_DEFAUT, ...REGLES_INITIALES, ...s.partie.config };
+      if (!s.partie.graine) s.partie.config.modeComplice = 'classique';
+      recalerEcheances(s.partie, t);
+      majPause(s.partie, t); // en attente du retour des joueurs
+    }
+    s.majLe = t;
+    this.salons.set(s.code, s);
   }
 }

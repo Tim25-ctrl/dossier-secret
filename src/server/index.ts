@@ -29,6 +29,7 @@ await demarrerServeur({
   dossierClient: path.join(racine, 'dist/client'),
   dossierDonnees,
   botsAutorises: (env.ENABLE_BOTS ?? 'true').toLowerCase() !== 'false',
+  cleSauvegarde: env.CLE_SAUVEGARDE?.trim() || null,
   originesAutorisees: (env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   configPartie: {
     delaiFalsificationMs: secondes('FALSIFICATION_WINDOW_SECONDS', 8),

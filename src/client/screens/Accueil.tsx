@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { jouer } from '../sons';
 import { AFFAIRE } from '../../shared/data/manoir';
 import { PSEUDO_MAX } from '../../shared/protocole';
 import { Modale } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
+import { installer, useInstallation } from '../installation';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
 import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
@@ -22,6 +23,23 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [parametres, setParametres] = useState(false);
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const [choixGuide, setChoixGuide] = useState(false);
+  const installation = useInstallation();
+  const [aideIos, setAideIos] = useState(false);
+  // Reprise depuis un fichier de sauvegarde téléchargé pendant une partie.
+  const fichier = useRef<HTMLInputElement>(null);
+  const [erreurFichier, setErreurFichier] = useState<string | null>(null);
+  const [lecture, setLecture] = useState(false);
+  const lireFichier = async (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setErreurFichier(null);
+    if (f.size > 4_000_000) return setErreurFichier("Ce fichier n'est pas une sauvegarde de Dossier Secret.");
+    setLecture(true);
+    const r = await connexion.reprendreFichier(await f.text());
+    setLecture(false);
+    if (!r.ok) setErreurFichier(r.erreur);
+  };
   const guider = (role: RoleGuide) => {
     majPrefs({ tutorielVu: true });
     lancerPartieGuidee(prefs.pseudo.trim(), role);
@@ -77,6 +95,11 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <button className="btn" onClick={() => setChoixGuide(true)}>
               🎓 Apprendre à jouer (partie guidée)
             </button>
+            {installation !== 'indisponible' && (
+              <button className="btn" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
+                📲 Installer le jeu sur cet appareil
+              </button>
+            )}
             <div className="ligne" style={{ justifyContent: 'center' }}>
               <button className="btn btn-discret" onClick={() => setRegles(true)}>
                 <Icone nom="livre" /> Règles du jeu
@@ -84,7 +107,16 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               <button className="btn btn-discret" onClick={() => setParametres(true)}>
                 <Icone nom="reglages" /> Paramètres
               </button>
+              <button className="btn btn-discret" disabled={lecture} onClick={() => fichier.current?.click()}>
+                📂 {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
+              </button>
+              <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
             </div>
+            {erreurFichier && (
+              <p className="erreur petit" role="alert">
+                {erreurFichier}
+              </p>
+            )}
           </div>
         </>
       )}
@@ -140,6 +172,24 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
       <div className="pied">Jeu de fiction. Toute ressemblance avec des personnes existantes serait fortuite.</div>
 
       {regles && <ModaleRegles onFermer={() => setRegles(false)} />}
+      {aideIos && (
+        <Modale titre="Installer le jeu sur l'iPhone" onFermer={() => setAideIos(false)}>
+          <ol className="etapes-installation">
+            <li>
+              Ouvrez cette page dans <strong>Safari</strong>.
+            </li>
+            <li>
+              Touchez le bouton <strong>Partager</strong> (le carré avec une flèche vers le haut).
+            </li>
+            <li>
+              Choisissez <strong>Sur l'écran d'accueil</strong>, puis <strong>Ajouter</strong>.
+            </li>
+          </ol>
+          <p className="petit muet" style={{ marginBottom: 0 }}>
+            Le jeu aura son icône et s'ouvrira en plein écran, sans la barre du navigateur.
+          </p>
+        </Modale>
+      )}
       {choixGuide && (
         <Modale titre="Partie guidée" onFermer={() => setChoixGuide(false)}>
           <p>Une vraie partie contre deux bots, avec un guide qui vous montre où cliquer. Quel rôle voulez-vous apprendre ?</p>

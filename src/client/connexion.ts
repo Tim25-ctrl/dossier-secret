@@ -13,6 +13,24 @@ import type { ActionJeu } from '../shared/types';
 
 const CLE_SESSION = 'dossier-secret:session';
 const CLE_DERNIERE = 'dossier-secret:derniere-session';
+/** Dernière sauvegarde chiffrée reçue du serveur (voir src/server/sauvegarde.ts). */
+const CLE_SAUVEGARDE = 'dossier-secret:sauvegarde';
+const SALON_INCONNU = 'Aucun salon ne correspond';
+
+interface SauvegardeLocale {
+  code: string;
+  sauvegarde: string;
+  t: number;
+}
+
+/** Fichier de sauvegarde téléchargé par un joueur : sa place (session) et la copie chiffrée du salon. */
+interface FichierSauvegarde {
+  format: 'dossier-secret';
+  version: 1;
+  session: Session;
+  sauvegarde: string;
+  t: number;
+}
 
 export type StatutConnexion = 'connexion' | 'connecte' | 'deconnecte';
 
@@ -45,6 +63,36 @@ function lire(stockage: Storage, cle: string): Session | null {
     return typeof s.code === 'string' && typeof s.jeton === 'string' && typeof s.joueurId === 'string' ? s : null;
   } catch {
     return null;
+  }
+}
+
+/** Au-delà, le serveur refuse la sauvegarde (voir DUREE_VALIDITE_MS côté serveur) : on l'efface. */
+const VALIDITE_SAUVEGARDE_MS = 7 * 24 * 3600 * 1000;
+
+/**
+ * Une seule sauvegarde par appareil : chaque nouvelle copie remplace la précédente. Elle est effacée
+ * quand on quitte la partie, quand la partie se termine, ou au bout de 7 jours.
+ */
+function lireSauvegarde(): SauvegardeLocale | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(CLE_SAUVEGARDE) ?? 'null') as SauvegardeLocale | null;
+    if (!s || typeof s.code !== 'string' || typeof s.sauvegarde !== 'string') return null;
+    if (!(Date.now() - s.t < VALIDITE_SAUVEGARDE_MS)) {
+      ecrireSauvegarde(null);
+      return null;
+    }
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+function ecrireSauvegarde(s: SauvegardeLocale | null) {
+  try {
+    if (s) localStorage.setItem(CLE_SAUVEGARDE, JSON.stringify(s));
+    else localStorage.removeItem(CLE_SAUVEGARDE);
+  } catch {
+    /* stockage plein ou indisponible : pas de sauvegarde sur cet appareil */
   }
 }
 
@@ -90,6 +138,7 @@ class Connexion {
   private local: MoteurLocal | null = null;
 
   constructor() {
+    if (typeof localStorage !== 'undefined') lireSauvegarde(); // efface une sauvegarde périmée
     this.etat.reprise = this.etat.session !== null;
     this.socket = io({ transports: ['websocket', 'polling'], reconnectionDelayMax: 4000 });
     this.socket.on('connect', () => {
@@ -100,12 +149,68 @@ class Connexion {
     this.socket.on('disconnect', () => this.maj({ statut: 'deconnecte' }));
     this.socket.on('connect_error', () => this.maj({ statut: 'deconnecte' }));
     this.socket.on('etat', (e) => {
-      if (!this.local) this.maj({ etat: e, decalage: e.heureServeur - Date.now() });
+      if (this.local) return;
+      // Partie terminée : la sauvegarde de cet appareil ne sert plus, on l'efface.
+      if (e.salon.statut === 'terminee' && lireSauvegarde()?.code === e.salon.code) ecrireSauvegarde(null);
+      this.maj({ etat: e, decalage: e.heureServeur - Date.now() });
     });
     this.socket.on('expulse', ({ raison }) => {
       this.maj({ expulsion: raison, etat: null });
     });
     this.socket.on('version', verifierVersion);
+    // Copie chiffrée du salon, gardée sur l'appareil : elle permet de le reprendre si le serveur redémarre.
+    this.socket.on('sauvegarde', ({ code, sauvegarde }) => {
+      if (!this.local && this.etat.session?.code === code) ecrireSauvegarde({ code, sauvegarde, t: Date.now() });
+    });
+  }
+
+  /** Sauvegarde gardée sur cet appareil pour ce salon (ou le salon courant). */
+  sauvegardeLocale(code = this.etat.session?.code): SauvegardeLocale | null {
+    const s = lireSauvegarde();
+    return s && s.code === code ? s : null;
+  }
+
+  /** Renvoie une sauvegarde au serveur pour qu'il recrée le salon (sans effet s'il existe encore). */
+  private async restaurer(sauvegarde: string): Promise<Reponse<{ code: string; restaure: boolean }>> {
+    try {
+      const r = await fetch('/api/restaurer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sauvegarde }) });
+      return (await r.json()) as Reponse<{ code: string; restaure: boolean }>;
+    } catch {
+      return { ok: false, erreur: 'Le serveur ne répond pas. Réessayez dans un instant.' };
+    }
+  }
+
+  /** Télécharge un fichier de sauvegarde de la partie en cours (à garder pour la reprendre plus tard ou ailleurs). */
+  telechargerSauvegarde(): boolean {
+    const s = this.etat.session;
+    const sauv = this.sauvegardeLocale();
+    if (!s || !sauv || this.local) return false;
+    const fichier: FichierSauvegarde = { format: 'dossier-secret', version: 1, session: s, sauvegarde: sauv.sauvegarde, t: sauv.t };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(fichier)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dossier-Secret-${s.code}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    return true;
+  }
+
+  /** Reprend une partie depuis un fichier de sauvegarde (le salon est recréé s'il n'existe plus). */
+  async reprendreFichier(texte: string): Promise<Reponse> {
+    let f: FichierSauvegarde;
+    try {
+      f = JSON.parse(texte) as FichierSauvegarde;
+    } catch {
+      return { ok: false, erreur: "Ce fichier n'est pas une sauvegarde de Dossier Secret." };
+    }
+    if (f?.format !== 'dossier-secret' || typeof f.sauvegarde !== 'string' || typeof f.session?.code !== 'string' || typeof f.session?.jeton !== 'string')
+      return { ok: false, erreur: "Ce fichier n'est pas une sauvegarde de Dossier Secret." };
+    const r = await this.restaurer(f.sauvegarde);
+    if (!r.ok) return r;
+    ecrireSauvegarde({ code: f.session.code, sauvegarde: f.sauvegarde, t: f.t });
+    return this.reprendre(f.session);
   }
 
   abonner = (f: () => void) => {
@@ -164,7 +269,10 @@ class Connexion {
 
   async reprendre(s: Session) {
     this.maj({ reprise: true });
-    const r = await this.envoyer<{ session: Session }>('salon:reprendre', { code: s.code, jeton: s.jeton });
+    let r = await this.envoyer<{ session: Session }>('salon:reprendre', { code: s.code, jeton: s.jeton });
+    // Le salon n'existe plus (le serveur a redémarré) : on le recrée depuis la sauvegarde gardée ici.
+    const sauv = !r.ok && r.erreur.startsWith(SALON_INCONNU) ? this.sauvegardeLocale(s.code) : null;
+    if (sauv && (await this.restaurer(sauv.sauvegarde)).ok) r = await this.envoyer<{ session: Session }>('salon:reprendre', { code: s.code, jeton: s.jeton });
     if (r.ok) this.memoriser(r.session);
     else if (this.socket.connected) {
       // Session expirée (salon supprimé, joueur retiré…) : on l'oublie.
@@ -202,6 +310,7 @@ class Connexion {
     const r = await this.envoyer<{ ferme: boolean }>('salon:quitter', {});
     ecrire(sessionStorage, CLE_SESSION, null);
     ecrire(localStorage, CLE_DERNIERE, null);
+    ecrireSauvegarde(null);
     this.maj({ session: null, etat: null, expulsion: null });
     return r;
   }

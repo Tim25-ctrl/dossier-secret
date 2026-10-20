@@ -2037,3 +2037,69 @@ button.carte:hover:not(:disabled) {
     display: inline;
   }
 }
+
+/* Invitation : QR code (fond blanc pour qu'il se scanne bien). */
+.qr-bloc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.qr-code {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+/* Installation sur iPhone : étapes numérotées. */
+.etapes-installation {
+  padding-left: 1.3em;
+  line-height: 1.6;
+}
+
+/* Fin de partie : frise des ruses du complice. */
+.frise {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--or-sombre);
+}
+.frise-manche {
+  position: relative;
+  margin-bottom: 12px;
+}
+.frise-manche::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--or);
+}
+.frise-numero {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--or-clair);
+}
+.frise-manche ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.frise-manche ul li {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0;
+  line-height: 1.4;
+}
+.frise-manche ul li.frise-indice {
+  color: var(--ivoire-doux);
+  font-style: italic;
+}
+.frise-icone {
+  flex: none;
+}

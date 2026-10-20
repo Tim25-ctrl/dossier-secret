@@ -107,6 +107,7 @@ Ce que couvrent les tests (`tests/`) :
 | `regles.test.ts` | Rôles, points d'action, tours, hypothèses, ordre d'interrogation, une seule carte révélée, Mensonge, Hypothèse falsifiée, accusations, victoire, carnet |
 | `parties-completes.test.ts` | 100 parties complètes simulées (3 à 6 joueurs) avec contrôle des invariants après chaque action, fin par limite de manches, reconnexion en cours de partie |
 | `salons.test.ts` | Pseudonymes, codes, transfert d'hôte, sauvegarde/restauration après redémarrage |
+| `sauvegarde.test.ts` | Sauvegardes chiffrées gardées par les joueurs : illisibles, infalsifiables, refusées avec une autre clé ; reprise d'une partie après un vrai redémarrage du serveur |
 | `serveur.test.ts` | Vrais clients WebSocket : salons, salon complet, filtrage des données privées, actions hors tour, requêtes simultanées, reconnexion, jeton forgé, deux parties complètes jouées en réseau |
 
 ## 6. Configuration
@@ -117,6 +118,7 @@ Toutes les valeurs ont un défaut raisonnable : **aucune configuration n'est obl
 |---|---|---|
 | `PORT` | `3001` | Port HTTP (fourni automatiquement par les hébergeurs) |
 | `DATA_DIR` | `./data` | Dossier de sauvegarde des salons ; vide = pas de sauvegarde |
+| `CLE_SAUVEGARDE` | *(vide)* | Clé secrète des sauvegardes gardées sur les appareils des joueurs. À définir une fois pour toutes (texte aléatoire long) : sans elle, une partie ne survit pas à un redémarrage du serveur |
 | `ENABLE_BOTS` | `true` | Autoriser l'hôte à ajouter des bots |
 | `FALSIFICATION_WINDOW_SECONDS` | `8` | Durée fixe laissée au complice pour falsifier une hypothèse |
 | `RESPONSE_TIMEOUT_SECONDS` | `60` | Délai pour répondre à une interrogation (puis réponse automatique honnête) |
@@ -166,6 +168,8 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 - Générateur d'affaires avec 79 cartes d'indice (8 catégories, dont le journal d'Armand ; 36 « pas X avec Y » tirées en partie), règles logiques, faits chronologiques, détection des contradictions, validation automatique avant chaque partie.
 - 6 personnages (fiches complètes et portraits), 6 lieux, 6 armes illustrés en SVG.
 - Serveur multijoueur autoritaire : salons privés (codes de 6 caractères, liens d'invitation), 6 joueurs maximum, validation de toutes les entrées, filtrage des données par joueur, limitation de débit, reconnexion, sauvegarde/restauration, transfert d'hôte, journal d'audit.
+- Sauvegardes sur les appareils : le serveur envoie régulièrement à chaque joueur une copie chiffrée de son salon. Après un redémarrage (mise à jour, mise en veille de l'hébergeur), le premier joueur qui revient la renvoie et la partie reprend. Un fichier de sauvegarde peut aussi être téléchargé (menu ☰) puis repris depuis l'accueil.
+- Application installable (écran d'accueil du téléphone, plein écran), invitation par partage natif ou QR code, frise des ruses du complice en fin de partie.
 - Interface : accueil, tutoriel de premier lancement, règles, paramètres (taille du texte, animations), lobby, écran de jeu, interrogation, pouvoirs du complice (avec infobulles), carnet de déduction, archives, historique, discussion, écran de fin (solution, récit, indices décisifs, complice, pouvoirs utilisés, mains de chacun), « Rejouer », durée de tour réglable par l'hôte (1 à 10 min ou sans limite), bouton « Quitter » avec confirmation (le dernier joueur présent ferme le salon).
 - Responsive (testé à 375 px de large sans défilement horizontal), zones privées distinguées par icône, texte et style (pas seulement par la couleur).
 - Mode « Complice rusé » : Mensonge, Carte empruntée, Hypothèse falsifiée, Dossier trafiqué, empreintes et dénonciation (voir docs/EQUILIBRAGE.md).

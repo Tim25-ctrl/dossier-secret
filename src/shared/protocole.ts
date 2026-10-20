@@ -89,4 +89,6 @@ export interface EvenementsServeur {
   expulse: (p: { raison: string }) => void;
   /** Script principal servi par le serveur (ex. « index-B7lvQ1Cs.js ») : une page plus ancienne se recharge. */
   version: (v: string) => void;
+  /** Copie chiffrée du salon, gardée par l'appareil pour le restaurer si le serveur redémarre. */
+  sauvegarde: (p: { code: string; sauvegarde: string }) => void;
 }

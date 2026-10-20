@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { jouer } from '../sons';
 import { INDICES, INDICES_PAR_ID, jourDuJournal } from '../../shared/data/indices';
 import { indiceValide } from '../../shared/logique';
 import { nomElement } from '../../shared/data/manoir';
 import type { EtatClient } from '../../shared/protocole';
+import type { VueJoueur } from '../../shared/types';
 import { Carte, CarteIndice, TripletVue, useNotification } from '../components/Commun';
 import { Sceau } from '../components/Emblemes';
 import { texteEvenement } from '../components/jeu/Textes';
@@ -116,59 +117,8 @@ export function Fin({ etat }: { etat: EtatClient }) {
                 {r.denonciations.some((d) => d.correcte) ? ' Il a été démasqué en cours de partie.' : " Il n'a pas été démasqué."}
               </p>
             )}
-            <ul>
-              <li>
-                Mensonges : {r.usagesPouvoirs.mensonges.length}
-                {vue.regles.modeComplice !== 'ruse' && ` / ${vue.regles.mensonges}`}
-                {r.usagesPouvoirs.mensonges.map((m) => (
-                  <span key={m.hypothese} className="muet"> (manche {m.manche})</span>
-                ))}
-              </li>
-              <li>
-                Hypothèses falsifiées : {r.usagesPouvoirs.falsifications.length}
-                {vue.regles.modeComplice !== 'ruse' && ` / ${vue.regles.falsifications}`}
-                {r.usagesPouvoirs.falsifications.map((f) => (
-                  <span key={f.hypothese} className="muet">
-                    {' '}
-                    (manche {f.manche} : {nomElement(f.de)} → {nomElement(f.vers)})
-                  </span>
-                ))}
-              </li>
-              {vue.regles.modeComplice === 'ruse' && (
-                <>
-                  <li>
-                    Cartes empruntées : {r.usagesPouvoirs.emprunts.length}
-                    {r.usagesPouvoirs.emprunts.map((e) => (
-                      <span key={e.hypothese} className="muet">
-                        {' '}
-                        (manche {e.manche} : « {nomElement(e.carte)} »)
-                      </span>
-                    ))}
-                  </li>
-                  <li>
-                    Dossiers trafiqués : {r.usagesPouvoirs.trafics.length}
-                    {r.usagesPouvoirs.trafics.map((t) => (
-                      <span key={t.dossier} className="muet">
-                        {' '}
-                        (dossier n° {t.dossier}, manche {t.manche} : faux indice « {INDICES_PAR_ID[t.indiceFaux]?.titre} »)
-                      </span>
-                    ))}
-                  </li>
-                </>
-              )}
-            </ul>
-            {r.denonciations.length > 0 && (
-              <>
-                <h4>Dénonciations</h4>
-                <ul className="journal">
-                  {r.denonciations.map((d, i) => (
-                    <li key={i}>
-                      {nom(d.joueur)} a dénoncé {nom(d.cible)} — {d.correcte ? 'juste' : 'fausse'}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            <h4>Ses ruses, manche par manche</h4>
+            <FriseComplice vue={vue} nom={nom} />
           </section>
           <section className="panneau">
             <h2>Accusations</h2>
@@ -230,5 +180,148 @@ export function Fin({ etat }: { etat: EtatClient }) {
       </div>
       {notification}
     </main>
+  );
+}
+
+interface MomentFrise {
+  /** Position dans l'historique : ordre chronologique exact. */
+  rang: number;
+  manche: number;
+  icone: string;
+  texte: ReactNode;
+  classe?: string;
+}
+
+/**
+ * Révélation de fin de partie : chaque ruse du complice, à la manche où elle a eu lieu et avec sa
+ * victime, mêlée aux empreintes et aux dénonciations qu'elle a provoquées.
+ */
+/** « de Bob », « d’Eva ». */
+const deNom = (n: string) => (/^[aeiouyhàâéèêëîïôöûüœ]/i.test(n) ? `d’${n}` : `de ${n}`);
+
+export function FriseComplice({ vue, nom }: { vue: VueJoueur; nom: (id: string) => string }) {
+  const r = vue.resultat!;
+  const c = <strong>{nom(r.complice)}</strong>;
+  const moments: MomentFrise[] = [];
+
+  // Manche de chaque événement de l'historique, et position des hypothèses / consultations.
+  let manche = 1;
+  const mancheDe: number[] = [];
+  const hypotheses = new Map<string, { rang: number; auteur: string }>();
+  vue.historique.forEach((ev, i) => {
+    if (ev.type === 'debut_manche') manche = ev.manche;
+    mancheDe[i] = manche;
+    if (ev.type === 'hypothese') hypotheses.set(ev.id, { rang: i, auteur: ev.auteur });
+    if (ev.type === 'empreinte')
+      moments.push({
+        rang: i,
+        manche,
+        icone: '👣',
+        classe: 'frise-indice',
+        texte: ev.innocente ? (
+          <>Une empreinte est publiée : elle innocente {nom(ev.innocente)}.</>
+        ) : (
+          <>Une empreinte est publiée : elle trahit une ruse jouée à la manche {ev.mancheRuse}.</>
+        ),
+      });
+    if (ev.type === 'denonciation')
+      moments.push({
+        rang: i,
+        manche,
+        icone: '🎭',
+        classe: 'frise-indice',
+        texte: (
+          <>
+            {nom(ev.joueur)} dénonce {nom(ev.cible)} : {ev.correcte ? <strong>juste !</strong> : 'à tort.'}
+          </>
+        ),
+      });
+  });
+  const hyp = (id: string) => hypotheses.get(id) ?? { rang: -1, auteur: '' };
+
+  for (const m of r.usagesPouvoirs.mensonges) {
+    const h = hyp(m.hypothese);
+    moments.push({
+      rang: h.rang + 0.5,
+      manche: m.manche,
+      icone: '🤥',
+      texte: (
+        <>
+          {c} ment à {nom(h.auteur)} : réponse « aucune carte », alors qu'une de ses cartes correspondait.
+        </>
+      ),
+    });
+  }
+  for (const f of r.usagesPouvoirs.falsifications) {
+    const h = hyp(f.hypothese);
+    moments.push({
+      rang: h.rang - 0.5,
+      manche: f.manche,
+      icone: '✏️',
+      texte: (
+        <>
+          {c} falsifie l'hypothèse {deNom(nom(h.auteur))} : les autres lisent « {nomElement(f.vers)} » au lieu de « {nomElement(f.de)} ».
+        </>
+      ),
+    });
+  }
+  for (const e of r.usagesPouvoirs.emprunts) {
+    const h = hyp(e.hypothese);
+    const bonne = e.carte === r.solution.lieu || e.carte === r.solution.arme;
+    moments.push({
+      rang: h.rang + 0.5,
+      manche: e.manche,
+      icone: '🃏',
+      texte: (
+        <>
+          {c} montre à {nom(h.auteur)} « {nomElement(e.carte)} », une carte absente de son jeu{bonne ? <> : c'était justement la bonne !</> : '.'}
+        </>
+      ),
+    });
+  }
+  for (const t of r.usagesPouvoirs.trafics) {
+    // Sa propre consultation du dossier, puis ceux qui ont lu le faux indice ensuite.
+    const rang = vue.historique.findIndex((ev) => ev.type === 'archive' && ev.dossier === t.dossier && ev.joueur === r.complice);
+    const lecteurs = [
+      ...new Set(vue.historique.flatMap((ev, i) => (ev.type === 'archive' && ev.dossier === t.dossier && i > rang && ev.joueur !== r.complice ? [ev.joueur] : []))),
+    ];
+    moments.push({
+      rang,
+      manche: t.manche,
+      icone: '📁',
+      texte: (
+        <>
+          {c} trafique le dossier n° {t.dossier} : ses lecteurs suivants y trouvent un faux indice, « {INDICES_PAR_ID[t.indiceFaux]?.titre} ».
+          {lecteurs.length > 0 && <> Tombé{lecteurs.length > 1 ? 's' : ''} dans le piège : {lecteurs.map(nom).join(', ')}.</>}
+        </>
+      ),
+    });
+  }
+
+  if (!moments.some((m) => m.icone !== '👣' && m.icone !== '🎭'))
+    return <p className="muet">{nom(r.complice)} n'a utilisé aucune ruse : une partie jouée honnêtement… ou très prudemment.</p>;
+
+  moments.sort((a, b) => a.manche - b.manche || a.rang - b.rang);
+  const parManche = [...new Set(moments.map((m) => m.manche))];
+  return (
+    <ol className="frise">
+      {parManche.map((n) => (
+        <li key={n} className="frise-manche">
+          <span className="frise-numero">Manche {n}</span>
+          <ul>
+            {moments
+              .filter((m) => m.manche === n)
+              .map((m, i) => (
+                <li key={i} className={m.classe}>
+                  <span className="frise-icone" aria-hidden="true">
+                    {m.icone}
+                  </span>
+                  <span>{m.texte}</span>
+                </li>
+              ))}
+          </ul>
+        </li>
+      ))}
+    </ol>
   );
 }

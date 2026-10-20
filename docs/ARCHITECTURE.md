@@ -33,6 +33,7 @@ src/
   bots/              Joueurs automatiques (n'utilisent que la vue filtrée) et simulations
   server/            Serveur HTTP + WebSocket
     salons.ts          Salons, codes, identités, hôte, reconnexion, sauvegarde
+    sauvegarde.ts      Sauvegardes chiffrées gardées par les joueurs (AES-256-GCM, clé CLE_SAUVEGARDE)
     serveur.ts         Socket.IO, diffusion des vues, minuteurs, bots, limitation de débit
     validation.ts      Schémas zod des messages entrants
     index.ts           Lecture de la configuration et démarrage
@@ -84,4 +85,13 @@ Testé pour les 216 solutions possibles.
 
 ## Journal d'audit
 
-Chaque action (acceptée ou refusée, avec le motif) est enregistrée côté serveur dans `partie.audit`, avec la solution et le complice à la création. Il est sauvegardé dans `data/salons.json` et n'est jamais envoyé aux navigateurs.
+Chaque action (acceptée ou refusée, avec le motif) est enregistrée côté serveur dans `partie.audit`, avec la solution et le complice à la création. Il est sauvegardé dans `data/salons.json` et n'est jamais envoyé lisible aux navigateurs.
+
+## Sauvegardes gardées par les joueurs
+
+L'offre gratuite de l'hébergeur efface la mémoire et le disque du serveur à chaque redémarrage (mise à jour, mise en veille). Pour que les parties survivent :
+
+- Toutes les 3 s au plus après un changement, le serveur envoie à chaque joueur humain connecté (événement `sauvegarde`) une copie de **tout** son salon, compressée puis chiffrée en **AES-256-GCM** avec une clé dérivée de `CLE_SAUVEGARDE` (environ 2 à 15 Ko). L'appareil la garde dans son `localStorage`, dans **une seule place** : chaque copie remplace la précédente. Elle est effacée quand le joueur quitte la partie, quand la partie se termine (le serveur cesse alors d'en envoyer) et au bout de 7 jours.
+- Si, en revenant, le joueur apprend que le salon n'existe plus, son navigateur envoie la copie à `POST /api/restaurer`. Le serveur la déchiffre, vérifie son authenticité (une copie modifiée, trop ancienne — 7 jours — ou chiffrée avec une autre clé est refusée), recrée le salon s'il n'existe pas déjà, puis le joueur reprend sa place avec son jeton habituel. Les autres joueurs le rejoignent de la même façon.
+- Le menu ☰ permet aussi de télécharger un fichier (copie chiffrée + session du joueur), repris depuis l'accueil : pour continuer un autre jour ou sur un autre appareil.
+- La copie contient la solution et les mains : sans la clé, elle est illisible ; le chiffrement authentifié empêche aussi de la modifier. La clé ne doit pas changer, sinon les sauvegardes existantes deviennent inutilisables.

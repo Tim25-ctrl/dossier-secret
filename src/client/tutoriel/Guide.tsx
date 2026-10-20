@@ -511,13 +511,36 @@ function trouverCible(e: Etape, c: Contexte): HTMLElement | null {
   return null;
 }
 
+interface Zone {
+  haut: number;
+  bas: number;
+}
+
+/**
+ * Partie de l'écran où le jeu défile : sous l'en-tête collant (barre du haut et cartes) et, sur
+ * téléphone, au-dessus de la barre d'onglets fixe. Un élément qui passe sous ces barres est caché par elles.
+ */
+function zoneVisible(cible: HTMLElement): Zone {
+  let haut = 0;
+  let bas = window.innerHeight;
+  const barre = document.querySelector<HTMLElement>('.barre-jeu');
+  if (barre && !barre.contains(cible)) haut = Math.max(haut, barre.getBoundingClientRect().bottom);
+  const onglets = document.querySelector<HTMLElement>('.onglets');
+  if (onglets && !onglets.contains(cible) && getComputedStyle(onglets).position === 'fixed') bas = Math.min(bas, onglets.getBoundingClientRect().top);
+  return { haut, bas };
+}
+
+/** L'élément est-il dans une barre qui ne défile pas (en-tête, onglets) ? */
+const dansUneBarre = (el: HTMLElement) => !!el.closest('.barre-jeu, .onglets');
+
 /**
  * Voile sombre sur tout l'écran sauf l'élément mis en lumière, qu'il suit pendant le défilement.
  * Il bloque les clics ailleurs : on ne peut faire que ce que l'étape demande. Quand l'étape
  * n'est qu'une explication, l'élément lui-même est bloqué (on passe à la suite avec la bulle).
  */
 function VoileGuide({ cible, trouActif }: { cible: HTMLElement | null; trouActif: boolean }) {
-  const [r, setR] = useState<DOMRect | null>(null);
+  // Trou du voile : l'élément (avec une petite marge), coupé par les barres fixes qui passent devant.
+  const [r, setR] = useState<{ haut: number; bas: number; gauche: number; droite: number } | null>(null);
   useLayoutEffect(() => {
     if (!cible) {
       setR(null);
@@ -526,7 +549,11 @@ function VoileGuide({ cible, trouActif }: { cible: HTMLElement | null; trouActif
     let id = 0;
     const suivre = () => {
       const b = cible.getBoundingClientRect();
-      setR((p) => (p && p.x === b.x && p.y === b.y && p.width === b.width && p.height === b.height ? p : b));
+      const z = zoneVisible(cible);
+      const marge = 7;
+      const haut = Math.max(z.haut, b.top - marge);
+      const n = { haut, bas: Math.max(haut, Math.min(z.bas, b.bottom + marge)), gauche: Math.max(0, b.left - marge), droite: Math.max(0, b.right + marge) };
+      setR((p) => (p && p.haut === n.haut && p.bas === n.bas && p.gauche === n.gauche && p.droite === n.droite ? p : n));
       id = requestAnimationFrame(suivre);
     };
     suivre();
@@ -534,11 +561,8 @@ function VoileGuide({ cible, trouActif }: { cible: HTMLElement | null; trouActif
   }, [cible]);
 
   if (!cible || !r) return <div className="guide-voile" style={{ inset: 0 }} aria-hidden="true" />;
-  const marge = 7;
-  const haut = Math.max(0, r.top - marge);
-  const bas = Math.max(haut, r.bottom + marge);
-  const gauche = Math.max(0, r.left - marge);
-  const droite = Math.max(gauche, r.right + marge);
+  const { haut, bas, gauche } = r;
+  const droite = Math.max(gauche, r.droite);
   return (
     <div aria-hidden="true">
       <div className="guide-voile" style={{ top: 0, left: 0, right: 0, height: haut }} />
@@ -592,13 +616,19 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
     cible.classList.add('tuto-cible');
     return () => cible.classList.remove('tuto-cible');
   });
-  // Amène l'élément mis en lumière au milieu de l'écran (une fois par élément).
+  // Amène l'élément mis en lumière juste sous l'en-tête (une fois par élément), pour que la bulle,
+  // en bas de l'écran, ne le cache pas. Rien à faire pour un élément des barres fixes ou d'une fenêtre.
   const defile = useRef<HTMLElement | null>(null);
+  const bulle = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (cible && defile.current !== cible) {
-      cible.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      defile.current = cible;
-    }
+    if (!cible || defile.current === cible) return;
+    defile.current = cible;
+    if (dansUneBarre(cible) || cible.closest('.voile')) return;
+    const b = cible.getBoundingClientRect();
+    const z = zoneVisible(cible);
+    const basLibre = z.bas - (bulle.current?.offsetHeight ?? 0) - 12;
+    if (b.top >= z.haut + 4 && b.bottom <= basLibre) return;
+    window.scrollBy({ top: b.top - z.haut - 14, behavior: 'smooth' });
   });
   // De la place sous la page, pour que la bulle ne cache jamais le bas du jeu.
   useEffect(() => {
@@ -619,6 +649,8 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
   if (!contexte || termine || contexte.vue.etape === 'terminee') return null;
   const modaleOuverte = !!document.querySelector('.voile');
   const enPause = gel && (contexte.vue.joueurActif !== MOI || contexte.vue.etape === 'hypothese');
+  const rc = cible?.getBoundingClientRect();
+  const enHaut = modaleOuverte || (!!rc && rc.height < window.innerHeight * 0.45 && (rc.top + rc.bottom) / 2 > window.innerHeight * 0.55);
 
   if (reduit)
     return (
@@ -636,11 +668,11 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
   return (
     <>
       {voile}
-      <aside className={`guide${modaleOuverte ? ' guide-haut' : ''}`} role="status" aria-live="polite">
+      <aside ref={bulle} className={`guide${enHaut ? ' guide-haut' : ''}`} role="status" aria-live="polite">
         <div className="guide-entete">
           <span>
             🎓 Partie guidée · {i + 1}/{etapes.length}
-            {enPause && <span className="guide-pause"> · ⏸ partie en pause</span>}
+            {enPause && <span className="guide-pause"> · ⏸ pause</span>}
           </span>
           <button type="button" className="btn btn-discret btn-petit" onClick={() => setReduit(true)} aria-label="Réduire le guide">
             ▾
@@ -649,7 +681,8 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
         <p className="guide-texte">{pret ? etape.texte(contexte) : (etape.attente?.(contexte) ?? 'La partie continue…')}</p>
         <div className="guide-pied">
           <button type="button" className="btn btn-discret btn-petit" onClick={() => connexion.arreterLocal()}>
-            Quitter la partie guidée
+            <span className="libelle-long">Quitter la partie guidée</span>
+            <span className="libelle-court">Quitter</span>
           </button>
           {!pret ? (
             <span className="petit muet">⏳ La partie continue…</span>

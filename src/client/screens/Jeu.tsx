@@ -311,7 +311,7 @@ export function Jeu({
                 </section>
               )}
 
-              <section className="panneau">
+              <section className="panneau panneau-historique">
                 <EntetePublic>{historiqueComplet ? 'Historique complet de la partie' : 'Derniers événements'}</EntetePublic>
                 <Journal vue={vue} nom={nom} limite={historiqueComplet ? undefined : 8} />
                 <button className="btn btn-discret btn-petit" aria-expanded={historiqueComplet} onClick={() => setHistoriqueComplet(!historiqueComplet)}>
@@ -534,12 +534,16 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
             {/* Boutons seulement pendant mon tour, sur un dossier ouvert. */}
             {monTour && a.disponible && (
               <>
-                <button className="btn btn-or btn-petit" disabled={vue.pointsAction < 1} onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier })}>
+                <button
+                  className={`btn btn-or btn-petit btn-consulter${a.categorie === 'piece' ? ' piece' : ''}`}
+                  disabled={vue.pointsAction < 1}
+                  onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier })}
+                >
                   Consulter (1 PA)
                 </button>
                 {peutTrafiquer && a.categorie !== 'piece' && (
                   <button
-                    className="btn btn-danger btn-petit"
+                    className="btn btn-danger btn-petit btn-trafiquer"
                     disabled={vue.pointsAction < 1}
                     onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier, trafiquer: true })}
                     title="Vous lisez le vrai indice ; les joueurs qui ouvriront ce dossier après vous liront un faux indice."

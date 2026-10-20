@@ -108,7 +108,7 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
       {ids.map((e) => {
         const m = marques[e] ?? 'inconnu';
         return (
-          <div key={e} className={`carnet-ligne${m === 'ecarte' ? ' ecarte' : ''}`}>
+          <div key={e} className={`carnet-ligne${m === 'ecarte' ? ' ecarte' : ''}`} data-element={e}>
             <div className="nom">
               <button type="button" className="icone-carte" onClick={() => setEnGrand(e)} aria-label={`Voir la carte « ${nomElement(e)} » en grand`} title="Voir en grand">
                 <Embleme id={e} taille={26} />

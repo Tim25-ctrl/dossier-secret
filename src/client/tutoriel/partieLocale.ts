@@ -1,9 +1,12 @@
 // Partie guidée : une vraie partie, jouée entièrement sur cet appareil (moteur et bots du jeu),
 // sans serveur ni salon. Le scénario est préparé pour que chaque situation du tutoriel arrive :
-// vous commencez, Marple est le complice, et Hercule vous interroge à son premier tour.
+// vous commencez, et Hercule vous interroge à son premier tour.
+// Deux rôles : enquêteur (Marple est alors le complice) ou complice (vous, avec plus de ruses
+// que dans une vraie partie à 3 pour pouvoir toutes les essayer).
 
 import { PROFIL_OCCASIONNEL, decisionBot } from '../../bots/bot';
-import { appliquerAction, avancer, creerPartie, type EtatPartie } from '../../engine/partie';
+import { appliquerAction, avancer, creerPartie, peutFalsifier, type EtatPartie } from '../../engine/partie';
+import { CONFIG_PAR_DEFAUT } from '../../engine/config';
 import { cryptoRng, seededRng } from '../../engine/rng';
 import { vuePour } from '../../engine/vue';
 import type { EtatClient, EvenementsClient, MessageChat, Reponse } from '../../shared/protocole';
@@ -16,7 +19,10 @@ const MARPLE = 'marple';
 const BOTS = [HERCULE, MARPLE];
 const SOLUTION: Triplet = { suspect: 'gabriel', lieu: 'cave', arme: 'chandelier' };
 
-function nouvelleAffaire(nom: string): EtatPartie {
+export type RoleGuide = 'enqueteur' | 'complice';
+
+function nouvelleAffaire(nom: string, role: RoleGuide): EtatPartie {
+  const complice = role === 'complice';
   // Première graine où vous jouez en premier (l'ordre du tour est tiré au sort).
   for (let graine = 1; graine < 500; graine++) {
     const etat = creerPartie({
@@ -28,9 +34,16 @@ function nouvelleAffaire(nom: string): EtatPartie {
       ],
       rng: seededRng(graine),
       now: Date.now(),
-      // Pas de limite de temps : on lit les explications tranquillement.
-      config: { delaiTourMs: null, delaiFalsificationMs: 3_000, modeComplice: 'ruse' },
-      imposer: { solution: SOLUTION, complice: MARPLE },
+      // Pas de limite de temps : on lit les explications tranquillement. Complice : la fenêtre de
+      // falsification reste ouverte jusqu'à votre choix (elle se referme dès qu'il est fait, voir tic).
+      config: {
+        delaiTourMs: null,
+        delaiReponseMs: 600_000,
+        delaiFalsificationMs: complice ? 600_000 : 3_000,
+        modeComplice: 'ruse',
+        ...(complice ? { ruses: { ...CONFIG_PAR_DEFAUT.ruses, 3: 4 } } : {}),
+      },
+      imposer: { solution: SOLUTION, complice: complice ? MOI : MARPLE },
     });
     if (etat.ordre[0] === MOI) return etat;
   }
@@ -44,8 +57,11 @@ class PartieLocale implements MoteurLocal {
   private minuteurBot: ReturnType<typeof setTimeout> | null = null;
   private herculeAInterroge = false;
 
-  constructor(private nom: string) {
-    this.etat = nouvelleAffaire(nom);
+  constructor(
+    private nom: string,
+    private role: RoleGuide,
+  ) {
+    this.etat = nouvelleAffaire(nom, role);
     this.boucle = setInterval(() => this.tic(), 250);
   }
 
@@ -102,7 +118,7 @@ class PartieLocale implements MoteurLocal {
       return { ok: true };
     }
     if (ev === 'salon:rejouer') {
-      this.etat = nouvelleAffaire(this.nom);
+      this.etat = nouvelleAffaire(this.nom, this.role);
       this.herculeAInterroge = false;
       this.publier();
       return { ok: true };
@@ -135,6 +151,9 @@ class PartieLocale implements MoteurLocal {
   }
 
   private tic() {
+    // Complice : la fenêtre de falsification se referme dès que vous avez choisi (ou si vous ne pouvez pas falsifier).
+    const h = this.etat.hypothese;
+    if (this.role === 'complice' && h?.etape === 'falsification' && !peutFalsifier(this.etat, MOI)) h.echeance = Math.min(h.echeance, Date.now() + 1_500);
     if (avancer(this.etat, Date.now(), cryptoRng)) this.publier();
     if (this.minuteurBot || this.etat.etape === 'terminee') return;
     const bot = BOTS.find((id) => this.decision(id));
@@ -155,8 +174,8 @@ class PartieLocale implements MoteurLocal {
 let courante: PartieLocale | null = null;
 
 /** Lance la partie guidée (remplace l'écran courant). */
-export function lancerPartieGuidee(nom: string) {
-  const p = new PartieLocale(nom || 'Vous');
+export function lancerPartieGuidee(nom: string, role: RoleGuide = 'enqueteur') {
+  const p = new PartieLocale(nom || 'Vous', role);
   courante = p;
   connexion.demarrerLocal(p, p.etatClient());
 }

@@ -13,7 +13,7 @@ Le 17 octobre, à 23 h 17, Armand de Valombre est retrouvé mort dans son manoir
 - Animations : carte qui se retourne, tampon de l'hypothèse, sceau de cire brisé, tampon « Démasqué », loupe sur les empreintes, bandeau « C'est votre tour » qui pulse, sceau apposé sur l'écran de fin (désactivables dans Paramètres)
 - Joueur déconnecté ou parti : la partie se met en pause ; les autres peuvent attendre son retour ou le remplacer par un bot (fenêtre avec la discussion)
 - Joueurs automatiques (bots) pour compléter une table ou tester seul
-- Partie guidée (tutoriel jouable contre deux bots, sur l'appareil) et conseils pendant les premières parties
+- Parties guidées (tutoriels jouables contre deux bots, sur l'appareil) : enquêteur ou complice, avec voile sombre sur ce qui ne sert pas à l'étape ; conseils pendant les premières parties
 - Option « Cartes montrées anonymes » (difficile) : les cartes montrées et reçues ne sont plus rappelées après le tour
 - Deux modes de complice : **Rusé** (réserve de ruses discrètes, empreintes, dénonciation) ou **Classique**
 - 130 tests automatisés, dont des parties complètes jouées en réseau

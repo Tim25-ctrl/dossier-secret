@@ -7,7 +7,7 @@ import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
-import { lancerPartieGuidee } from '../tutoriel/partieLocale';
+import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
 
 type Mode = 'menu' | 'creer' | 'rejoindre';
 
@@ -21,6 +21,11 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [regles, setRegles] = useState(false);
   const [parametres, setParametres] = useState(false);
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
+  const [choixGuide, setChoixGuide] = useState(false);
+  const guider = (role: RoleGuide) => {
+    majPrefs({ tutorielVu: true });
+    lancerPartieGuidee(prefs.pseudo.trim(), role);
+  };
   const derniere = connexion.derniereSession();
 
   /** Ouvre un formulaire en reprenant le pseudo par défaut (il a pu changer dans les Paramètres). */
@@ -69,10 +74,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <button className="btn" onClick={() => ouvrir('rejoindre')}>
               Rejoindre une partie
             </button>
-            <button className="btn" onClick={() => {
-                majPrefs({ tutorielVu: true });
-                lancerPartieGuidee(prefs.pseudo.trim());
-              }}>
+            <button className="btn" onClick={() => setChoixGuide(true)}>
               🎓 Apprendre à jouer (partie guidée)
             </button>
             <div className="ligne" style={{ justifyContent: 'center' }}>
@@ -138,6 +140,21 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
       <div className="pied">Jeu de fiction. Toute ressemblance avec des personnes existantes serait fortuite.</div>
 
       {regles && <ModaleRegles onFermer={() => setRegles(false)} />}
+      {choixGuide && (
+        <Modale titre="Partie guidée" onFermer={() => setChoixGuide(false)}>
+          <p>Une vraie partie contre deux bots, avec un guide qui vous montre où cliquer. Quel rôle voulez-vous apprendre ?</p>
+          <div className="choix-guide">
+            <button className="btn btn-or" onClick={() => guider('enqueteur')}>
+              🔎 Enquêteur
+              <span className="petit">Pour commencer : hypothèses, carnet, archives, accusation.</span>
+            </button>
+            <button className="btn" onClick={() => guider('complice')}>
+              🎭 Complice
+              <span className="petit">Ensuite : mentir, falsifier, trafiquer un dossier sans se faire démasquer.</span>
+            </button>
+          </div>
+        </Modale>
+      )}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} />}
       {tutoriel && (
         <Modale
@@ -157,10 +174,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               >
                 Plus tard
               </button>
-              <button className="btn btn-or" onClick={() => {
-                majPrefs({ tutorielVu: true });
-                lancerPartieGuidee(prefs.pseudo.trim());
-              }}>
+              <button className="btn btn-or" onClick={() => guider('enqueteur')}>
                 Lancer la partie guidée
               </button>
             </>

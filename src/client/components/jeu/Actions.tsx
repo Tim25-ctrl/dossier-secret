@@ -340,8 +340,8 @@ export function ModaleReponse({ vue, nom, decalage, onErreur }: { vue: VueJoueur
                   <span className="petit muet">coûte {vue.regles.coutRuses.emprunt} ruses</span>
                 </div>
                 <p className="ruse-explication">
-                  {nom(h.auteur)} croira que cette carte est innocente. Risqué : vous ignorez le lieu et l'arme du crime, c'est peut-être la bonne… Et si son vrai
-                  détenteur la montre aussi, la supercherie peut se voir.
+                  {nom(h.auteur)} croira que cette carte est innocente. Idéal si c'est le vrai lieu ou la vraie arme : il l'écartera à tort. Sinon, c'est risqué :
+                  son vrai détenteur peut la montrer aussi, et la supercherie se voir.
                 </p>
                 <div className="ligne">
                   {a.cartesEmpruntables.map((c) => (

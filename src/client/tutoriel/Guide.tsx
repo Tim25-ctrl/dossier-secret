@@ -1,25 +1,35 @@
-// Bulle de la partie guidée : explique chaque étape, montre où cliquer (élément surligné)
-// et avance toute seule quand l'action demandée est faite.
+// Bulle de la partie guidée : explique chaque étape, met en lumière l'élément à utiliser
+// (le reste de l'écran est assombri et bloqué) et avance toute seule quand l'action est faite.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { nomElement } from '../../shared/data/manoir';
-import type { VueJoueur } from '../../shared/types';
+import type { ElementId, VueJoueur } from '../../shared/types';
 import { connexion, useConnexion } from '../connexion';
 import { MOI, suggestionPartieGuidee } from './partieLocale';
 
 interface Contexte {
   vue: VueJoueur;
+  /** Vrai quand le joueur n'avance plus depuis un moment : le guide l'aide davantage. */
+  aide: boolean;
 }
 
 interface Etape {
-  /** Élément à surligner : sélecteurs CSS (le premier visible gagne) ou onglet désigné par son nom. */
-  cible?: string[];
+  /**
+   * Élément mis en lumière (le reste de l'écran est assombri) : sélecteurs CSS, le premier visible gagne.
+   * Un onglet à ouvrir passe avant (désigné par son nom).
+   */
+  cible?: string[] | ((c: Contexte) => string[]);
   onglet?: string;
   texte: (c: Contexte) => ReactNode;
   /** Condition qui fait passer à l'étape suivante ; sans condition, un bouton « Suivant ». */
   attendre?: (c: Contexte) => boolean;
   bouton?: string;
+  /** Avancement de l'étape : s'il ne change plus pendant DELAI_AIDE_MS, le guide passe en mode aide. */
+  progres?: (vue: VueJoueur) => string;
 }
+
+/** Délai sans progrès avant que le guide montre précisément quoi faire. */
+const DELAI_AIDE_MS = 15_000;
 
 const nom = (v: VueJoueur, id: string) => v.joueurs.find((j) => j.id === id)?.nom ?? id;
 const ongletActif = (texte: string) => [...document.querySelectorAll('[role="tab"][aria-selected="true"]')].some((t) => t.textContent?.includes(texte));
@@ -31,8 +41,17 @@ const reponseMonHypothese = (v: VueJoueur) => {
 };
 const aMontreUneCarte = (v: VueJoueur) => v.moi.journal.some((e) => e.type === 'carte_montree');
 const monTour = (v: VueJoueur) => v.joueurActif === MOI && v.etape === 'tour';
+const liste = (ids: ElementId[]) => ids.map((e) => `« ${nomElement(e)} »`).join(', ');
 
-const ETAPES: Etape[] = [
+// Carnet : ce que le joueur sait innocent à ce moment du tutoriel (ses cartes et celles qu'on lui a montrées).
+const cartesVues = (v: VueJoueur) => [...new Set(v.moi.journal.flatMap((e) => (e.type === 'carte_vue' ? [e.carte] : [])))];
+const aEcarter = (v: VueJoueur) => [...new Set([...v.moi.main, ...cartesVues(v)])];
+const manquants = (v: VueJoueur) => aEcarter(v).filter((e) => v.moi.carnet.marques[e] !== 'ecarte');
+const enTrop = (v: VueJoueur) =>
+  (Object.entries(v.moi.carnet.marques) as [ElementId, string][]).filter(([e, m]) => m === 'ecarte' && !aEcarter(v).includes(e)).map(([e]) => e);
+const ligneCarnet = (e: ElementId) => `.carnet-ligne[data-element="${e}"]`;
+
+const ETAPES_ENQUETEUR: Etape[] = [
   {
     texte: () => (
       <>
@@ -116,14 +135,48 @@ const ETAPES: Etape[] = [
     attendre: () => ongletActif('Carnet'),
   },
   {
-    cible: ['.carnet-grille'],
-    texte: () => (
-      <>
-        Marquez <strong>✗</strong> (écarté) vos cartes et celle qu'on vous a montrée. Touchez une icône pour voir la carte en grand. Personne d'autre ne voit votre
-        carnet.
-      </>
-    ),
-    attendre: ({ vue }) => Object.values(vue.moi.carnet.marques).filter((m) => m === 'ecarte').length >= 2,
+    // En mode aide, seule la ligne à corriger ou à cocher reste accessible.
+    cible: ({ vue, aide }) => {
+      const faux = enTrop(vue);
+      const reste = manquants(vue);
+      if (aide && faux.length) return [ligneCarnet(faux[0]), '.carnet-grille'];
+      if (aide && reste.length) return [ligneCarnet(reste[0]), '.carnet-grille'];
+      return ['.carnet-grille'];
+    },
+    texte: ({ vue, aide }) => {
+      const vues = cartesVues(vue);
+      const total = aEcarter(vue).length;
+      const reste = manquants(vue);
+      const faux = enTrop(vue);
+      return (
+        <>
+          Marquez <strong>✗</strong> (écarté) les cartes que vous savez innocentes : <strong>vos {vue.moi.main.length} cartes</strong>
+          {vues.length > 0 && (
+            <>
+              {' '}
+              et <strong>{liste(vues)}</strong>, qu'on vous a montrée
+            </>
+          )}
+          . Touchez une icône pour voir la carte en grand.
+          <span className="guide-progres">
+            Écartées : {total - reste.length}/{total}
+          </span>
+          {faux.length > 0 && (
+            <span className="guide-alerte">
+              ⚠️ Vous avez aussi écarté {liste(faux)}, mais rien ne prouve encore {faux.length > 1 ? 'leur' : 'son'} innocence. Remettez{' '}
+              {faux.length > 1 ? 'ces lignes' : 'cette ligne'} sur <strong>?</strong>.
+            </span>
+          )}
+          {aide && faux.length === 0 && reste.length > 0 && (
+            <span className="guide-alerte">
+              💡 Il vous reste à écarter : <strong>{liste(reste)}</strong>. Touchez le <strong>✗</strong> de la ligne mise en lumière.
+            </span>
+          )}
+        </>
+      );
+    },
+    attendre: ({ vue }) => manquants(vue).length === 0 && enTrop(vue).length === 0,
+    progres: (vue) => `${manquants(vue).join()}|${enTrop(vue).join()}`,
   },
   {
     onglet: 'Enquête',
@@ -136,6 +189,7 @@ const ETAPES: Etape[] = [
     attendre: ({ vue }) => vue.joueurActif !== MOI,
   },
   {
+    cible: ['.panneau-historique'],
     texte: () => <>Au tour des bots. Observez l'historique : chaque hypothèse et chaque réponse y apparaissent. Hercule va bientôt vous interroger…</>,
     attendre: ({ vue }) => (vue.hypotheseEnCours?.aRepondre !== undefined && vue.hypotheseEnCours.repondantActuel === MOI) || aMontreUneCarte(vue),
   },
@@ -149,6 +203,7 @@ const ETAPES: Etape[] = [
     attendre: ({ vue }) => aMontreUneCarte(vue),
   },
   {
+    cible: ['.panneau-historique'],
     texte: () => (
       <>
         Bien joué. Marple joue maintenant son tour ; si elle vous interroge à son tour, répondez de la même façon. Le vôtre revient ensuite…
@@ -158,21 +213,29 @@ const ETAPES: Etape[] = [
   },
   {
     onglet: 'Archives',
+    cible: ['.btn-consulter:not(.piece)', '.btn-consulter'],
     texte: () => (
       <>
-        Les <strong>archives</strong> cachent des indices. Ouvrez l'onglet <strong>Archives</strong> et consultez un dossier (1 PA) : vous seul lirez son contenu.
+        Les <strong>archives</strong> cachent des indices. Ouvrez l'onglet <strong>Archives</strong> et consultez <strong>ce dossier</strong> (1 PA) : vous seul
+        lirez son contenu.
       </>
     ),
     attendre: ({ vue }) => vue.moi.indicesConsultes.length > 0 || vue.moi.piecesConsultees.length > 0,
   },
   {
-    cible: ['.prive .indice', '.prive'],
-    texte: () => (
-      <>
-        Comme celui-ci, un indice relie deux éléments (« si c'est ici, ce n'était pas avec cela »). Il n'innocente rien à lui seul : il devient décisif en le
-        croisant avec les cartes que vous connaissez.
-      </>
-    ),
+    cible: ['.indices .prive .indice', '.indices .prive'],
+    texte: ({ vue }) =>
+      vue.moi.indicesConsultes.length === 0 && vue.moi.piecesConsultees.length > 0 ? (
+        <>
+          C'est une <strong>pièce à conviction</strong> : une carte que personne n'a reçue. Elle est donc <strong>innocente</strong> ; pensez à l'écarter dans
+          votre carnet.
+        </>
+      ) : (
+        <>
+          Comme celui-ci, un indice relie deux éléments (« si c'est ici, ce n'était pas avec cela »). Il n'innocente rien à lui seul : il devient décisif en le
+          croisant avec les cartes que vous connaissez.
+        </>
+      ),
     bouton: 'Suivant',
   },
   {
@@ -183,6 +246,7 @@ const ETAPES: Etape[] = [
         <strong>Le complice</strong> a des ruses : mentir, montrer une carte qu'il n'a pas, falsifier une hypothèse, trafiquer un dossier. Elles laissent parfois
         des <strong>empreintes</strong> dans l'historique. Si vous pensez l'avoir trouvé, <strong>dénoncez-le</strong> (1 PA, une seule fois) : si vous vous
         trompez, vous perdez votre prochain tour.
+        <span className="guide-progres">Pas maintenant : rien ne vous permet encore de soupçonner Hercule ou Marple.</span>
       </>
     ),
     bouton: 'Suivant',
@@ -193,35 +257,249 @@ const ETAPES: Etape[] = [
     texte: () => (
       <>
         Quand vous êtes sûr de vous : <strong>Accusation finale</strong>. Une seule par partie ! Juste, vous gagnez ; fausse, vous ne pouvez plus accuser.
+        <span className="guide-progres">Pas maintenant non plus : il vous faut d'abord rassembler des preuves.</span>
       </>
     ),
     bouton: 'Suivant',
   },
   {
-    texte: () => (
+    texte: ({ vue }) => (
       <>
         <strong>Vous savez tout !</strong> Continuez cette partie pour démasquer le coupable, ou quittez la partie guidée. Pendant vos premières vraies parties,
-        quelques conseils apparaîtront encore.
+        quelques conseils apparaîtront encore. Pour découvrir l'autre camp, lancez ensuite la partie guidée <strong>du complice</strong> depuis l'accueil.
+        {monTour(vue) && vue.pointsAction > 0 && (
+          <span className="guide-progres">Il vous reste {vue.pointsAction} PA : consultez un autre dossier ou terminez votre tour.</span>
+        )}
       </>
     ),
     bouton: 'Continuer à jouer',
   },
 ];
 
-/** Premier élément visible parmi des sélecteurs, ou l'onglet portant ce nom. */
-function trouverCible(e: Etape): HTMLElement | null {
+// ---------------------------------------------------------------------------
+// Partie guidée du complice : vous protégez le meurtrier contre Hercule et Marple.
+// ---------------------------------------------------------------------------
+
+const aTrafique = (v: VueJoueur) => v.moi.journal.some((e) => e.type === 'ruse' && e.ruse === 'trafic');
+const aFalsifie = (v: VueJoueur) => v.moi.journal.some((e) => e.type === 'falsification');
+const maReponse = (v: VueJoueur) =>
+  [...v.moi.journal].reverse().find((e) => e.type === 'carte_montree' || e.type === 'mensonge' || (e.type === 'ruse' && e.ruse === 'emprunt'));
+const mesHypotheses = (v: VueJoueur) => v.moi.journal.filter((e) => e.type === 'hypothese_originale').length;
+const ruses = (v: VueJoueur) => `${v.moi.rusesRestantes ?? 0} ruse${(v.moi.rusesRestantes ?? 0) > 1 ? 's' : ''}`;
+
+const ETAPES_COMPLICE: Etape[] = [
+  {
+    texte: ({ vue }) => (
+      <>
+        <strong>Cette fois, vous êtes le complice !</strong> Vous savez que le meurtrier est <strong>{nomElement(vue.moi.meurtrier!)}</strong>, mais vous ignorez le
+        lieu et l'arme. Hercule et Marple enquêtent : vous gagnez si <strong>personne ne trouve la solution</strong> avant la fin de la 12ᵉ manche.
+      </>
+    ),
+    bouton: 'Commencer',
+  },
+  {
+    cible: ['.colonne-gauche .prive', '.bande-cartes'],
+    texte: ({ vue }) => (
+      <>
+        Votre rôle reste <strong>secret</strong>. Comme tout le monde, vous avez des cartes et vous répondez quand on vous interroge. Mais vous avez aussi{' '}
+        <strong>{ruses(vue)}</strong> en réserve : des tricheries que personne ne voit. Essayons-les une par une.
+      </>
+    ),
+    bouton: 'Suivant',
+  },
+  {
+    onglet: 'Archives',
+    cible: ['.btn-trafiquer'],
+    texte: () => (
+      <>
+        Première ruse : <strong>trafiquer un dossier</strong>. Ouvrez l'onglet <strong>Archives</strong> et touchez <strong>Consulter et trafiquer</strong> (1 PA + 1
+        ruse). Vous lirez le vrai indice ; ceux qui ouvriront ce dossier après vous liront un <strong>faux</strong>.
+      </>
+    ),
+    attendre: ({ vue }) => aTrafique(vue) || vue.moi.indicesConsultes.length > 0,
+  },
+  {
+    cible: ['.indices .prive'],
+    texte: () => (
+      <>
+        Voici le vrai indice et, en rouge, le titre du faux que liront les suivants. Il les enverra sur une fausse piste… sans que personne sache qui a trafiqué le
+        dossier.
+      </>
+    ),
+    bouton: 'Suivant',
+  },
+  {
+    onglet: 'Enquête',
+    cible: ['.btn-fin-tour'],
+    texte: () => (
+      <>
+        Il vous reste 1 PA : pas assez pour une hypothèse (2 PA). Revenez sur <strong>Enquête</strong> et touchez <strong>Terminer mon tour</strong>.
+      </>
+    ),
+    attendre: ({ vue }) => vue.joueurActif !== MOI,
+  },
+  {
+    cible: ['.panneau-historique'],
+    texte: () => (
+      <>
+        Au tour d'Hercule. Quand un joueur formule une hypothèse, <strong>vous la voyez avant tout le monde</strong> : c'est le moment d'une autre ruse…
+      </>
+    ),
+    attendre: ({ vue }) => (!!vue.hypotheseEnCours && vue.hypotheseEnCours.auteur !== MOI) || aFalsifie(vue) || !!maReponse(vue),
+  },
+  {
+    cible: ['.modale'],
+    texte: ({ vue }) => (
+      <>
+        Deuxième ruse : <strong>falsifier l'hypothèse</strong> d'Hercule (1 ruse). Choisissez l'élément à changer, puis ce que
+        les autres verront à la place. Marple verra la version modifiée ; Hercule garde la sienne et <strong>n'est jamais prévenu</strong>.
+      </>
+    ),
+    attendre: ({ vue }) => {
+      const h = vue.hypotheseEnCours;
+      return aFalsifie(vue) || !h || h.etape !== 'falsification' || !h.falsification || h.falsification.decide;
+    },
+  },
+  {
+    cible: ['.modale'],
+    texte: ({ vue }) => {
+      const a = vue.hypotheseEnCours?.repondantActuel === MOI ? vue.hypotheseEnCours.aRepondre : undefined;
+      if (!a || a.cartesCorrespondantes.length === 0) return <>Hercule va vous interroger…</>;
+      return (
+        <>
+          Hercule vous interroge, et vous avez <strong>{liste(a.cartesCorrespondantes)}</strong>. Un enquêteur devrait la montrer. Vous, vous pouvez{' '}
+          <strong>mentir</strong> : répondez « aucune carte » (1 ruse), et Hercule croira que vous n'avez rien.
+          <span className="guide-progres">
+            Autre ruse : montrer une carte que vous n'avez pas (2 ruses). Idéale si c'est le vrai lieu ou la vraie arme : l'enquêteur l'écartera à tort.
+          </span>
+        </>
+      );
+    },
+    attendre: ({ vue }) => !!maReponse(vue) || monTour(vue),
+  },
+  {
+    cible: ['.panneau-historique'],
+    texte: ({ vue }) => {
+      const r = maReponse(vue);
+      const debut =
+        r?.type === 'mensonge' ? (
+          <>
+            Vous avez <strong>menti</strong> : Hercule pense que vous n'avez aucune de ces cartes, il risque d'en soupçonner une à tort.
+          </>
+        ) : r?.type === 'ruse' ? (
+          <>
+            Vous avez montré une carte <strong>empruntée</strong> : Hercule la croit innocente.
+          </>
+        ) : (
+          <>
+            Vous avez répondu <strong>honnêtement</strong>. C'est parfois le meilleur moyen de passer inaperçu : gardez vos ruses pour les moments décisifs.
+          </>
+        );
+      return (
+        <>
+          {debut} Dans l'historique, personne ne voit que vous avez rusé.
+        </>
+      );
+    },
+    bouton: 'Suivant',
+  },
+  {
+    cible: ['.panneau-historique'],
+    texte: ({ vue }) => (
+      <>
+        Marple joue. Si elle formule une hypothèse, la fenêtre de falsification s'ouvrira : il vous reste <strong>{ruses(vue)}</strong>. Vous pouvez aussi choisir{' '}
+        <strong>Ne rien changer</strong> : gardez vos ruses pour plus tard !
+      </>
+    ),
+    attendre: ({ vue }) => monTour(vue),
+  },
+  {
+    cible: ['.actions .btn-or', '.modale'],
+    texte: ({ vue }) => (
+      <>
+        À vous. Pour ne pas attirer l'attention, <strong>jouez comme un enquêteur</strong> : formulez une hypothèse. Vous connaissez le meurtrier (
+        {nomElement(vue.moi.meurtrier!)}), mais pas le lieu ni l'arme : les découvrir vous dira quelle carte « emprunter » pour égarer les enquêteurs.
+      </>
+    ),
+    attendre: ({ vue }) => mesHypotheses(vue) > 0,
+  },
+  {
+    cible: ['.suivi-hypothese', '.resultat-hypothese'],
+    texte: () => <>Le joueur interrogé vous répond…</>,
+    attendre: ({ vue }) => reponseMonHypothese(vue) !== null,
+  },
+  {
+    texte: () => (
+      <>
+        Attention aux <strong>empreintes</strong> : chaque ruse a une chance d'en laisser une dans l'historique, quelques manches plus tard (jamais avant la
+        manche 4). À 3 joueurs, elle ne nomme personne mais indique la manche de la ruse. En les recoupant, les enquêteurs peuvent vous{' '}
+        <strong>dénoncer</strong> : vos ruses sont alors suspendues 3 manches. Rusez au bon moment, pas à chaque occasion.
+      </>
+    ),
+    bouton: 'Suivant',
+  },
+  {
+    texte: ({ vue }) => (
+      <>
+        <strong>Vous savez jouer le complice !</strong> Continuez cette partie pour tenir jusqu'à la manche 12, ou quittez la partie guidée.
+        {monTour(vue) && <span className="guide-progres">Pensez à terminer votre tour.</span>}
+      </>
+    ),
+    bouton: 'Continuer à jouer',
+  },
+];
+
+/** L'onglet à ouvrir s'il ne l'est pas encore, sinon le premier élément visible parmi les sélecteurs. */
+function trouverCible(e: Etape, c: Contexte): HTMLElement | null {
   if (e.onglet) {
     const tab = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((t) => t.textContent?.includes(e.onglet!) && t.offsetParent !== null);
-    if (tab && t_estPasActif(tab)) return tab;
+    if (tab && tab.getAttribute('aria-selected') !== 'true') return tab;
   }
-  for (const s of e.cible ?? []) {
+  const selecteurs = typeof e.cible === 'function' ? e.cible(c) : (e.cible ?? []);
+  for (const s of selecteurs) {
     const el = [...document.querySelectorAll<HTMLElement>(s)].find((x) => x.offsetParent !== null);
     if (el) return el;
   }
   return null;
 }
-function t_estPasActif(tab: HTMLElement) {
-  return tab.getAttribute('aria-selected') !== 'true';
+
+/**
+ * Voile sombre sur tout l'écran sauf l'élément mis en lumière, qu'il suit pendant le défilement.
+ * Il bloque les clics ailleurs : on ne peut faire que ce que l'étape demande. Quand l'étape
+ * n'est qu'une explication, l'élément lui-même est bloqué (on passe à la suite avec la bulle).
+ */
+function VoileGuide({ cible, trouActif }: { cible: HTMLElement | null; trouActif: boolean }) {
+  const [r, setR] = useState<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    if (!cible) {
+      setR(null);
+      return;
+    }
+    let id = 0;
+    const suivre = () => {
+      const b = cible.getBoundingClientRect();
+      setR((p) => (p && p.x === b.x && p.y === b.y && p.width === b.width && p.height === b.height ? p : b));
+      id = requestAnimationFrame(suivre);
+    };
+    suivre();
+    return () => cancelAnimationFrame(id);
+  }, [cible]);
+
+  if (!cible || !r) return <div className="guide-voile" style={{ inset: 0 }} aria-hidden="true" />;
+  const marge = 7;
+  const haut = Math.max(0, r.top - marge);
+  const bas = Math.max(haut, r.bottom + marge);
+  const gauche = Math.max(0, r.left - marge);
+  const droite = Math.max(gauche, r.right + marge);
+  return (
+    <div aria-hidden="true">
+      <div className="guide-voile" style={{ top: 0, left: 0, right: 0, height: haut }} />
+      <div className="guide-voile" style={{ top: bas, left: 0, right: 0, bottom: 0 }} />
+      <div className="guide-voile" style={{ top: haut, height: bas - haut, left: 0, width: gauche }} />
+      <div className="guide-voile" style={{ top: haut, height: bas - haut, left: droite, right: 0 }} />
+      <div className={`guide-trou${trouActif ? '' : ' bloque'}`} style={{ top: haut, left: gauche, width: droite - gauche, height: bas - haut }} />
+    </div>
+  );
 }
 
 export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
@@ -230,7 +508,8 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
   const [i, setI] = useState(0);
   const [reduit, setReduit] = useState(false);
   const [, setTic] = useState(0);
-  const etape = ETAPES[i];
+  const etapes = vue?.moi.role === 'complice' ? ETAPES_COMPLICE : ETAPES_ENQUETEUR;
+  const etape = etapes[i];
 
   // Re-vérifie régulièrement (actions des bots, onglet ouvert, élément à surligner).
   useEffect(() => {
@@ -238,18 +517,29 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
     return () => clearInterval(t);
   }, []);
 
-  const termine = i >= ETAPES.length;
-  const cible = !termine && !reduit ? trouverCible(etape) : null;
+  const termine = i >= etapes.length;
+
+  // Mode aide : l'étape n'avance plus depuis DELAI_AIDE_MS.
+  // Une fois déclenchée, l'aide reste active jusqu'à la fin de l'étape.
+  const avancement = useRef({ cle: '', depuis: Date.now(), aideEtape: -1 });
+  const cle = !vue || termine ? '' : `${i}|${etape.progres?.(vue) ?? ''}`;
+  if (avancement.current.cle !== cle) avancement.current = { ...avancement.current, cle, depuis: Date.now() };
+  if (!termine && etape.progres && Date.now() - avancement.current.depuis >= DELAI_AIDE_MS) avancement.current.aideEtape = i;
+  const aide = avancement.current.aideEtape === i;
+  const contexte: Contexte | null = vue ? { vue, aide } : null;
+
+  const cible = !termine && !reduit && contexte ? trouverCible(etape, contexte) : null;
   useEffect(() => {
     if (!cible) return;
     cible.classList.add('tuto-cible');
     return () => cible.classList.remove('tuto-cible');
   });
-  const [defile, setDefile] = useState(-1);
+  // Amène l'élément mis en lumière au milieu de l'écran (une fois par élément).
+  const defile = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (cible && defile !== i) {
+    if (cible && defile.current !== cible) {
       cible.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setDefile(i);
+      defile.current = cible;
     }
   });
   // De la place sous la page, pour que la bulle ne cache jamais le bas du jeu.
@@ -260,47 +550,58 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
 
   // Passage automatique quand l'action demandée est faite.
   useEffect(() => {
-    if (!vue || termine || !etape.attendre) return;
-    if (etape.attendre({ vue })) setI((x) => x + 1);
+    if (!contexte || termine || !etape.attendre) return;
+    if (etape.attendre(contexte)) setI((x) => x + 1);
   });
 
   useEffect(() => {
     if (termine) onTermine();
   }, [termine]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!vue || termine || vue.etape === 'terminee') return null;
+  if (!contexte || termine || contexte.vue.etape === 'terminee') return null;
   const modaleOuverte = !!document.querySelector('.voile');
 
   if (reduit)
     return (
       <button type="button" className="guide-reduit" onClick={() => setReduit(false)}>
-        🎓 Guide ({i + 1}/{ETAPES.length})
+        🎓 Guide ({i + 1}/{etapes.length})
       </button>
     );
 
+  // Onglet à ouvrir d'abord : le bouton « Suivant » attend que ce soit fait.
+  const ongletAOuvrir = etape.onglet && cible?.getAttribute('role') === 'tab' ? etape.onglet : null;
+  // Une fenêtre ouverte (interrogation, hypothèse…) passe au premier plan : pas de voile par-dessus.
+  // Sans élément à montrer, le voile ne couvre tout que sur une étape d'explication (rien à cliquer).
+  const voile = !modaleOuverte && (cible || etape.bouton) ? <VoileGuide cible={cible} trouActif={!etape.bouton || !!ongletAOuvrir} /> : null;
+
   return (
-    <aside className={`guide${modaleOuverte ? ' guide-haut' : ''}`} role="status" aria-live="polite">
-      <div className="guide-entete">
-        <span>
-          🎓 Partie guidée · {i + 1}/{ETAPES.length}
-        </span>
-        <button type="button" className="btn btn-discret btn-petit" onClick={() => setReduit(true)} aria-label="Réduire le guide">
-          ▾
-        </button>
-      </div>
-      <p className="guide-texte">{etape.texte({ vue })}</p>
-      <div className="guide-pied">
-        <button type="button" className="btn btn-discret btn-petit" onClick={() => connexion.arreterLocal()}>
-          Quitter la partie guidée
-        </button>
-        {etape.bouton ? (
-          <button type="button" className="btn btn-or btn-petit" onClick={() => setI((x) => x + 1)}>
-            {etape.bouton}
+    <>
+      {voile}
+      <aside className={`guide${modaleOuverte ? ' guide-haut' : ''}`} role="status" aria-live="polite">
+        <div className="guide-entete">
+          <span>
+            🎓 Partie guidée · {i + 1}/{etapes.length}
+          </span>
+          <button type="button" className="btn btn-discret btn-petit" onClick={() => setReduit(true)} aria-label="Réduire le guide">
+            ▾
           </button>
-        ) : (
-          <span className="petit muet">À vous de jouer…</span>
-        )}
-      </div>
-    </aside>
+        </div>
+        <p className="guide-texte">{etape.texte(contexte)}</p>
+        <div className="guide-pied">
+          <button type="button" className="btn btn-discret btn-petit" onClick={() => connexion.arreterLocal()}>
+            Quitter la partie guidée
+          </button>
+          {ongletAOuvrir ? (
+            <span className="petit muet">👉 Ouvrez l'onglet « {ongletAOuvrir} »</span>
+          ) : etape.bouton ? (
+            <button type="button" className="btn btn-or btn-petit" onClick={() => setI((x) => x + 1)}>
+              {etape.bouton}
+            </button>
+          ) : (
+            <span className="petit muet">À vous de jouer…</span>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

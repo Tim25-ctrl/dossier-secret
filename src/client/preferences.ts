@@ -1,15 +1,20 @@
 // Préférences locales du joueur (stockées dans ce navigateur uniquement).
 import { useState } from 'react';
+import { reglerSons } from './sons';
 
 export interface Preferences {
   taille: 'normal' | 'grand';
   animations: 'normales' | 'reduites';
   pseudo: string;
   tutorielVu: boolean;
+  /** Bruitages activés. */
+  son: boolean;
+  /** Volume des bruitages, de 0 à 1. */
+  volume: number;
 }
 
 const CLE = 'dossier-secret:preferences';
-const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false };
+const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false, son: true, volume: 0.6 };
 
 function lire(): Preferences {
   try {
@@ -22,6 +27,7 @@ function lire(): Preferences {
 export function appliquer(p: Preferences) {
   document.documentElement.dataset.taille = p.taille;
   document.documentElement.dataset.animations = p.animations;
+  reglerSons(p.son, p.volume);
 }
 
 export function usePreferences() {

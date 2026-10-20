@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { jouer } from '../sons';
 import { INDICES, INDICES_PAR_ID, jourDuJournal } from '../../shared/data/indices';
 import { indiceValide } from '../../shared/logique';
 import { nomElement } from '../../shared/data/manoir';
@@ -25,6 +26,9 @@ export function Fin({ etat }: { etat: EtatClient }) {
   const { afficher, vue: notification } = useNotification();
   const gagne = (r.vainqueur === 'complice') === (vue.moi.role === 'complice');
   const gagnant = r.accusations.find((a) => a.correcte);
+  useEffect(() => {
+    jouer(gagne ? 'victoire' : 'defaite');
+  }, [vue.partieId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Pages du journal vraies pour la solution : elles racontent la dernière semaine d'Armand sans contradiction.
   const pagesJournal = INDICES.filter((c) => c.categorie === 'journal' && indiceValide(c, r.solution)).sort((a, b) => jourDuJournal(a) - jourDuJournal(b));
   const pagesLues = new Set([...vue.moi.indicesConsultes.map((i) => i.indice), ...vue.indicesPublics.map((i) => i.indice)]);

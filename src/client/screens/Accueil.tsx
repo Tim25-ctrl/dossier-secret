@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { jouer } from '../sons';
 import { AFFAIRE } from '../../shared/data/manoir';
 import { PSEUDO_MAX } from '../../shared/protocole';
 import { Modale } from '../components/Commun';
@@ -160,6 +161,29 @@ export function ModaleParametres({ prefs, majPrefs, onFermer }: { prefs: Prefere
           <option value="reduites">Réduites</option>
         </select>
       </div>
+      <div className="champ">
+        <label htmlFor="son">Sons</label>
+        <select id="son" value={prefs.son ? 'oui' : 'non'} onChange={(e) => majPrefs({ son: e.target.value === 'oui' })}>
+          <option value="oui">Activés</option>
+          <option value="non">Coupés</option>
+        </select>
+      </div>
+      {prefs.son && (
+        <div className="champ">
+          <label htmlFor="volume">Volume : {Math.round(prefs.volume * 100)} %</label>
+          <input
+            id="volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={prefs.volume}
+            onChange={(e) => majPrefs({ volume: Number(e.target.value) })}
+            onPointerUp={() => jouer('tour')}
+            onKeyUp={() => jouer('tour')}
+          />
+        </div>
+      )}
       <div className="champ">
         <label htmlFor="pseudo-defaut">Pseudonyme par défaut</label>
         <input id="pseudo-defaut" value={prefs.pseudo} maxLength={PSEUDO_MAX} onChange={(e) => majPrefs({ pseudo: e.target.value })} />

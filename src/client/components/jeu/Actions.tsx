@@ -181,8 +181,14 @@ export function SuiviHypothese({ vue, nom, decalage, delaiFalsification }: { vue
   const qui = (id: string) => (id === vue.moi.id ? 'vous' : nom(id));
   const carteVue = vue.moi.journal.find((e) => e.type === 'carte_vue' && e.hypothese === h.id);
   return (
-    <section className="panneau" aria-live="polite">
+    <section className="panneau suivi-hypothese" aria-live="polite">
       <EntetePublic>Hypothèse en cours — {h.auteur === vue.moi.id ? 'la vôtre' : `celle de ${nom(h.auteur)}`}</EntetePublic>
+      {/* Coup de tampon du greffier à l'annonce (clé = hypothèse : l'animation ne joue qu'une fois). */}
+      {h.etape !== 'falsification' && (
+        <span key={h.id} className="tampon-hypothese" aria-hidden="true">
+          Hypothèse
+        </span>
+      )}
       {h.etape === 'falsification' ? (
         <div>
           <p style={{ marginBottom: 4 }}>Le greffier enregistre l'hypothèse… elle sera annoncée dans un instant.</p>
@@ -216,13 +222,43 @@ export function SuiviHypothese({ vue, nom, decalage, delaiFalsification }: { vue
             <TripletVue t={h.auteurPrive.original} />
             {carteVue && carteVue.type === 'carte_vue' && (
               <p style={{ marginTop: 8 }}>
-                {nom(carteVue.de)} vous montre : <Carte id={carteVue.carte} taille="mini" />
+                {nom(carteVue.de)} vous montre :{' '}
+                <span className="anim-retournement">
+                  <Carte id={carteVue.carte} taille="mini" />
+                </span>
               </p>
             )}
           </Prive>
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Résultat privé de MA dernière hypothèse, affiché jusqu'à la fin de mon tour : l'hypothèse se
+ * termine dès qu'une carte est montrée, il faut donc garder la réponse visible ici.
+ */
+export function ResultatHypothese({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
+  if (vue.hypotheseEnCours || vue.joueurActif !== vue.moi.id || vue.hypothesesCeTour === 0) return null;
+  const journal = [...vue.moi.journal].reverse();
+  const origine = journal.find((e) => e.type === 'hypothese_originale');
+  const reponse = journal.find((e) => e.type === 'carte_vue' || e.type === 'aucune_carte_vue');
+  if (!origine || !reponse || origine.type !== 'hypothese_originale' || !('hypothese' in reponse) || reponse.hypothese !== origine.hypothese) return null;
+  return (
+    <Prive titre="Résultat de votre hypothèse — vu par vous seul">
+      <TripletVue t={origine.triplet} />
+      {reponse.type === 'carte_vue' ? (
+        <p style={{ marginTop: 10, marginBottom: 0 }}>
+          {nom(reponse.de)} vous montre :{' '}
+          <span key={reponse.hypothese} className="anim-retournement">
+            <Carte id={reponse.carte} taille="mini" />
+          </span>
+        </p>
+      ) : (
+        <p style={{ marginTop: 10, marginBottom: 0 }}>Personne ne vous a montré de carte. Attention : cela ne prouve pas que l'hypothèse est juste.</p>
+      )}
+    </Prive>
   );
 }
 

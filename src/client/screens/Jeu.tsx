@@ -6,17 +6,29 @@ import { SANS_LIMITE, categorieDe, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
 import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification } from '../components/Commun';
 import { Embleme, Icone } from '../components/Emblemes';
-import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, SuiviHypothese } from '../components/jeu/Actions';
+import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, ResultatHypothese, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
 import { GRACE_PAUSE_MS, ModalePause, useHeureServeur } from '../components/jeu/Pause';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
 import { ModaleRegles } from './Regles';
+import { useSonsPartie } from '../components/jeu/useSons';
+import type { Preferences } from '../preferences';
 import { BoutonQuitter } from '../components/Quitter';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
 
-export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) {
+export function Jeu({
+  etat,
+  decalage,
+  prefs,
+  majPrefs,
+}: {
+  etat: EtatClient;
+  decalage: number;
+  prefs: Preferences;
+  majPrefs: (p: Partial<Preferences>) => void;
+}) {
   const vue = etat.partie!;
   const moi = vue.moi.id;
   const [onglet, setOnglet] = useState<Onglet>('enquete');
@@ -32,6 +44,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   const h = vue.hypotheseEnCours;
   const doitRepondre = !!h?.aRepondre && h.repondantActuel === moi;
   const peutFalsifier = !!h?.falsification && h.etape === 'falsification';
+  useSonsPartie(vue, doitRepondre);
 
   // Messages non lus (onglet Discussion sur petit écran).
   const [lus, setLus] = useState(etat.salon.messages.length);
@@ -85,7 +98,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
   const onglets: { id: Onglet; libelle: string; icone: Parameters<typeof Icone>[0]['nom']; classe?: string; badge?: number }[] = [
     { id: 'enquete', libelle: 'Enquête', icone: 'loupe' },
     // Pastille seulement pendant mon tour : hors de mon tour, je ne peux rien consulter.
-    { id: 'archives', libelle: 'Archives', icone: 'dossier', badge: monTour && dossiersDispo.length ? dossiersDispo.length : undefined },
+    { id: 'archives', libelle: 'Archives', icone: 'dossier', badge: monTour && vue.pointsAction >= 1 && dossiersDispo.length ? dossiersDispo.length : undefined },
     { id: 'carnet', libelle: 'Carnet', icone: 'plume' },
     { id: 'discussion', libelle: 'Discussion', icone: 'bulle', classe: 'onglet-chat', badge: onglet !== 'discussion' && nonLus ? nonLus : undefined },
   ];
@@ -122,6 +135,15 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
         <span className={`etiquette ${vue.moi.role === 'complice' ? 'etiquette-rouge' : 'etiquette-or'}`} title="Visible par vous seul">
           <Icone nom="cadenas" taille={12} /> {vue.moi.role === 'complice' ? 'Complice' : 'Enquêteur'}
         </span>
+        <button
+          className="btn btn-discret btn-petit"
+          onClick={() => majPrefs({ son: !prefs.son })}
+          aria-pressed={prefs.son}
+          title={prefs.son ? 'Couper les sons' : 'Activer les sons'}
+          aria-label={prefs.son ? 'Couper les sons' : 'Activer les sons'}
+        >
+          {prefs.son ? '🔊' : '🔇'}
+        </button>
         <button className="btn btn-discret btn-petit" onClick={() => setModale('regles')}>
           <Icone nom="livre" /> Règles
         </button>
@@ -218,6 +240,7 @@ export function Jeu({ etat, decalage }: { etat: EtatClient; decalage: number }) 
               )}
 
               <SuiviHypothese vue={vue} nom={nom} decalage={decalage} delaiFalsification={vue.regles.delaiFalsificationMs} />
+              <ResultatHypothese vue={vue} nom={nom} />
 
               {/* Plus d'indice public par défaut : le panneau ne reste que pour d'anciennes parties ou d'autres réglages. */}
               {(vue.cartesPubliques.length > 0 || vue.indicesPublics.length > 0) && (
@@ -428,6 +451,9 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
   const mesTrafics = new Map(vue.moi.journal.flatMap((e) => (e.type === 'ruse' && e.ruse === 'trafic' ? [[e.dossier!, e.indiceFaux!] as const] : [])));
   const peutTrafiquer = vue.regles.modeComplice === 'ruse' && vue.retourRuses === null && (vue.moi.rusesRestantes ?? 0) >= vue.regles.coutRuses.trafic;
   const pieces = new Map(vue.moi.piecesConsultees.map((p) => [p.dossier, p.carte]));
+  // Dossiers déjà ouverts à l'affichage de l'onglet : seuls ceux ouverts ensuite voient leur sceau se briser.
+  const dejaOuverts = useRef(new Set([...consultes.keys(), ...pieces.keys()]));
+  const sceau = (dossier: number) => <SceauBrise anime={!dejaOuverts.current.has(dossier)} />;
   return (
     <div className="indices">
       <p className="muet petit" style={{ margin: 0 }}>
@@ -437,6 +463,7 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
       {vue.archives.map((a) =>
         pieces.has(a.dossier) ? (
           <Prive key={a.dossier} titre={`Pièce à conviction n° ${a.dossier} — vue par vous seul`}>
+            {sceau(a.dossier)}
             <div className="ligne">
               <Carte id={pieces.get(a.dossier)!} />
               <p style={{ margin: 0, maxWidth: 360 }}>Cette carte n'a été distribuée à personne : elle ne fait pas partie de la solution.</p>
@@ -444,6 +471,7 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
           </Prive>
         ) : consultes.has(a.dossier) ? (
           <Prive key={a.dossier} titre={`Dossier n° ${a.dossier} — lu par vous seul`}>
+            {sceau(a.dossier)}
             <CarteIndice id={consultes.get(a.dossier)!.indice} dossier={a.dossier} categorie={consultes.get(a.dossier)!.categorie} />
             {mesTrafics.has(a.dossier) && (
               <p className="petit" style={{ marginTop: 8, color: 'var(--rouge)' }}>
@@ -482,6 +510,16 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
         ),
       )}
     </div>
+  );
+}
+
+/** Sceau de cire brisé sur un dossier ouvert ; il se brise sous vos yeux à l'ouverture. */
+function SceauBrise({ anime }: { anime: boolean }) {
+  return (
+    <span className={`sceau-brise${anime ? ' anime' : ''}`} aria-hidden="true">
+      <span />
+      <span />
+    </span>
   );
 }
 

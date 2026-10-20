@@ -41,7 +41,7 @@ export function App() {
   if (c.session && c.etat) {
     const { etat } = c;
     if (etat.partie && etat.partie.etape === 'terminee') ecran = <Fin etat={etat} />;
-    else if (etat.partie) ecran = <Jeu etat={etat} decalage={c.decalage} />;
+    else if (etat.partie) ecran = <Jeu etat={etat} decalage={c.decalage} prefs={prefs} majPrefs={majPrefs} />;
     else ecran = <Lobby etat={etat} />;
   } else if (c.session && (c.reprise || c.statut !== 'connecte')) {
     ecran = (

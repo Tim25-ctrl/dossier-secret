@@ -9,6 +9,8 @@ Le 17 octobre, à 23 h 17, Armand de Valombre est retrouvé mort dans son manoir
 - Rôles secrets, cartes privées, interrogations, deux pouvoirs du complice, accusations finales
 - Carnet de déduction privé, discussion écrite, archives à consulter
 - Reconnexion automatique (rafraîchissement, coupure réseau, redémarrage du serveur)
+- Bruitages synthétisés dans le navigateur (votre tour, interrogation, carte montrée, hypothèse, dossier, empreinte, complice démasqué, fin de partie), coupables d'un clic (🔊/🔇) ; aucun son ne trahit le complice
+- Animations : carte qui se retourne, tampon de l'hypothèse, sceau de cire brisé (désactivables dans Paramètres)
 - Joueur déconnecté ou parti : la partie se met en pause ; les autres peuvent attendre son retour ou le remplacer par un bot (fenêtre avec la discussion)
 - Joueurs automatiques (bots) pour compléter une table ou tester seul
 - Deux modes de complice : **Rusé** (réserve de ruses discrètes, empreintes, dénonciation) ou **Classique**

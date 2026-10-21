@@ -442,7 +442,7 @@ const MIX: Record<Instrument, { niveau: number; echo: number; pan: number }> = {
 };
 
 /** Volume d'ensemble de la musique (discrète, derrière l'ambiance). */
-const VOLUME = 0.45;
+const VOLUME = 0.7;
 
 /** Les notes aiguës sont jouées moins fort (au-dessus du La 4). */
 const doux = (f: number) => Math.min(1, Math.pow(440 / f, 0.7));

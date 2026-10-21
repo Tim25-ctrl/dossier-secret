@@ -18,7 +18,8 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
   const dernier = !etat.salon.joueurs.some((j) => j.id !== etat.moi && !j.bot && !j.parti && j.connecte);
   // Dernier joueur d'une partie qu'il peut enregistrer : on lui rappelle de le faire avant de partir.
   const rappelSauvegarde =
-    enPartie && dernier && !connexion.instantane().tutoriel && connexion.instantane().comptes && (etat.salon.solo || etat.salon.hote === etat.moi);
+    enPartie && dernier && !connexion.instantane().tutoriel && !connexion.instantane().horsLigne && connexion.instantane().comptes && (etat.salon.solo || etat.salon.hote === etat.moi);
+  const horsLigne = connexion.instantane().horsLigne;
 
   const quitter = async () => {
     setEnvoi(true);
@@ -28,7 +29,7 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
 
   const confirmation = ouverte ? (
     <Modale
-      titre={dernier ? 'Fermer le salon ?' : 'Quitter la partie ?'}
+      titre={horsLigne ? 'Abandonner la partie ?' : dernier ? 'Fermer le salon ?' : 'Quitter la partie ?'}
       onFermer={() => setOuverte(false)}
       pied={
         <>
@@ -36,12 +37,14 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
             Annuler
           </button>
           <button className="btn btn-danger" disabled={envoi} onClick={() => void quitter()}>
-            {dernier ? 'Quitter et fermer le salon' : 'Quitter la partie'}
+            {horsLigne ? 'Abandonner la partie' : dernier ? 'Quitter et fermer le salon' : 'Quitter la partie'}
           </button>
         </>
       }
     >
-      {dernier ? (
+      {horsLigne ? (
+        <p>Cette partie se joue hors ligne, sur cet appareil. Si vous la quittez, elle sera abandonnée et vous ne pourrez plus la reprendre.</p>
+      ) : dernier ? (
         <p>
           Vous êtes <strong>le dernier joueur encore présent</strong>. Si vous quittez, le salon <strong>{etat.salon.code}</strong> sera fermé
           {enPartie ? ' et la partie en cours sera définitivement arrêtée' : ''}. Personne ne pourra plus le rejoindre.

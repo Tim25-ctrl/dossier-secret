@@ -41,7 +41,7 @@ export function MenuPrincipal({ etat, prefs, majPrefs }: { etat: EtatClient; pre
   }, [ouvert]);
 
   // Sauvegarde téléchargeable : partie en ligne seulement (la partie guidée tourne sur l'appareil).
-  const sauvegardePossible = !connexion.instantane().tutoriel && etat.salon.statut === 'partie';
+  const sauvegardePossible = !connexion.instantane().tutoriel && !connexion.instantane().horsLigne && etat.salon.statut === 'partie';
 
   const choisir = (action: () => void) => () => {
     setOuvert(false);

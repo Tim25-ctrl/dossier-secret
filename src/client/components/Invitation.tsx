@@ -42,7 +42,7 @@ export const partageDisponible = () => typeof navigator !== 'undefined' && typeo
 
 export async function partagerInvitation(lien: string, code: string): Promise<'partage' | 'annule' | 'impossible'> {
   try {
-    await navigator.share({ title: 'Dossier Secret', text: `Rejoins ma partie de Dossier Secret ! Code du salon : ${code}`, url: lien });
+    await navigator.share({ title: 'Nuit Blanche', text: `Rejoins ma partie de Nuit Blanche ! Code du salon : ${code}`, url: lien });
     return 'partage';
   } catch (e) {
     return (e as Error)?.name === 'AbortError' ? 'annule' : 'impossible';

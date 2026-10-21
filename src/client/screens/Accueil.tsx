@@ -16,6 +16,34 @@ import { installer, useInstallation } from '../installation';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
 import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
+import { lancerPartieHorsLigne, partieHorsLigneEnCours, reprendrePartieHorsLigne } from '../horsLigne';
+
+/** Ciel de nuit derrière le logo de l'accueil : étoiles fixes, quelques-unes scintillent. */
+function CielEtoile() {
+  const etoiles = Array.from({ length: 46 }, (_, i) => {
+    const h = (k: number) => {
+      const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    return { x: h(1) * 100, y: Math.pow(h(2), 1.4) * 100, r: 0.5 + h(3) * 1.2, o: 0.35 + h(4) * 0.55, scintille: h(5) < 0.3, delai: h(6) * 6 };
+  });
+  return (
+    <svg className="ciel-etoile" aria-hidden="true">
+      {etoiles.map((e, i) => (
+        <circle
+          key={i}
+          cx={`${e.x}%`}
+          cy={`${e.y}%`}
+          r={e.r}
+          fill="#f6ecd4"
+          opacity={e.o}
+          className={e.scintille ? 'scintille' : undefined}
+          style={e.scintille ? { animationDelay: `${e.delai}s` } : undefined}
+        />
+      ))}
+    </svg>
+  );
+}
 
 type Mode = 'menu' | 'creer' | 'rejoindre';
 
@@ -73,7 +101,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     e.target.value = '';
     if (!f) return;
     setErreurFichier(null);
-    if (f.size > 4_000_000) return setErreurFichier("Ce fichier n'est pas une sauvegarde de Dossier Secret.");
+    if (f.size > 4_000_000) return setErreurFichier("Ce fichier n'est pas une sauvegarde de Nuit Blanche.");
     setLecture(true);
     const r = await connexion.reprendreFichier(await f.text());
     setLecture(false);
@@ -84,6 +112,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     lancerPartieGuidee((compte?.nom ?? prefs.pseudo).trim(), role);
   };
   const derniere = connexion.derniereSession();
+  const horsLigne = partieHorsLigneEnCours();
 
   /** Ouvre un formulaire en reprenant le pseudo par défaut (il a pu changer dans les Paramètres). */
   const ouvrir = (m: Mode) => {
@@ -136,35 +165,117 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           </button>
         </div>
       )}
+      {/* Ciel de nuit étoilé, derrière le logo */}
+      <CielEtoile />
       <div className="logo">
-        <Sceau taille={104} />
-        <h1>Dossier Secret</h1>
-        <div className="sous-titre">Enquête et bluff entre amis</div>
+        <Sceau taille={mode === 'menu' ? 132 : 96} />
+        <h1>Nuit Blanche</h1>
+        <div className="sous-titre">Une nuit pour démasquer le coupable</div>
       </div>
 
       {mode === 'menu' && (
-        <>
-          <p style={{ maxWidth: 560, color: 'var(--ivoire-doux)' }}>
-            Un crime, six suspects, un huis clos coupé du monde. Menez l'enquête entre amis… mais méfiez-vous : l'un de vous protège le meurtrier.
-          </p>
-          {!guidesFinis && (
-            <section className="carte-apprendre" aria-label="Apprendre à jouer">
-              <span className="carte-mode-icone">
-                <Icone nom="livre" taille={28} />
-              </span>
-              <span className="carte-apprendre-texte">
-                <strong>{guidesTermines.length ? 'Encore un rôle à découvrir' : 'Nouveau ? Apprenez à jouer en 5 minutes'}</strong>
-                <span>
-                  {guidesTermines.length
-                    ? `Faites la partie guidée ${guidesTermines.includes('enqueteur') ? 'du complice' : "de l'enquêteur"} pour connaître tous les secrets du jeu.`
-                    : 'Une vraie partie contre deux bots, avec un guide qui vous montre où toucher à chaque étape.'}
+        <div className="accueil-actions menu-nuit">
+          {derniere && (
+            <section className="carte-mode carte-en-cours" aria-label="Partie en cours">
+              <div className="carte-mode-entete">
+                <span className="carte-mode-icone">
+                  <Icone nom="dossier" taille={30} />
                 </span>
-              </span>
-              <button className="btn btn-or" onClick={() => setChoixGuide(true)}>
-                Apprendre à jouer
+                <div>
+                  <h2>Partie en cours</h2>
+                  <p>{texteResume(resume, derniere.code)}</p>
+                </div>
+              </div>
+              <button className="btn btn-or" onClick={() => void connexion.reprendre(derniere)}>
+                Reprendre ma partie
               </button>
             </section>
           )}
+
+          {horsLigne && (
+            <section className="carte-mode carte-en-cours" aria-label="Partie hors ligne en cours">
+              <div className="carte-mode-entete">
+                <span className="carte-mode-icone">
+                  <Icone nom="robot" taille={30} />
+                </span>
+                <div>
+                  <h2>Partie hors ligne en cours</h2>
+                  <p>
+                    {AFFAIRES[horsLigne.affaire].court} · Manche {horsLigne.manche} / {horsLigne.manchesMax} · {horsLigne.joueurs} joueurs · {depuis(horsLigne.t)}
+                  </p>
+                </div>
+              </div>
+              <button className="btn btn-or" onClick={() => reprendrePartieHorsLigne()}>
+                Reprendre ma partie
+              </button>
+            </section>
+          )}
+
+          <section className="choix-menu">
+            <button
+              className={`bouton-menu ${derniere || horsLigne ? 'bouton-menu-contour' : 'bouton-menu-or'}`}
+              aria-expanded={ouverte === 'multi'}
+              aria-controls="zone-multi"
+              onClick={() => basculer('multi')}
+            >
+              <span className="bouton-menu-titre">Jouer entre amis</span>
+              <span className="bouton-menu-detail">De 3 à 6 joueurs, chacun sur son téléphone</span>
+            </button>
+            {ouverte === 'multi' && (
+              <div id="zone-multi" className="choix-menu-contenu">
+                <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
+                  Créer une partie
+                </button>
+                <button className="btn" onClick={() => ouvrir('rejoindre')}>
+                  Rejoindre une partie
+                </button>
+                {comptes ? (
+                  <button className="btn" onClick={() => setCharger('multi')}>
+                    Charger une partie
+                  </button>
+                ) : (
+                  <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
+                    {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
+                  </button>
+                )}
+              </div>
+            )}
+            <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
+            {erreurFichier && (
+              <p className="erreur petit" role="alert" style={{ margin: 0 }}>
+                {erreurFichier}
+              </p>
+            )}
+          </section>
+
+          <section className="choix-menu">
+            <button className="bouton-menu bouton-menu-contour" aria-expanded={ouverte === 'solo'} aria-controls="zone-solo" onClick={() => basculer('solo')}>
+              <span className="bouton-menu-titre">Seul contre des bots</span>
+              <span className="bouton-menu-detail">Contre 2 à 5 bots, même sans internet</span>
+            </button>
+            {ouverte === 'solo' && (
+              <div id="zone-solo" className="choix-menu-contenu">
+                <FormulaireSolo prefs={prefs} majPrefs={majPrefs} />
+                {comptes && (
+                  <button className="btn btn-bloc" onClick={() => setCharger('solo')}>
+                    Charger une partie solo
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+
+          {!guidesFinis && (
+            <button className="bouton-menu bouton-menu-discret" onClick={() => setChoixGuide(true)}>
+              <span className="bouton-menu-titre">Apprendre à jouer</span>
+              <span className="bouton-menu-detail">
+                {guidesTermines.length
+                  ? `Encore un rôle à découvrir : ${guidesTermines.includes('enqueteur') ? 'le complice' : "l'enquêteur"}`
+                  : 'Une partie guidée de 5 minutes'}
+              </span>
+            </button>
+          )}
+
           <details className="affaires-deroulant">
             <summary>
               Les histoires <span className="muet">({AFFAIRES_IDS.length})</span>
@@ -187,101 +298,17 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             </ul>
           </details>
 
-          <div className="accueil-actions">
-            {derniere && (
-              <section className="carte-mode carte-en-cours" aria-label="Partie en cours">
-                <div className="carte-mode-entete">
-                  <span className="carte-mode-icone">
-                    <Icone nom="dossier" taille={30} />
-                  </span>
-                  <div>
-                    <h2>Partie en cours</h2>
-                    <p>{texteResume(resume, derniere.code)}</p>
-                  </div>
-                </div>
-                <button className="btn btn-or" onClick={() => void connexion.reprendre(derniere)}>
-                  Reprendre ma partie
-                </button>
-              </section>
-            )}
-
-            <section className={`carte-mode${ouverte === 'multi' ? ' ouverte' : ''}`}>
-              <button className="carte-mode-entete" aria-expanded={ouverte === 'multi'} aria-controls="zone-multi" onClick={() => basculer('multi')}>
-                <span className="carte-mode-icone">
-                  <Icone nom="joueurs" taille={30} />
-                </span>
-                <span className="carte-mode-texte">
-                  <span className="carte-mode-titre">Multijoueur</span>
-                  <span>De 3 à 6 joueurs, chacun sur son téléphone : créez un salon et envoyez le code à vos amis.</span>
-                </span>
-                <span className="carte-mode-chevron" aria-hidden="true">
-                  ▾
-                </span>
+          {installation !== 'indisponible' && (
+            <div className="ligne accueil-secondaire">
+              <button className="btn btn-discret" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
+                Installer le jeu sur cet appareil
               </button>
-              {ouverte === 'multi' && (
-                <div id="zone-multi" className="carte-mode-contenu">
-                  <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
-                    Créer une partie
-                  </button>
-                  <button className="btn" onClick={() => ouvrir('rejoindre')}>
-                    Rejoindre une partie
-                  </button>
-                  {comptes ? (
-                    <button className="btn" onClick={() => setCharger('multi')}>
-                      Charger une partie
-                    </button>
-                  ) : (
-                    <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
-                      {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
-                    </button>
-                  )}
-                </div>
-              )}
-              <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
-              {erreurFichier && (
-                <p className="erreur petit" role="alert" style={{ margin: 0 }}>
-                  {erreurFichier}
-                </p>
-              )}
-            </section>
-
-            <section className={`carte-mode${ouverte === 'solo' ? ' ouverte' : ''}`}>
-              <button className="carte-mode-entete" aria-expanded={ouverte === 'solo'} aria-controls="zone-solo" onClick={() => basculer('solo')}>
-                <span className="carte-mode-icone">
-                  <Icone nom="joueur" taille={30} />
-                </span>
-                <span className="carte-mode-texte">
-                  <span className="carte-mode-titre">Seul contre des bots</span>
-                  <span>Une enquête quand vous voulez, contre 2 à 5 bots. L'un de vous joue double jeu : peut-être un bot… peut-être vous.</span>
-                </span>
-                <span className="carte-mode-chevron" aria-hidden="true">
-                  ▾
-                </span>
-              </button>
-              {ouverte === 'solo' && (
-                <div id="zone-solo" className="carte-mode-contenu">
-                  <FormulaireSolo prefs={prefs} majPrefs={majPrefs} />
-                  {comptes && (
-                    <button className="btn btn-bloc" onClick={() => setCharger('solo')}>
-                      Charger une partie solo
-                    </button>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {installation !== 'indisponible' && (
-              <div className="ligne accueil-secondaire">
-                <button className="btn btn-discret" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
-                  Installer le jeu sur cet appareil
-                </button>
-              </div>
-            )}
-            <p className="muet petit" style={{ margin: 0 }}>
-              15 à 30 minutes · navigateur, tablette ou smartphone
-            </p>
-          </div>
-        </>
+            </div>
+          )}
+          <p className="muet petit" style={{ margin: 0 }}>
+            Un crime, six suspects, un huis clos… et un complice parmi vous · 15 à 30 minutes
+          </p>
+        </div>
       )}
 
       {mode !== 'menu' && (
@@ -437,7 +464,7 @@ function NomDuCompte({ nom }: { nom: string }) {
 
 /** Partie seul contre des bots : quelques réglages, puis l'enquête commence aussitôt. */
 function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
-  const { compte } = useConnexion();
+  const { compte, statut } = useConnexion();
   const [pseudo, setPseudo] = useState(prefs.pseudo);
   const [bots, setBots] = useState(3);
   const [duree, setDuree] = useState<number | null>(null);
@@ -453,6 +480,12 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     setEnvoi(true);
     setErreur(null);
     if (!compte) majPrefs({ pseudo: pseudo.trim() });
+    if (statut === 'deconnecte') {
+      // Pas de connexion : la partie se joue entièrement sur cet appareil.
+      setEnvoi(false);
+      lancerPartieHorsLigne({ nom: nom.trim(), bots, dureeTourS: duree, modeComplice: mode, affaire, historiqueCartes: cartes });
+      return;
+    }
     const r = await connexion.solo(nom, bots, duree, mode, affaire, cartes);
     setEnvoi(false);
     if (!r.ok) setErreur(r.erreur);
@@ -520,8 +553,13 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             {erreur}
           </div>
         )}
+        {statut === 'deconnecte' && (
+          <p className="petit muet" style={{ margin: '4px 0 0' }}>
+            Pas de connexion : la partie se jouera hors ligne, sur cet appareil.
+          </p>
+        )}
         <button type="submit" className="btn btn-or btn-bloc" disabled={envoi} style={{ marginTop: 8 }}>
-          {envoi ? 'Lancement…' : "Lancer l'enquête"}
+          {envoi ? 'Lancement…' : statut === 'deconnecte' ? "Lancer l'enquête hors ligne" : "Lancer l'enquête"}
         </button>
       </form>
   );

@@ -2,7 +2,7 @@
   "name": "dossier-secret",
   "version": "0.1.0",
   "private": true,
-  "description": "Dossier Secret — jeu multijoueur en ligne de déduction et de bluff",
+  "description": "Nuit Blanche — jeu multijoueur en ligne de déduction et de bluff",
   "type": "module",
   "engines": {
     "node": ">=20"

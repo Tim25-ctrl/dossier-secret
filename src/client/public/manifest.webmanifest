@@ -1,7 +1,7 @@
 {
-  "name": "Dossier Secret",
-  "short_name": "Dossier Secret",
-  "description": "Jeu multijoueur de déduction et de bluff dans un manoir isolé par la tempête.",
+  "name": "Nuit Blanche",
+  "short_name": "Nuit Blanche",
+  "description": "Jeu de déduction et de bluff : une nuit, un crime, un huis clos… et un complice parmi les joueurs.",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",

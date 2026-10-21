@@ -1,4 +1,6 @@
-# Dossier Secret
+# Nuit Blanche
+
+> Anciennement « Dossier Secret » (renommé le 21/10/2026). Les identifiants techniques gardent l'ancien nom pour ne rien casser : dépôt `dossier-secret`, adresse dossier-secret.onrender.com, clés de stockage `dossier-secret:…`, variable `CLE_SAUVEGARDE`.
 
 **Jeu multijoueur en ligne de déduction, d'enquête et de bluff — de 3 à 6 joueurs, dans le navigateur.**
 
@@ -181,6 +183,7 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 - Comptes joueurs facultatifs (pseudonyme + mot de passe, sans e-mail ; code de secours pour un mot de passe oublié). Sans compte on joue normalement, mais on ne sauvegarde pas. Avec un compte : emplacements de sauvegarde comme dans un jeu vidéo (3 solo + 3 multijoueur ; en multijoueur, seul l'hôte enregistre) et profil (grade, succès) retrouvés sur tous ses appareils.
 - Retour sur un autre appareil : pendant une partie, « Rejoindre » avec le code et le même pseudonyme demande la place de ce joueur ; un joueur présent l'accepte ou la refuse. Le code du salon est rappelé dans la fenêtre « Partie en pause ».
 - Application installable (écran d'accueil du téléphone, plein écran), invitation par partage natif ou QR code, frise des ruses du complice en fin de partie.
+- **Partie seul contre des bots sans internet** : après une première ouverture en ligne, le jeu est gardé sur l'appareil (service worker `src/client/public/sw.js` : pages en « réseau d'abord », fichiers du jeu et polices latines en cache, nettoyés à chaque nouvelle version). Sans connexion, « Seul contre des bots » lance la partie sur l'appareil (`src/client/horsLigne.ts` : même moteur et mêmes bots que le serveur) ; elle est gardée à chaque coup et se reprend depuis l'accueil. Le profil du compte est renvoyé au serveur à la connexion suivante. Les emplacements de sauvegarde et le multijoueur demandent internet.
 - Interface : accueil, tutoriel de premier lancement, règles, paramètres (taille du texte, animations), lobby, écran de jeu, interrogation, pouvoirs du complice (avec infobulles), carnet de déduction, archives, historique, discussion, écran de fin (solution, récit, indices décisifs, complice, pouvoirs utilisés, mains de chacun), « Rejouer », durée de tour réglable par l'hôte (1 à 10 min ou sans limite), bouton « Quitter » avec confirmation (le dernier joueur présent ferme le salon).
 - Responsive (testé à 375 px de large sans défilement horizontal), zones privées distinguées par icône, texte et style (pas seulement par la couleur).
 - Mode « Complice rusé » : Mensonge, Carte empruntée, Hypothèse falsifiée, Dossier trafiqué, empreintes et dénonciation (voir docs/EQUILIBRAGE.md).

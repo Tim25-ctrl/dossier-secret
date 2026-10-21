@@ -25,6 +25,9 @@ import {
   CLE_SESSION_COMPTE,
   definirProfilCompte,
   effacerProfilInvite,
+  lireProfil,
+  marquerProfilAEnvoyer,
+  profilAEnvoyer,
   normaliserProfil,
   profilInvite,
   surChangementProfilCompte,
@@ -130,6 +133,8 @@ export interface Instantane {
   reprise: boolean;
   /** Partie guidée en cours : la partie tourne sur cet appareil, sans serveur. */
   tutoriel: boolean;
+  /** Partie seul contre des bots jouée hors ligne, sur cet appareil. */
+  horsLigne: boolean;
   /** Demande de reprise d'une place (autre appareil) en attente d'un joueur présent, ou refusée. */
   demandePlace: (AttentePlace & { refus?: string }) | null;
   /** Le serveur propose les comptes et les emplacements de sauvegarde (null : pas encore connu). */
@@ -226,6 +231,7 @@ class Connexion {
     expulsion: null,
     reprise: false,
     tutoriel: false,
+    horsLigne: false,
     demandePlace: null,
     comptes: null,
     compte: typeof localStorage !== 'undefined' && lireCompte() ? { nom: lireCompte()!.nom } : null,
@@ -272,7 +278,8 @@ class Connexion {
     this.socket.on('version', verifierVersion);
     this.socket.on('capacites', (c) => this.maj({ comptes: c.comptes }));
     // Profil du compte : chaque changement (partie terminée, remise à zéro) part au serveur.
-    surChangementProfilCompte((p) => void this.envoyer('compte:profil', { profil: p }));
+    // Sans connexion (partie hors ligne), il partira à la prochaine connexion.
+    surChangementProfilCompte((p) => void this.envoyer('compte:profil', { profil: p }).then((r) => marquerProfilAEnvoyer(!r.ok)));
     // Copie chiffrée du salon, gardée sur l'appareil : elle permet de le reprendre si le serveur redémarre.
     // Réponse à une demande de place : la session de ce joueur (nouveau jeton), ou un refus.
     this.socket.on('place', (p) => {
@@ -313,7 +320,7 @@ class Connexion {
     const url = URL.createObjectURL(new Blob([JSON.stringify(fichier)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Dossier-Secret-${s.code}.json`;
+    a.download = `Nuit-Blanche-${s.code}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -327,10 +334,10 @@ class Connexion {
     try {
       f = JSON.parse(texte) as FichierSauvegarde;
     } catch {
-      return { ok: false, erreur: "Ce fichier n'est pas une sauvegarde de Dossier Secret." };
+      return { ok: false, erreur: "Ce fichier n'est pas une sauvegarde de Nuit Blanche." };
     }
     if (f?.format !== 'dossier-secret' || typeof f.sauvegarde !== 'string' || typeof f.session?.code !== 'string' || typeof f.session?.jeton !== 'string')
-      return { ok: false, erreur: "Ce fichier n'est pas une sauvegarde de Dossier Secret." };
+      return { ok: false, erreur: "Ce fichier n'est pas une sauvegarde de Nuit Blanche." };
     const r = await this.restaurer(f.sauvegarde);
     if (!r.ok) return r;
     ecrireSauvegarde({ code: f.session.code, sauvegarde: f.sauvegarde, t: f.t });
@@ -350,7 +357,8 @@ class Connexion {
   }
 
   private envoyer<T extends object>(ev: keyof EvenementsClient, payload: unknown): Promise<Reponse<T>> {
-    if (this.local) return Promise.resolve(this.local.envoyer(ev, payload) as Reponse<T>);
+    // Partie locale : le jeu est traité sur l'appareil ; le compte, lui, reste sur le serveur.
+    if (this.local && !ev.startsWith('compte:')) return Promise.resolve(this.local.envoyer(ev, payload) as Reponse<T>);
     return new Promise((resolve) => {
       if (!this.socket.connected) {
         resolve({ ok: false, erreur: 'Connexion au serveur perdue. Nouvelle tentative en cours…' });
@@ -430,11 +438,15 @@ class Connexion {
     return r;
   }
 
-  /** Branche une partie locale (partie guidée) : rien n'est envoyé au serveur ni mémorisé. */
-  demarrerLocal(moteur: MoteurLocal, etat: EtatClient) {
+  /**
+   * Branche une partie locale (partie guidée, ou partie hors ligne contre des bots) : rien n'est
+   * envoyé au serveur, le moteur local traite tout.
+   */
+  demarrerLocal(moteur: MoteurLocal, etat: EtatClient, options: { tutoriel?: boolean } = {}) {
+    const tutoriel = options.tutoriel ?? true;
     this.local?.arreter();
     this.local = moteur;
-    this.maj({ session: { code: etat.salon.code, joueurId: etat.moi, jeton: '' }, etat, decalage: 0, expulsion: null, tutoriel: true });
+    this.maj({ session: { code: etat.salon.code, joueurId: etat.moi, jeton: '' }, etat, decalage: 0, expulsion: null, tutoriel, horsLigne: !tutoriel });
   }
 
   majLocale(etat: EtatClient) {
@@ -444,7 +456,7 @@ class Connexion {
   arreterLocal() {
     this.local?.arreter();
     this.local = null;
-    this.maj({ session: null, etat: null, tutoriel: false });
+    this.maj({ session: null, etat: null, tutoriel: false, horsLigne: false });
   }
 
   async quitter() {
@@ -476,12 +488,18 @@ class Connexion {
     const r = await this.envoyer<{ compte: CompteVue | null }>('compte:reprendre', { jeton: c.jeton });
     if (!r.ok) return; // serveur momentanément sans base : on garde le compte pour la prochaine fois
     if (!r.compte) return this.oublierCompte();
-    definirProfilCompte(normaliserProfil(r.compte.profil));
+    if (profilAEnvoyer()) {
+      // Des parties ont été jouées hors ligne : la copie de l'appareil est la plus récente.
+      const local = lireProfil();
+      const envoi = await this.envoyer('compte:profil', { profil: local });
+      marquerProfilAEnvoyer(!envoi.ok);
+    } else definirProfilCompte(normaliserProfil(r.compte.profil));
     this.maj({ compte: { nom: r.compte.nom } });
   }
 
   private ouvrirCompte(r: ConnexionCompte, profil: Profil) {
     ecrireCompte({ nom: r.compte.nom, jeton: r.jeton });
+    marquerProfilAEnvoyer(false);
     definirProfilCompte(profil);
     // Les sauvegardes de l'ancien code joueur ont été reprises par le compte.
     try {
@@ -493,6 +511,7 @@ class Connexion {
   }
 
   private oublierCompte() {
+    marquerProfilAEnvoyer(false);
     ecrireCompte(null);
     definirProfilCompte(null);
     this.maj({ compte: null });

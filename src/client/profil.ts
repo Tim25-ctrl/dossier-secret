@@ -32,6 +32,24 @@ const surCompte = () => {
   }
 };
 
+/** Le profil du compte a changé sans pouvoir partir au serveur (partie hors ligne) : à renvoyer. */
+const CLE_A_ENVOYER = 'dossier-secret:profil-a-envoyer';
+export function profilAEnvoyer(): boolean {
+  try {
+    return localStorage.getItem(CLE_A_ENVOYER) === '1';
+  } catch {
+    return false;
+  }
+}
+export function marquerProfilAEnvoyer(oui: boolean) {
+  try {
+    if (oui) localStorage.setItem(CLE_A_ENVOYER, '1');
+    else localStorage.removeItem(CLE_A_ENVOYER);
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
 /** Prévenu à chaque changement du profil du compte (pour l'envoyer au serveur). */
 let auChangementCompte: ((p: Profil) => void) | null = null;
 export function surChangementProfilCompte(fn: (p: Profil) => void) {

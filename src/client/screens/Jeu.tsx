@@ -62,9 +62,9 @@ export function Jeu({
   useEffect(() => {
     if (monTour && !tourPrecedent.current) afficher("C'est votre tour !");
     tourPrecedent.current = monTour;
-    document.title = monTour || doitRepondre ? '● À vous — Dossier Secret' : 'Dossier Secret';
+    document.title = monTour || doitRepondre ? '● À vous — Nuit Blanche' : 'Nuit Blanche';
     return () => {
-      document.title = 'Dossier Secret';
+      document.title = 'Nuit Blanche';
     };
   }, [monTour, doitRepondre]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -143,7 +143,7 @@ export function Jeu({
       <div className="nuit" aria-hidden="true" style={{ '--obscurite': nuit.obscurite, '--aube': nuit.aube } as CSSProperties} />
       <AmbianceEnPartie type={ambianceDe(vue.affaire)} attenuation={nuit.aube * 0.6} />
       <header className="barre-jeu">
-        <span className="logo-jeu" title="Dossier Secret">
+        <span className="logo-jeu" title="Nuit Blanche">
           <Sceau taille={36} />
         </span>
         <div className="indicateurs">

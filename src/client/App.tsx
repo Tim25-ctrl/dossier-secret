@@ -13,10 +13,13 @@ export function App() {
   const c = useConnexion();
   const [prefs, majPrefs] = usePreferences();
 
+  // Sans connexion : en partie, on prévient ; à l'accueil, on rappelle que le solo marche hors ligne.
   const bandeau =
-    c.statut === 'deconnecte' ? (
+    c.statut === 'deconnecte' && !c.horsLigne ? (
       <div className="connexion-perdue" role="alert">
-        Connexion au serveur perdue — reconnexion automatique en cours…
+        {c.session
+          ? 'Connexion au serveur perdue — reconnexion automatique en cours…'
+          : 'Pas de connexion internet : vous pouvez jouer seul contre des bots, hors ligne.'}
       </div>
     ) : null;
 

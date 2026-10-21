@@ -1,4 +1,4 @@
-// Machine à états d'une partie de Dossier Secret.
+// Machine à états d'une partie de Nuit Blanche.
 //
 // Le moteur est PUR : aucune entrée/sortie, aucun minuteur. Le temps est passé
 // en paramètre (`now`, en millisecondes) et l'aléa est injecté. Le serveur

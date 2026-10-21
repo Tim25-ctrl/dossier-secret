@@ -700,7 +700,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
 
   await new Promise<void>((resolve) => http.listen(o.port ?? 0, resolve));
   const port = (http.address() as AddressInfo).port;
-  log(`Dossier Secret écoute sur le port ${port}.`);
+  log(`Nuit Blanche écoute sur le port ${port}.`);
 
   return {
     port,

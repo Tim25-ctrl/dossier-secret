@@ -1,4 +1,4 @@
-/* Dossier Secret — direction artistique : manoir, archives, nuit d'orage. */
+/* Nuit Blanche — direction artistique : huis clos, archives, nuit d'enquête. */
 
 :root {
   --nuit: #0b1020;
@@ -3593,4 +3593,114 @@ button.carte:hover:not(:disabled) {
     width: 22px;
     background-size: 22px 34px;
   }
+}
+
+/* ---------- Accueil « Nuit Blanche » : ciel étoilé, œil qui veille, grands boutons ---------- */
+.ciel-etoile {
+  position: absolute;
+  inset: 0 0 auto 0;
+  width: 100%;
+  height: 380px;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+.ciel-etoile .scintille {
+  animation: scintille 4s ease-in-out infinite;
+}
+@keyframes scintille {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+:root[data-animations='reduites'] .ciel-etoile .scintille {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ciel-etoile .scintille {
+    animation: none;
+  }
+}
+.accueil .logo {
+  gap: 4px;
+}
+.accueil .logo .sceau {
+  margin-bottom: -10px;
+}
+.menu-nuit {
+  gap: 12px;
+}
+.choix-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bouton-menu {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+}
+.bouton-menu:active {
+  transform: scale(0.985);
+}
+.bouton-menu-titre {
+  font-family: var(--titre);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.bouton-menu-detail {
+  font-size: 0.86rem;
+  opacity: 0.85;
+}
+.bouton-menu-or {
+  border: 1px solid #e2c486;
+  background: linear-gradient(180deg, #e6c98c, #c9a45c);
+  color: #2a1f0a;
+  box-shadow: 0 6px 20px rgba(201, 164, 92, 0.18);
+}
+.bouton-menu-or:hover {
+  background: linear-gradient(180deg, #efd6a0, #d2ae66);
+}
+.bouton-menu-contour {
+  border: 1px solid var(--or);
+  background: rgba(10, 15, 29, 0.6);
+  color: var(--or-clair);
+}
+.bouton-menu-contour:hover,
+.bouton-menu-contour[aria-expanded='true'] {
+  background: rgba(201, 164, 92, 0.1);
+}
+.bouton-menu-discret {
+  border: 1px solid var(--ardoise-clair);
+  background: rgba(10, 15, 29, 0.45);
+  color: var(--ivoire);
+}
+.bouton-menu-discret:hover {
+  border-color: var(--or-sombre);
+}
+.choix-menu-contenu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ardoise);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(27, 35, 64, 0.92), rgba(15, 20, 38, 0.92));
+  text-align: left;
 }

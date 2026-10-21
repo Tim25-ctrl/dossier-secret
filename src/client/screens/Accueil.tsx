@@ -237,7 +237,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
                 </span>
                 <span className="carte-mode-texte">
                   <span className="carte-mode-titre">Seul contre des bots</span>
-                  <span>Pas d'amis sous la main ? Enquêtez face à des détectives automatiques… dont l'un protège peut-être le meurtrier.</span>
+                  <span>Une enquête quand vous voulez, contre 2 à 5 bots. L'un de vous joue double jeu : peut-être un bot… peut-être vous.</span>
                 </span>
                 <span className="carte-mode-chevron" aria-hidden="true">
                   ▾

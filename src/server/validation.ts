@@ -48,6 +48,13 @@ export const schemaReprendre = z.object({ code: z.string().max(20), jeton: z.str
 export const schemaMessage = z.object({ texte: z.string().max(1000) });
 export const schemaRetirer = z.object({ joueurId: idJoueur });
 export const schemaRepondrePlace = z.object({ demandeId: z.string().min(1).max(40), accepter: z.boolean() });
+export const schemaEmplacement = z
+  .object({
+    codeJoueur: z.string().max(40),
+    numero: z.number().int().optional(),
+    type: z.enum(['solo', 'multi']).optional(),
+  })
+  .strict();
 export const schemaReglages = z
   .object({
     dureeTourS: z.number().int().min(30).max(3600).nullable().optional(),

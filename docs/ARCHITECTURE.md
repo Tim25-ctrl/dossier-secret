@@ -103,6 +103,15 @@ L'offre gratuite de l'hébergeur efface la mémoire et le disque du serveur à c
 - Si, en revenant, le joueur apprend que le salon n'existe plus, son navigateur envoie la copie à `POST /api/restaurer`. Le serveur la déchiffre, vérifie son authenticité (une copie modifiée, trop ancienne — 7 jours — ou chiffrée avec une autre clé est refusée), recrée le salon s'il n'existe pas déjà, puis le joueur reprend sa place avec son jeton habituel. Les autres joueurs le rejoignent de la même façon.
 - Une partie rechargée ainsi ouvre une **salle d'attente** (`salon.reprise`) : code du salon, partage, liste des joueurs revenus ou attendus, discussion, remplacement d'un absent par un bot. Elle se ferme d'elle-même quand plus personne ne manque (la partie n'est plus en pause).
 
+## Emplacements de sauvegarde et base de données
+
+- `src/server/emplacements.ts` : 3 emplacements solo + 3 multijoueur par **code joueur** (12 caractères tirés au hasard par l'appareil, gardés dans son localStorage). Le serveur ne stocke que l'empreinte SHA-256 du code.
+- Enregistrer (`emplacements:enregistrer`) copie le salon entier tel quel (`GestionnaireSalons.instantane`) : en solo le joueur, en multijoueur l'hôte seulement. Un salon est « solo » s'il a été créé par « Seul contre des bots » (`Salon.solo`).
+- Charger (`emplacements:charger`, `GestionnaireSalons.chargerSauvegarde`) : nouveau jeton pour l'auteur, qui devient l'hôte ; même code de salon si libre (les autres retrouvent leur place avec leur ancienne session ou « Rejoindre » + même pseudonyme), nouveau code s'il est pris par une autre partie, refus si la même partie est encore jouée par quelqu'un.
+- Dépôts : `DepotSql` (PostgreSQL via `DATABASE_URL`, par exemple Neon), `DepotFichier` (`data/emplacements.json`, en local seulement : désactivé sur Render, dont le disque est effacé), `DepotMemoire` (tests). Les tests utilisent PGlite, un vrai PostgreSQL dans le processus.
+- Avec `DATABASE_URL`, l'état de tous les salons est aussi écrit dans la table `etat_serveur` (au plus toutes les 3 s, et à l'arrêt du serveur) puis rechargé au démarrage : une mise à jour ou une mise en veille ne coupe plus les parties. Les copies chiffrées sur les appareils restent en secours.
+- Le serveur annonce `capacites: { emplacements }` à la connexion : sans dépôt, le client garde l'ancien bouton « Reprendre une sauvegarde » (fichier).
+
 ## Retour d'un joueur sur un autre appareil
 
 Un joueur qui n'a plus sa session (autre appareil, données du navigateur effacées) utilise « Rejoindre une partie » avec le code et **le même pseudonyme**. Pendant une partie, le serveur n'y voit pas une arrivée mais une **demande de place** : elle ne vise qu'une place libre (joueur absent ou remplacé par un bot) et doit être **acceptée par un joueur présent**, car un pseudonyme n'est pas une preuve d'identité. En cas d'accord, cette place reçoit un nouveau jeton (l'ancien ne fonctionne plus) et le joueur la reprend comme une reconnexion. Une demande disparaît si le demandeur ferme sa page, si le joueur revient par lui-même, si la partie se termine ou au bout de 10 minutes. Les demandes ne sont jamais sauvegardées.

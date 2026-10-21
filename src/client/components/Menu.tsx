@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EtatClient } from '../../shared/protocole';
-import { connexion } from '../connexion';
+import { connexion, useConnexion } from '../connexion';
 import type { Preferences } from '../preferences';
 import { ModaleParametres } from '../screens/Accueil';
 import { ModaleRegles } from '../screens/Regles';
 import { Modale } from './Commun';
+import { EnregistrerPartie } from './Emplacements';
 import { useQuitter } from './Quitter';
 
 /**
@@ -85,14 +86,40 @@ export function MenuPrincipal({ etat, prefs, majPrefs }: { etat: EtatClient; pre
       </div>
       {(fenetre === 'regles' || fenetre === 'dossier') && <ModaleRegles section={fenetre} affaire={etat.partie?.affaire ?? etat.salon.reglages.affaire} onFermer={() => setFenetre(null)} />}
       {fenetre === 'parametres' && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setFenetre(null)} />}
-      {fenetre === 'sauvegarde' && <ModaleSauvegarde onFermer={() => setFenetre(null)} />}
+      {fenetre === 'sauvegarde' && <ModaleSauvegarde etat={etat} onFermer={() => setFenetre(null)} />}
       {quitter.confirmation}
     </>
   );
 }
 
-/** Explique la sauvegarde automatique et propose d'en télécharger une copie. */
-function ModaleSauvegarde({ onFermer }: { onFermer: () => void }) {
+/**
+ * Emplacements de sauvegarde (si le serveur les propose), puis la sauvegarde automatique
+ * et le fichier téléchargeable.
+ */
+function ModaleSauvegarde({ etat, onFermer }: { etat: EtatClient; onFermer: () => void }) {
+  const { emplacements } = useConnexion();
+  if (!emplacements) return <SauvegardeAppareil onFermer={onFermer} />;
+  return (
+    <Modale
+      titre="Sauvegarder la partie"
+      onFermer={onFermer}
+      pied={
+        <button className="btn" onClick={onFermer}>
+          Fermer
+        </button>
+      }
+    >
+      <EnregistrerPartie etat={etat} />
+      <details className="autres-sauvegardes">
+        <summary>Sauvegarde automatique et fichier</summary>
+        <SauvegardeAppareil />
+      </details>
+    </Modale>
+  );
+}
+
+/** Explique la sauvegarde automatique et propose d'en télécharger une copie (dans sa propre fenêtre si `onFermer`). */
+function SauvegardeAppareil({ onFermer }: { onFermer?: () => void }) {
   const [fait, setFait] = useState<boolean | null>(null);
   const [, setTic] = useState(0);
   const prete = !!connexion.sauvegardeLocale();
@@ -102,21 +129,13 @@ function ModaleSauvegarde({ onFermer }: { onFermer: () => void }) {
     const t = setInterval(() => setTic((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, [prete]);
-  return (
-    <Modale
-      titre="Sauvegarder la partie"
-      onFermer={onFermer}
-      pied={
-        <>
-          <button className="btn btn-discret" onClick={onFermer}>
-            Fermer
-          </button>
-          <button className="btn btn-or" disabled={!prete} onClick={() => setFait(connexion.telechargerSauvegarde())}>
-            💾 Télécharger la sauvegarde
-          </button>
-        </>
-      }
-    >
+  const telecharger = (
+    <button className={`btn ${onFermer ? 'btn-or' : 'btn-petit'}`} disabled={!prete} onClick={() => setFait(connexion.telechargerSauvegarde())}>
+      💾 Télécharger la sauvegarde
+    </button>
+  );
+  const contenu = (
+    <>
       <p>
         La partie est <strong>sauvegardée automatiquement sur votre appareil</strong>. Si le serveur redémarre, elle reprend toute seule dès qu'un joueur
         revient.
@@ -131,6 +150,29 @@ function ModaleSauvegarde({ onFermer }: { onFermer: () => void }) {
       {!prete && <p className="petit">La première sauvegarde arrive dans quelques secondes…</p>}
       {fait === true && <p className="petit">✅ Fichier téléchargé.</p>}
       {fait === false && <p className="petit erreur">Téléchargement impossible pour le moment.</p>}
+    </>
+  );
+  if (!onFermer)
+    return (
+      <>
+        {contenu}
+        {telecharger}
+      </>
+    );
+  return (
+    <Modale
+      titre="Sauvegarder la partie"
+      onFermer={onFermer}
+      pied={
+        <>
+          <button className="btn btn-discret" onClick={onFermer}>
+            Fermer
+          </button>
+          {telecharger}
+        </>
+      }
+    >
+      {contenu}
     </Modale>
   );
 }

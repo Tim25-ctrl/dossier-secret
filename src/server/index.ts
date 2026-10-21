@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DepotFichier, DepotSql, type DepotEmplacements } from './emplacements';
 import { demarrerServeur } from './serveur';
 
 // Chargement minimal d'un fichier .env (sans dépendance supplémentaire).
@@ -24,12 +25,31 @@ const secondes = (nom: string, defaut: number) => {
 
 const dossierDonnees = env.DATA_DIR === undefined ? path.join(racine, 'data') : env.DATA_DIR.trim() === '' ? null : path.resolve(racine, env.DATA_DIR);
 
-await demarrerServeur({
+const journal = (...a: unknown[]) => console.log(new Date().toISOString(), ...a);
+
+// Emplacements de sauvegarde : base PostgreSQL en ligne (DATABASE_URL), sinon fichier local.
+// Sur Render sans base, le disque est effacé à chaque redémarrage : pas d'emplacements plutôt que
+// des sauvegardes qui disparaîtraient.
+let emplacements: DepotEmplacements | null = null;
+const adresseBase = env.DATABASE_URL?.trim();
+try {
+  if (adresseBase) {
+    emplacements = await DepotSql.connecter(adresseBase, journal);
+    journal('Base de données connectée : emplacements de sauvegarde et salons en cours y sont gardés.');
+  } else if (dossierDonnees && !env.RENDER) {
+    emplacements = await DepotFichier.ouvrir(path.join(dossierDonnees, 'emplacements.json'));
+  }
+} catch (e) {
+  journal('Base de données injoignable : emplacements de sauvegarde désactivés.', (e as Error).message);
+}
+
+const serveur = await demarrerServeur({
   port: Number(env.PORT ?? 3001),
   dossierClient: path.join(racine, 'dist/client'),
   dossierDonnees,
   botsAutorises: (env.ENABLE_BOTS ?? 'true').toLowerCase() !== 'false',
   cleSauvegarde: env.CLE_SAUVEGARDE?.trim() || null,
+  emplacements,
   originesAutorisees: (env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   configPartie: {
     delaiFalsificationMs: secondes('FALSIFICATION_WINDOW_SECONDS', 8),
@@ -38,3 +58,18 @@ await demarrerServeur({
     delaiDeconnecteMs: secondes('DISCONNECTED_TURN_SECONDS', 25),
   },
 });
+
+// Arrêt demandé par l'hébergeur (mise à jour, mise en veille) : dernière sauvegarde, puis sortie.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => {
+    const delai = setTimeout(() => process.exit(0), 5000);
+    void serveur
+      .fermer()
+      .then(() => emplacements?.fermer?.())
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(delai);
+        process.exit(0);
+      });
+  });
+}

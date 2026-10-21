@@ -110,6 +110,7 @@ Ce que couvrent les tests (`tests/`) :
 | `sauvegarde.test.ts` | Sauvegardes chiffrées gardées par les joueurs : illisibles, infalsifiables, refusées avec une autre clé ; reprise d'une partie après un vrai redémarrage du serveur |
 | `train.test.ts` | Catalogue des affaires (identifiants uniques, fiches complètes) ; affaire du train : 44 indices relationnels, témoignages partiels, carnet d'Octave, génération valide pour les 216 solutions, distribution, parties complètes entre bots |
 | `solo-profil.test.ts` | Partie seul contre des bots ; profil local (parties comptées une fois, série, succès, grade) |
+| `emplacements.test.ts` | Emplacements de sauvegarde : 3 solo + 3 multijoueur par code joueur, seul l'hôte enregistre en multijoueur, rechargement (même code ou nouveau code si occupé), base PostgreSQL (PGlite), salons qui survivent à un redémarrage grâce à la base |
 | `retour-joueurs.test.ts` | Salle d'attente après le chargement d'une sauvegarde ; retour d'un joueur sur un autre appareil (code + même pseudonyme, accord d'un joueur présent, ancienne session invalidée) |
 | `serveur.test.ts` | Vrais clients WebSocket : salons, salon complet, filtrage des données privées, actions hors tour, requêtes simultanées, reconnexion, jeton forgé, deux parties complètes jouées en réseau |
 
@@ -121,6 +122,7 @@ Toutes les valeurs ont un défaut raisonnable : **aucune configuration n'est obl
 |---|---|---|
 | `PORT` | `3001` | Port HTTP (fourni automatiquement par les hébergeurs) |
 | `DATA_DIR` | `./data` | Dossier de sauvegarde des salons ; vide = pas de sauvegarde |
+| `DATABASE_URL` | *(vide)* | Adresse d'une base PostgreSQL (par exemple Neon, offre gratuite). Avec elle : emplacements de sauvegarde, et salons en cours gardés à travers les redémarrages. Sans elle : emplacements dans `data/emplacements.json` en local, désactivés sur Render |
 | `CLE_SAUVEGARDE` | *(vide)* | Clé secrète des sauvegardes gardées sur les appareils des joueurs. À définir une fois pour toutes (texte aléatoire long) : sans elle, une partie ne survit pas à un redémarrage du serveur |
 | `ENABLE_BOTS` | `true` | Autoriser l'hôte à ajouter des bots |
 | `FALSIFICATION_WINDOW_SECONDS` | `8` | Durée fixe laissée au complice pour falsifier une hypothèse |
@@ -173,6 +175,7 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 - « Jouer contre des bots » en un clic (2 à 5 adversaires), réactions rapides dans la discussion (🤔 👀 🤥 😱 😂 👍), profil gardé sur l'appareil : statistiques, grade (d'Agent stagiaire à Légende de la brigade criminelle) et 13 succès.
 - Serveur multijoueur autoritaire : salons privés (codes de 6 caractères, liens d'invitation), 6 joueurs maximum, validation de toutes les entrées, filtrage des données par joueur, limitation de débit, reconnexion, sauvegarde/restauration, transfert d'hôte, journal d'audit.
 - Sauvegardes sur les appareils : le serveur envoie régulièrement à chaque joueur une copie chiffrée de son salon. Après un redémarrage (mise à jour, mise en veille de l'hébergeur), le premier joueur qui revient la renvoie et la partie reprend. Un fichier de sauvegarde peut aussi être téléchargé (menu ☰) puis repris depuis l'accueil. Une partie rechargée ouvre une salle d'attente (code, partage, joueurs attendus) jusqu'au retour de tous.
+- Emplacements de sauvegarde, comme dans un jeu vidéo : 3 pour les parties solo et 3 pour les parties multijoueur (en multijoueur, seul l'hôte enregistre). Ils sont rangés dans la base de données sous un « code joueur » secret propre à chaque appareil, que l'on peut recopier sur un autre appareil pour y retrouver ses sauvegardes.
 - Retour sur un autre appareil : pendant une partie, « Rejoindre » avec le code et le même pseudonyme demande la place de ce joueur ; un joueur présent l'accepte ou la refuse. Le code du salon est rappelé dans la fenêtre « Partie en pause ».
 - Application installable (écran d'accueil du téléphone, plein écran), invitation par partage natif ou QR code, frise des ruses du complice en fin de partie.
 - Interface : accueil, tutoriel de premier lancement, règles, paramètres (taille du texte, animations), lobby, écran de jeu, interrogation, pouvoirs du complice (avec infobulles), carnet de déduction, archives, historique, discussion, écran de fin (solution, récit, indices décisifs, complice, pouvoirs utilisés, mains de chacun), « Rejouer », durée de tour réglable par l'hôte (1 à 10 min ou sans limite), bouton « Quitter » avec confirmation (le dernier joueur présent ferme le salon).

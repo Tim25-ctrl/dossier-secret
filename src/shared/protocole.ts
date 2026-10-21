@@ -6,6 +6,33 @@ export const LONGUEUR_CODE = 6;
 export const ALPHABET_CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const PSEUDO_MAX = 20;
 export const MESSAGE_MAX = 280;
+/** Code joueur : clé secrète des emplacements de sauvegarde (affiché par groupes de 4). */
+export const LONGUEUR_CODE_JOUEUR = 12;
+/** Emplacements de sauvegarde par type de partie. */
+export const NB_EMPLACEMENTS = 3;
+
+export type TypePartie = 'solo' | 'multi';
+
+/** Ce que l'on voit d'un emplacement de sauvegarde sans l'ouvrir. */
+export interface ResumeEmplacement {
+  affaire: AffaireId;
+  manche: number;
+  manchesMax: number;
+  /** Autres joueurs humains de la partie. */
+  autres: string[];
+  bots: number;
+  /** Pseudonyme de celui qui a enregistré. */
+  nom: string;
+}
+
+export interface InfoEmplacement {
+  type: TypePartie;
+  /** De 1 à NB_EMPLACEMENTS. */
+  numero: number;
+  /** Date d'enregistrement (ms). */
+  t: number;
+  resume: ResumeEmplacement;
+}
 
 export interface JoueurSalonVue {
   id: string;
@@ -50,6 +77,8 @@ export interface SalonVue {
   max: number;
   /** Partie rechargée depuis une sauvegarde : salle d'attente jusqu'au retour de tous les joueurs. */
   reprise: boolean;
+  /** Partie lancée depuis « Seul contre des bots » (emplacements de sauvegarde solo). */
+  solo: boolean;
   /** Joueurs revenus sur un autre appareil, qui attendent qu'un joueur présent accepte leur retour. */
   demandes: { id: string; joueurId: string }[];
 }
@@ -101,6 +130,13 @@ export interface EvenementsClient {
   'salon:message': (p: { texte: string }, ack: (r: Reponse) => void) => void;
   'salon:reglages': (p: Partial<ReglagesSalon>, ack: (r: Reponse) => void) => void;
   'jeu:action': (p: ActionJeu, ack: (r: Reponse) => void) => void;
+  /** Emplacements de sauvegarde rangés sous ce code joueur. */
+  'emplacements:lister': (p: { codeJoueur: string }, ack: (r: Reponse<{ emplacements: InfoEmplacement[] }>) => void) => void;
+  /** Enregistre la partie en cours (solo, ou multijoueur si l'on est l'hôte) dans un emplacement. */
+  'emplacements:enregistrer': (p: { codeJoueur: string; numero: number }, ack: (r: Reponse<{ emplacement: InfoEmplacement }>) => void) => void;
+  /** Recharge la partie d'un emplacement : on y reprend sa place (en multijoueur, les autres reviennent avec le code). */
+  'emplacements:charger': (p: { codeJoueur: string; type: TypePartie; numero: number }, ack: (r: Reponse<{ session: Session }>) => void) => void;
+  'emplacements:effacer': (p: { codeJoueur: string; type: TypePartie; numero: number }, ack: (r: Reponse) => void) => void;
 }
 
 /** Événements envoyés par le serveur. */
@@ -112,6 +148,8 @@ export interface EvenementsServeur {
   version: (v: string) => void;
   /** Copie chiffrée du salon, gardée par l'appareil pour le restaurer si le serveur redémarre. */
   sauvegarde: (p: { code: string; sauvegarde: string }) => void;
+  /** Services proposés par ce serveur (envoyé à la connexion). */
+  capacites: (p: { emplacements: boolean }) => void;
   /** Réponse à une demande de place : la session à reprendre, ou la raison du refus. */
   place: (p: { session: Session } | { refus: string }) => void;
 }

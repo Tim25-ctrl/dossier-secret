@@ -51,6 +51,8 @@ export interface Salon {
   majLe: number;
   /** Partie rechargée depuis une sauvegarde : salle d'attente jusqu'au retour de tous les joueurs. */
   reprise?: boolean;
+  /** Partie lancée depuis « Seul contre des bots ». */
+  solo?: boolean;
 }
 
 /** Un joueur revient sur un autre appareil (sans son jeton) : un joueur présent doit accepter. */
@@ -207,6 +209,7 @@ export class GestionnaireSalons {
     if (!Number.isInteger(nbBots) || nbBots < JOUEURS_MIN - 1 || nbBots > JOUEURS_MAX - 1)
       throw new ErreurJeu(`Choisissez entre ${JOUEURS_MIN - 1} et ${JOUEURS_MAX - 1} adversaires.`);
     const r = this.creer(nomBrut);
+    r.salon.solo = true;
     try {
       r.salon.reglages = { ...r.salon.reglages, ...reglages };
       for (let i = 0; i < nbBots; i++) this.ajouterBot(r.salon.code, r.joueur.id);
@@ -572,6 +575,7 @@ export class GestionnaireSalons {
       min: JOUEURS_MIN,
       max: JOUEURS_MAX,
       reprise: !!s.reprise && s.statut === 'partie',
+      solo: !!s.solo,
       demandes: (this.demandes.get(s.code) ?? []).map((d) => ({ id: d.id, joueurId: d.joueurId })),
     };
   }
@@ -649,6 +653,49 @@ export class GestionnaireSalons {
     s.reprise = s.statut === 'partie' && !!s.partie;
     this.integrer(s);
     return true;
+  }
+
+  /**
+   * Copie de la partie en cours pour un emplacement de sauvegarde. En solo, le joueur l'enregistre ;
+   * en multijoueur, seul l'hôte le peut.
+   */
+  instantane(code: string, id: string): { type: 'solo' | 'multi'; salon: Salon } {
+    const s = this.salon(code);
+    this.joueur(s, id);
+    if (s.statut !== 'partie' || !s.partie) throw new ErreurJeu('Seule une partie en cours peut être enregistrée.');
+    if (!s.solo && s.hote !== id) throw new ErreurJeu("Seul l'hôte peut enregistrer la partie.");
+    const copie = JSON.parse(JSON.stringify(s)) as Salon;
+    delete copie.reprise;
+    return { type: s.solo ? 'solo' : 'multi', salon: copie };
+  }
+
+  /**
+   * Recharge une partie enregistrée dans un emplacement. Celui qui la charge reprend sa place (nouveau
+   * jeton) et devient l'hôte ; les autres joueurs reviennent avec le code du salon (salle d'attente).
+   */
+  chargerSauvegarde(sauvee: Salon, joueurId: string) {
+    const s = JSON.parse(JSON.stringify(sauvee)) as Salon;
+    const joueur = s.joueurs.find((j) => j.id === joueurId && !j.bot);
+    if (!joueur || !s.partie || s.statut !== 'partie') throw new ErreurJeu('Cette sauvegarde est illisible.');
+    const existant = this.salons.get(s.code);
+    if (existant) {
+      const memePartie = existant.partie?.id === s.partie.id && existant.statut === 'partie';
+      if (memePartie && this.humainsPresents(existant).length > 0)
+        throw new ErreurJeu(`Cette partie est encore en cours dans le salon ${s.code} : rejoignez-la plutôt, ou attendez que tout le monde l'ait quittée.`);
+      if (memePartie) {
+        // Personne n'y joue plus : la sauvegarde la remplace.
+        this.salons.delete(s.code);
+        this.demandes.delete(s.code);
+      } else s.code = this.nouveauCode(); // code déjà pris par une autre partie
+    }
+    if (this.salons.size >= 500) throw new ErreurJeu('Serveur complet, réessayez plus tard.');
+    const { jeton, hash } = this.nouveauJeton();
+    joueur.jetonHash = hash;
+    joueur.parti = false;
+    joueur.remplaceParBot = false;
+    s.hote = joueur.id;
+    this.restaurer(s);
+    return { salon: s, joueur, jeton };
   }
 
   private integrer(s: Salon) {

@@ -16,8 +16,9 @@ import { vuePour } from '../engine/vue';
 import type { ConfigPartie } from '../engine/config';
 import type { AttentePlace, EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import { ErreurJeu, GestionnaireSalons } from './salons';
+import { cleJoueur, resumer, verifierNumero, type DepotEmplacements } from './emplacements';
 import { Coffre } from './sauvegarde';
-import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer, schemaSolo } from './validation';
+import { lireAction, schemaEmplacement, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer, schemaSolo } from './validation';
 
 export interface OptionsServeur {
   port?: number;
@@ -33,6 +34,8 @@ export interface OptionsServeur {
   cleSauvegarde?: string | null;
   /** Délai minimal entre deux envois de sauvegarde aux joueurs d'un salon. */
   intervalleSauvegardeMs?: number;
+  /** Emplacements de sauvegarde (base de données ou fichier local). Sans eux, seules les sauvegardes des appareils existent. */
+  emplacements?: DepotEmplacements | null;
 }
 
 interface DonneesSocket {
@@ -56,7 +59,21 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   // ---------------------------------------------------------------------------
   // Sauvegarde sur disque (optionnelle)
   // ---------------------------------------------------------------------------
-  const fichier = o.dossierDonnees ? path.join(o.dossierDonnees, 'salons.json') : null;
+  const depot = o.emplacements ?? null;
+  // Avec une base de données, l'état des salons y est gardé (il survit aux redémarrages du serveur).
+  const etatEnBase = depot?.lireEtat && depot.ecrireEtat ? depot : null;
+  const fichier = !etatEnBase && o.dossierDonnees ? path.join(o.dossierDonnees, 'salons.json') : null;
+  if (etatEnBase) {
+    try {
+      const json = await etatEnBase.lireEtat!();
+      if (json) {
+        gestionnaire.charger(json);
+        log(`Salons rechargés depuis la base : ${gestionnaire.salons.size}.`);
+      }
+    } catch (e) {
+      log('État des salons illisible dans la base, ignoré :', (e as Error).message);
+    }
+  }
   if (fichier && existsSync(fichier)) {
     try {
       gestionnaire.charger(await readFile(fichier, 'utf8'));
@@ -69,10 +86,25 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   const coffre = new Coffre(o.cleSauvegarde);
   if (coffre.provisoire) log('CLE_SAUVEGARDE absente : les sauvegardes des joueurs ne survivront pas à un redémarrage.');
   let sauvegardePrevue: NodeJS.Timeout | null = null;
+  let ecritureEnCours = false;
   const sauvegarder = () => {
-    if (!fichier || sauvegardePrevue) return;
+    if ((!fichier && !etatEnBase) || sauvegardePrevue) return;
     sauvegardePrevue = setTimeout(async () => {
       sauvegardePrevue = null;
+      if (etatEnBase) {
+        // Une écriture à la fois : si la base est lente, la suivante attend son tour.
+        if (ecritureEnCours) return sauvegarder();
+        ecritureEnCours = true;
+        try {
+          await etatEnBase.ecrireEtat!(gestionnaire.serialiser());
+        } catch (e) {
+          log('Échec de la sauvegarde dans la base :', (e as Error).message);
+        } finally {
+          ecritureEnCours = false;
+        }
+        return;
+      }
+      if (!fichier) return;
       try {
         await mkdir(path.dirname(fichier), { recursive: true });
         await writeFile(`${fichier}.tmp`, gestionnaire.serialiser());
@@ -80,7 +112,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       } catch (e) {
         log('Échec de la sauvegarde :', (e as Error).message);
       }
-    }, 1500);
+    }, etatEnBase ? 3000 : 1500);
   };
 
   // ---------------------------------------------------------------------------
@@ -99,7 +131,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     next();
   });
   app.get('/api/sante', (_req, res) => {
-    res.json({ ok: true, salons: gestionnaire.salons.size });
+    res.json({ ok: true, salons: gestionnaire.salons.size, emplacements: depot ? depot.genre : null });
   });
   // Reprise d'un salon depuis la sauvegarde gardée par un joueur (après un redémarrage du serveur).
   app.post('/api/restaurer', express.json({ limit: '3mb' }), (req, res) => {
@@ -304,6 +336,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
 
   io.on('connection', (socket: S) => {
     if (versionClient) socket.emit('version', versionClient);
+    socket.emit('capacites', { emplacements: !!depot });
     socket.data.jetons = LIMITE;
     socket.data.dernierRemplissage = Date.now();
 
@@ -328,6 +361,24 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
           if (!(e instanceof ErreurJeu)) log(`Erreur ${nom}:`, (e as Error).message);
           repondre({ ok: false, erreur: message });
         }
+      };
+    };
+
+    /** Comme `gerer`, pour les demandes qui attendent la base de données. */
+    const gererAsync = <P, R extends object>(nom: string, fn: (p: P) => Promise<R | void>) => {
+      return (p: P, ack: (r: Reponse<R>) => void) => {
+        const repondre = typeof ack === 'function' ? ack : () => {};
+        (async () => {
+          limiter();
+          if (!depot) throw new ErreurJeu("Les emplacements de sauvegarde ne sont pas disponibles sur ce serveur.");
+          return (await fn(p)) ?? ({} as R);
+        })().then(
+          (r) => repondre({ ok: true, ...r }),
+          (e: unknown) => {
+            if (!(e instanceof ErreurJeu)) log(`Erreur ${nom}:`, (e as Error).message);
+            repondre({ ok: false, erreur: e instanceof ErreurJeu ? e.message : 'La sauvegarde ne répond pas. Réessayez dans un instant.' });
+          },
+        );
       };
     };
 
@@ -476,6 +527,50 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     });
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 
+    // ---------------- Emplacements de sauvegarde ----------------
+    socket.on(
+      'emplacements:lister',
+      gererAsync('emplacements:lister', async (p: unknown) => {
+        const { codeJoueur } = schemaEmplacement.parse(p);
+        return { emplacements: await depot!.lister(cleJoueur(codeJoueur)) };
+      }),
+    );
+    socket.on(
+      'emplacements:enregistrer',
+      gererAsync('emplacements:enregistrer', async (p: unknown) => {
+        const { codeJoueur, numero } = schemaEmplacement.parse(p);
+        const cle = cleJoueur(codeJoueur);
+        const n = verifierNumero(numero);
+        const { code, joueurId } = session();
+        const { type, salon } = gestionnaire.instantane(code, joueurId);
+        const emplacement = { type, numero: n, t: Date.now(), resume: resumer(salon, joueurId) };
+        await depot!.ecrire(cle, { ...emplacement, joueurId, salon });
+        log(`Salon ${code} : partie enregistrée (${type}, emplacement ${n}).`);
+        return { emplacement };
+      }),
+    );
+    socket.on(
+      'emplacements:charger',
+      gererAsync('emplacements:charger', async (p: unknown) => {
+        const { codeJoueur, type, numero } = schemaEmplacement.parse(p);
+        const e = await depot!.lire(cleJoueur(codeJoueur), type ?? 'solo', verifierNumero(numero));
+        if (!e) throw new ErreurJeu('Cet emplacement est vide.');
+        annulerMaDemande();
+        const { salon, joueur, jeton } = gestionnaire.chargerSauvegarde(e.salon, e.joueurId);
+        attacher(socket, salon.code, joueur.id);
+        log(`Salon ${salon.code} : partie rechargée depuis un emplacement (${e.type}).`);
+        diffuser(salon.code);
+        return { session: { code: salon.code, joueurId: joueur.id, jeton } satisfies Session };
+      }),
+    );
+    socket.on(
+      'emplacements:effacer',
+      gererAsync('emplacements:effacer', async (p: unknown) => {
+        const { codeJoueur, type, numero } = schemaEmplacement.parse(p);
+        await depot!.effacer(cleJoueur(codeJoueur), type ?? 'solo', verifierNumero(numero));
+      }),
+    );
+
     socket.on('disconnect', () => {
       annulerMaDemande();
       detacher(socket);
@@ -510,6 +605,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       for (const t of minuteursBots.values()) clearTimeout(t);
       for (const t of minuteursSauvegarde.values()) clearTimeout(t);
       if (sauvegardePrevue) clearTimeout(sauvegardePrevue);
+      if (etatEnBase) await etatEnBase.ecrireEtat!(gestionnaire.serialiser()).catch(() => {});
       io.close();
       await new Promise<void>((resolve) => http.close(() => resolve()));
     },

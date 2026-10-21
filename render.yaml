@@ -21,3 +21,7 @@ services:
       # Clé secrète de ces copies : définie dans le tableau de bord Render, à ne pas changer.
       - key: CLE_SAUVEGARDE
         sync: false
+      # Base PostgreSQL (par exemple Neon, offre gratuite) : emplacements de sauvegarde et salons en cours.
+      # Adresse secrète, à coller dans le tableau de bord Render. Sans elle, pas d'emplacements de sauvegarde.
+      - key: DATABASE_URL
+        sync: false

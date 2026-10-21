@@ -16,6 +16,9 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
   const [envoi, setEnvoi] = useState(false);
   const enPartie = etat.salon.statut === 'partie';
   const dernier = !etat.salon.joueurs.some((j) => j.id !== etat.moi && !j.bot && !j.parti && j.connecte);
+  // Dernier joueur d'une partie qu'il peut enregistrer : on lui rappelle de le faire avant de partir.
+  const rappelSauvegarde =
+    enPartie && dernier && !connexion.instantane().tutoriel && connexion.instantane().emplacements && (etat.salon.solo || etat.salon.hote === etat.moi);
 
   const quitter = async () => {
     setEnvoi(true);
@@ -42,6 +45,13 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
         <p>
           Vous êtes <strong>le dernier joueur encore présent</strong>. Si vous quittez, le salon <strong>{etat.salon.code}</strong> sera fermé
           {enPartie ? ' et la partie en cours sera définitivement arrêtée' : ''}. Personne ne pourra plus le rejoindre.
+          {rappelSauvegarde && (
+            <>
+              <br />
+              <br />
+              Pour la reprendre plus tard, enregistrez-la d'abord : menu ☰ → <strong>« Sauvegarder la partie »</strong>.
+            </>
+          )}
         </p>
       ) : (
         <p>

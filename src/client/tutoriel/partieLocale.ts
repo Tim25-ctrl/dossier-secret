@@ -91,6 +91,7 @@ class PartieLocale implements MoteurLocal {
       moi: MOI,
       salon: {
         code: 'GUIDE',
+        solo: true,
         statut: e.etape === 'terminee' ? 'terminee' : 'partie',
         hote: MOI,
         joueurs: e.ordre.map((id) => ({ id, nom: e.joueurs[id].nom, connecte: true, bot: e.joueurs[id].bot, hote: id === MOI, parti: false })),

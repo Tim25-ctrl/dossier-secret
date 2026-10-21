@@ -8,24 +8,15 @@ import { ModaleProfil } from '../components/Profil';
 import { libelleDuree } from './Lobby';
 import { Modale } from '../components/Commun';
 import { Embleme, Icone, Sceau } from '../components/Emblemes';
-import { connexion, lireResume, type ResumePartie } from '../connexion';
+import { connexion, lireResume, useConnexion, type ResumePartie } from '../connexion';
+import { depuis, ModaleCharger } from '../components/Emplacements';
+import type { TypePartie } from '../../shared/protocole';
 import { installer, useInstallation } from '../installation';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
 import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
 
 type Mode = 'menu' | 'creer' | 'rejoindre';
-
-/** « il y a 5 min », « il y a 2 h », « il y a 3 jours ». */
-function depuis(t: number): string {
-  const min = Math.max(0, Math.round((Date.now() - t) / 60_000));
-  if (min < 1) return "à l'instant";
-  if (min < 60) return `il y a ${min} min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `il y a ${h} h`;
-  const j = Math.round(h / 24);
-  return `il y a ${j} jour${j > 1 ? 's' : ''}`;
-}
 
 /** Ligne de la carte « Partie en cours » : histoire, manche, joueurs, dernière activité. */
 function texteResume(r: ResumePartie | null, code: string): string {
@@ -61,6 +52,9 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     setChoixGuide(true);
   };
   const [profil, setProfil] = useState(false);
+  // Emplacements de sauvegarde (si le serveur les propose) : fenêtre « Charger une partie ».
+  const { emplacements } = useConnexion();
+  const [charger, setCharger] = useState<TypePartie | null>(null);
   const installation = useInstallation();
   const [aideIos, setAideIos] = useState(false);
   // Reprise depuis un fichier de sauvegarde téléchargé pendant une partie.
@@ -217,9 +211,15 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
                   <button className="btn" onClick={() => ouvrir('rejoindre')}>
                     Rejoindre une partie
                   </button>
-                  <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
-                    {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
-                  </button>
+                  {emplacements ? (
+                    <button className="btn" onClick={() => setCharger('multi')}>
+                      Charger une partie
+                    </button>
+                  ) : (
+                    <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
+                      {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
+                    </button>
+                  )}
                 </div>
               )}
               <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
@@ -246,6 +246,11 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               {ouverte === 'solo' && (
                 <div id="zone-solo" className="carte-mode-contenu">
                   <FormulaireSolo prefs={prefs} majPrefs={majPrefs} />
+                  {emplacements && (
+                    <button className="btn btn-bloc" onClick={() => setCharger('solo')}>
+                      Charger une partie solo
+                    </button>
+                  )}
                 </div>
               )}
             </section>
@@ -349,6 +354,16 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             </button>
           </div>
         </Modale>
+      )}
+      {charger && (
+        <ModaleCharger
+          type={charger}
+          onFermer={() => setCharger(null)}
+          onFichier={() => {
+            setCharger(null);
+            fichier.current?.click();
+          }}
+        />
       )}
       {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} pseudo={prefs.pseudo} onPseudo={(p) => majPrefs({ pseudo: p })} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} onGuide={revoirGuide} />}

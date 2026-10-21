@@ -2598,3 +2598,106 @@ button.carte:hover:not(:disabled) {
   -webkit-mask-image: none;
   mask-image: none;
 }
+
+/* ---------- Emplacements de sauvegarde ---------- */
+.emplacements {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.emplacement {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ardoise);
+  border-radius: var(--rayon);
+  background: var(--panneau-2);
+}
+.emplacement-vide {
+  border-style: dashed;
+  background: transparent;
+}
+.emplacement-actif {
+  border-color: var(--or);
+  box-shadow: 0 0 0 1px var(--or-sombre) inset;
+}
+.emplacement-numero {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--or-sombre);
+  color: var(--or-clair);
+  font-size: 1.05em;
+  font-weight: 700;
+}
+.emplacement-vide .emplacement-numero {
+  border-color: var(--ardoise-clair);
+  color: var(--gris);
+}
+.emplacement-texte {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.emplacement-texte strong {
+  font-size: 1.05em;
+}
+.emplacement-actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+@media (max-width: 480px) {
+  .emplacement {
+    flex-wrap: wrap;
+  }
+  .emplacement-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+.code-joueur {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ardoise);
+}
+.code-joueur-valeur {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 1.1em;
+  letter-spacing: 0.08em;
+  color: var(--or-clair);
+}
+.code-joueur .code-input {
+  max-width: 200px;
+  font-size: 1em;
+  letter-spacing: 0.08em;
+}
+.succes-sauvegarde {
+  margin: 0 0 8px;
+  color: var(--vert);
+}
+.autres-sauvegardes {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ardoise);
+}
+.autres-sauvegardes summary {
+  cursor: pointer;
+  color: var(--ivoire-doux);
+}

@@ -198,16 +198,16 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
                     value={salon.reglages.historiqueCartes ?? 'visibles'}
                     onChange={(e) => void agir(() => connexion.reglerHistoriqueCartes(e.target.value as 'visibles' | 'anonymes'))}
                   >
-                    <option value="visibles">Notées dans le carnet (conseillé)</option>
+                    <option value="visibles">Notées dans l'historique (conseillé)</option>
                     <option value="anonymes">À retenir de mémoire (difficile)</option>
                   </select>
                 ) : (
-                  <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'À retenir de mémoire (difficile)' : 'Notées dans le carnet'}</strong>
+                  <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'À retenir de mémoire (difficile)' : "Notées dans l'historique"}</strong>
                 )}
                 <Aide libelle="Aide sur les cartes vues">
                   {salon.reglages.historiqueCartes === 'anonymes'
-                    ? 'À retenir de mémoire : vous voyez la carte au moment où on vous la montre et jusqu’à la fin de votre tour ; ensuite, l’historique et le carnet indiquent seulement « une carte ». À retenir de mémoire !'
-                    : 'Notées dans le carnet : les cartes que vous montrez et que l’on vous montre restent dans l’historique et le carnet (visibles par vous seul).'}
+                    ? "À retenir de mémoire : vous voyez la carte sur le moment, puis elle n'est plus rappelée nulle part. N'oubliez pas de la noter dans votre carnet !"
+                    : "Notées dans l'historique : les cartes qu'on vous montre et que vous montrez restent écrites dans l'historique."}
                 </Aide>
               </div>
             </div>

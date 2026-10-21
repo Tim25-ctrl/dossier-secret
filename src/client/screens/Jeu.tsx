@@ -382,7 +382,7 @@ export function Jeu({
       )}
       {etat.salon.demandes.length > 0 && <ModaleDemandesPlace etat={etat} onErreur={erreur} />}
       {peutFalsifier && !doitRepondre && !vue.pause && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
-      {!etat.salon.code.startsWith('GUIDE') && (
+      {!etat.salon.code.startsWith('GUIDE') && !histoire && (
         <ConseilsEnPartie vue={vue} monTour={monTour} doitRepondre={doitRepondre} prefs={prefs} majPrefs={majPrefs} />
       )}
       {notification}

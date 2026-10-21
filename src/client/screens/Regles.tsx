@@ -109,8 +109,9 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
       </ul>
       <p>Répondre à une interrogation ne coûte aucun point d'action.</p>
       <p>
-        <strong>Option « Cartes vues : à retenir de mémoire » (difficile).</strong> Choisie par l'hôte dans le salon d'attente : vous voyez la carte au moment où on vous la
-        montre et jusqu'à la fin de votre tour, puis l'historique et le carnet indiquent seulement « une carte ». À vous de la noter !
+        <strong>Option « Cartes vues pendant la partie ».</strong> Choisie avant la partie (par l'hôte, ou par vous en solo). « Notées dans l'historique »
+        (conseillé) : les cartes qu'on vous montre et que vous montrez restent écrites dans l'historique. « À retenir de mémoire » (difficile) : vous voyez
+        la carte sur le moment, puis elle n'est plus rappelée nulle part. N'oubliez pas de la noter dans votre carnet !
       </p>
 
       <h3>Les pouvoirs du complice</h3>

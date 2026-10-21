@@ -456,9 +456,12 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
         <div className="champ">
           <label htmlFor="cartes-solo">Cartes vues pendant la partie</label>
           <select id="cartes-solo" value={cartes} onChange={(e) => setCartes(e.target.value as 'visibles' | 'anonymes')}>
-            <option value="visibles">Notées dans le carnet (conseillé)</option>
+            <option value="visibles">Notées dans l'historique (conseillé)</option>
             <option value="anonymes">À retenir de mémoire (difficile)</option>
           </select>
+          <p className="petit muet" style={{ margin: '6px 0 0' }}>
+            {cartes === 'anonymes' ? "À retenir de mémoire : vous voyez la carte sur le moment, puis elle n'est plus rappelée nulle part. N'oubliez pas de la noter dans votre carnet !" : "Notées dans l'historique : les cartes qu'on vous montre et que vous montrez restent écrites dans l'historique."}
+          </p>
         </div>
         {erreur && (
           <div className="erreur" role="alert">

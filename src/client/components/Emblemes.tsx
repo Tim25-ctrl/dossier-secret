@@ -84,11 +84,11 @@ function Portrait({ id }: { id: SuspectId }) {
     ),
     lucas: (
       <>
-        <path d="M22 19c0-8 20-8 20 0z" fill="#5a3b22" />
-        <path d="M20 19h25" stroke="#1a1410" strokeWidth="3" strokeLinecap="round" />
-        <rect x="29" y="13" width="6" height="3" rx="0.8" fill="#e2c486" />
-        <circle cx="32" cy="52" r="1.4" fill="#e2c486" />
-        <circle cx="32" cy="57.5" r="1.4" fill="#e2c486" />
+        {/* Valet : cheveux plaqués, gilet rayé, col blanc et nœud papillon noir */}
+        <path d="M21 23c0-10 22-10 22 0c-5-3-9-4-13-3-3 1-6 2-9 3z" fill="#1a1410" />
+        <path d="M25 50v12M29 49v13M35 49v13M39 50v12" stroke="#c9a14a" strokeWidth="1.6" />
+        <path d="M26 45l6 4 6-4" stroke="#f3ead6" strokeWidth="2.2" fill="none" strokeLinejoin="round" />
+        <path d="M28.5 48.5l3.5 1.8 3.5-1.8v3.6l-3.5-1.8-3.5 1.8z" fill="#1a1410" />
       </>
     ),
     margaret: (
@@ -289,9 +289,15 @@ const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
   ),
   canne: (
     <>
-      <path d="M35 19L21 57" {...TRAIT} />
-      <circle cx="38" cy="13" r="7" {...TRAIT} />
-      <path d="M35 12h.5M41 12h.5M35.5 16c1.5 1.2 3.5 1.2 5 0" {...TRAIT} />
+      {/* Canne d'ébène inclinée, pommeau d'argent en tête de lion (crinière rayonnante), bague et embout */}
+      <path d="M34.7 21.1L39.3 22.9 24.9 56.3 22.1 55.1z" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M33.4 20.4l7.4 3" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M23.2 56.6l-1.4 3.3" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M31.6 13.5L28.7 13.0M32.6 10.8L30.0 9.3M34.5 8.5L32.6 6.2M37.1 7.0L36.1 4.2M40.0 6.5L40.0 3.5M42.9 7.0L43.9 4.2M45.5 8.5L47.4 6.2M47.4 10.8L50.0 9.3M48.4 13.5L51.3 13.0" {...TRAIT} strokeWidth={2} />
+      <circle cx="40" cy="15" r="7.5" fill="#efeadc" stroke="currentColor" strokeWidth="2.4" />
+      <circle cx="37.6" cy="14" r="1" fill="currentColor" />
+      <circle cx="42.4" cy="14" r="1" fill="currentColor" />
+      <path d="M38.6 17.2h2.8l-1.4 1.6z" fill="currentColor" />
     </>
   ),
 };

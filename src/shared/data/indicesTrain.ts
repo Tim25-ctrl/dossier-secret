@@ -17,10 +17,10 @@ export const INDICES_TRAIN: CarteIndice[] = [
   // --- Un suspect et un lieu ---
   {
     id: 'TR-01',
-    titre: 'Le dogue du fourgon',
+    titre: 'Le dogue du wagon à bagages',
     categorie: 'temoignage',
     texte:
-      "Le dogue du colonel dort enchaîné dans le fourgon à bagages et grogne au moindre pas. Mordue dans son enfance, Irina en a une peur panique : à Dijon, le chef de train l'a vue rebrousser chemin dès le premier grognement. Si Irina est coupable, ce n'est pas dans le fourgon.",
+      "Le dogue du colonel dort enchaîné dans le wagon à bagages et grogne au moindre pas. Mordue dans son enfance, Irina en a une peur panique : à Dijon, le chef de train l'a vue rebrousser chemin dès le premier grognement. Si Irina est coupable, ce n'est pas dans le wagon à bagages.",
     concerne: ['irina', 'fourgon'],
     regles: [pas('irina', 'fourgon')],
     disponibleDesManche: 1,
@@ -67,7 +67,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
   },
   {
     id: 'TR-06',
-    titre: "L'ordre écrit au conducteur",
+    titre: "L'ordre écrit au valet",
     categorie: 'document',
     texte:
       "Dans la poche de Lucas, un ordre signé d'Octave : « Ne jamais laisser entrer M. Agnel dans mon compartiment, sous aucun prétexte. » Le romancier l'avait surpris à fouiller sa serviette. Si Paul est coupable, ce n'est pas dans le compartiment n° 7.",
@@ -90,7 +90,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
     titre: 'La robe de lamé',
     categorie: 'trace',
     texte:
-      "Dans le fourgon, tout est couvert d'une suie de charbon qui noircit le moindre tissu. La robe de lamé argent que Margaret portait cette nuit est immaculée. Si Margaret est coupable, ce n'est pas dans le fourgon à bagages.",
+      "Dans le wagon à bagages, tout est couvert d'une suie de charbon qui noircit le moindre tissu. La robe de lamé argent que Margaret portait cette nuit est immaculée. Si Margaret est coupable, ce n'est pas dans le wagon à bagages.",
     concerne: ['margaret', 'fourgon'],
     regles: [pas('margaret', 'fourgon')],
     disponibleDesManche: 1,
@@ -142,7 +142,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
     titre: 'Les lunettes perdues',
     categorie: 'temoignage',
     texte:
-      "Le colonel a perdu ses lunettes à Dijon et ne distingue plus rien de près : il a dû demander au conducteur de lire son billet. Doser des gouttes au compte-gouttes lui est impossible. Si le colonel est coupable, ce n'est pas avec le flacon de somnifère.",
+      "Le colonel a perdu ses lunettes à Dijon et ne distingue plus rien de près : il a dû demander au valet de lui lire son billet. Doser des gouttes au compte-gouttes lui est impossible. Si le colonel est coupable, ce n'est pas avec le flacon de somnifère.",
     concerne: ['hector', 'somnifere'],
     regles: [pas('hector', 'somnifere')],
     disponibleDesManche: 1,
@@ -221,10 +221,10 @@ export const INDICES_TRAIN: CarteIndice[] = [
   },
   {
     id: 'TR-21',
-    titre: 'Le fourgon glacé',
+    titre: 'Le wagon glacé',
     categorie: 'trace',
     texte:
-      "Il fait dix degrés sous zéro dans le fourgon : on n'y trouve ni verre ni bouteille, et toute boisson y gèlerait en quelques minutes. Si le crime a eu lieu dans le fourgon à bagages, ce n'était pas avec le somnifère.",
+      "Il fait dix degrés sous zéro dans le wagon à bagages : on n'y trouve ni verre ni bouteille, et toute boisson y gèlerait en quelques minutes. Si le crime a eu lieu dans le wagon à bagages, ce n'était pas avec le somnifère.",
     concerne: ['fourgon', 'somnifere'],
     regles: [pas('fourgon', 'somnifere')],
     disponibleDesManche: 1,
@@ -284,7 +284,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
     titre: 'Les malles jusqu’au plafond',
     categorie: 'objet',
     texte:
-      "Le fourgon est si encombré de malles qu'on s'y faufile de côté. Impossible d'y brandir un objet long sans renverser une pile : aucune n'a bougé. Si le crime a eu lieu dans le fourgon, ce n'était pas avec la canne.",
+      "Le wagon à bagages est si encombré de malles qu'on s'y faufile de côté. Impossible d'y brandir un objet long sans renverser une pile : aucune n'a bougé. Si le crime a eu lieu dans le wagon à bagages, ce n'était pas avec la canne.",
     concerne: ['fourgon', 'canne'],
     regles: [pas('fourgon', 'canne')],
     disponibleDesManche: 1,
@@ -333,10 +333,10 @@ export const INDICES_TRAIN: CarteIndice[] = [
   // --- Témoignages partiels : une trace qui désigne deux coupables possibles ---
   {
     id: 'TR-32',
-    titre: 'Le cadenas du fourgon',
+    titre: 'Le cadenas du wagon à bagages',
     categorie: 'objet',
     texte:
-      "Le fourgon à bagages est fermé par un cadenas qui n'a pas été forcé. Deux clés seulement existent : celle du conducteur Lucas et celle du colonel, autorisé à rendre visite à son chien. Si le crime a eu lieu dans le fourgon, le coupable est l'un des deux.",
+      "Le wagon à bagages est fermé par un cadenas qui n'a pas été forcé. Deux clés seulement existent : celle de Lucas, le valet, et celle du colonel, autorisé à rendre visite à son chien. Si le crime a eu lieu dans le wagon à bagages, le coupable est l'un des deux.",
     concerne: ['fourgon', 'lucas', 'hector'],
     regles: deuxSuspects('fourgon', ['lucas', 'hector']),
     disponibleDesManche: 1,
@@ -376,7 +376,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
     titre: 'Les cendres de pipe',
     categorie: 'trace',
     texte:
-      "Sur la plate-forme d'observation, la neige fraîche garde des cendres de pipe et deux allumettes suédoises. Seuls Paul et le conducteur Lucas fument la pipe à bord. Si le crime a eu lieu sur la plate-forme, le coupable est l'un des deux.",
+      "Sur la plate-forme d'observation, la neige fraîche garde des cendres de pipe et deux allumettes suédoises. Seuls Paul et Lucas, le valet, fument la pipe à bord. Si le crime a eu lieu sur la plate-forme, le coupable est l'un des deux.",
     concerne: ['plateforme', 'paul', 'lucas'],
     regles: deuxSuspects('plateforme', ['paul', 'lucas']),
     disponibleDesManche: 1,
@@ -398,7 +398,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
     titre: "Carnet d'Octave — 3 mars",
     categorie: 'journal',
     texte:
-      "« La petite Lowell m'a giflé ce soir devant tout le Ritz. J'ai réservé le n° 7 pour le voyage et prévenu la Compagnie : le conducteur a ordre de ne jamais la laisser entrer dans mon compartiment. Elle paiera cette gifle au centuple. »",
+      "« La petite Lowell m'a giflé ce soir devant tout le Ritz. J'ai réservé le n° 7 pour le voyage et prévenu la Compagnie : le valet a ordre de ne jamais la laisser entrer dans mon compartiment. Elle paiera cette gifle au centuple. »",
     concerne: ['margaret', 'compartiment'],
     regles: [pas('margaret', 'compartiment')],
     disponibleDesManche: 1,
@@ -458,7 +458,7 @@ export const INDICES_TRAIN: CarteIndice[] = [
     titre: "Carnet d'Octave — 9 mars",
     categorie: 'journal',
     texte:
-      "« Départ ce soir. J'ai exigé du chef de train qu'aucun outil ne traîne dans le couloir des wagons-lits : la dernière fois, je me suis pris le pied dans une caisse. Il a promis : tout sera rangé dans le fourgon. »",
+      "« Départ ce soir. J'ai exigé du chef de train qu'aucun outil ne traîne dans le couloir des wagons-lits : la dernière fois, je me suis pris le pied dans une caisse. Il a promis : tout sera rangé dans le wagon à bagages. »",
     concerne: ['couloir', 'cle_molette'],
     regles: [pas('couloir', 'cle_molette')],
     disponibleDesManche: 1,

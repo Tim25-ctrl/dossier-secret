@@ -2494,3 +2494,107 @@ button.carte:hover:not(:disabled) {
     display: none;
   }
 }
+
+/* Accueil : cartes repliables, carte « Apprendre à jouer » */
+.carte-mode {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.carte-mode-entete {
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  align-items: center;
+}
+.carte-mode-entete:hover .carte-mode-titre {
+  color: #f6ecd4;
+}
+.carte-mode-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  color: var(--ivoire-doux);
+}
+.carte-mode-titre {
+  font-family: var(--titre);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--or-clair);
+}
+.carte-mode-chevron {
+  flex: none;
+  color: var(--or-clair);
+  font-size: 1.1rem;
+  transition: transform 0.2s;
+}
+.carte-mode.ouverte .carte-mode-chevron {
+  transform: rotate(180deg);
+}
+.carte-mode-contenu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+.carte-en-cours {
+  padding: 16px;
+  gap: 10px;
+}
+.carte-en-cours .carte-mode-entete {
+  padding: 0;
+  cursor: default;
+}
+.formulaire-solo .champ:first-child {
+  margin-top: 0;
+}
+.carte-apprendre {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: min(460px, 100%);
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--or);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(201, 164, 92, 0.22), rgba(27, 35, 64, 0.92));
+  box-shadow: 0 0 0 3px rgba(201, 164, 92, 0.12), var(--ombre);
+  text-align: left;
+}
+.carte-apprendre-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 200px;
+  font-size: 0.92rem;
+  color: var(--ivoire-doux);
+}
+.carte-apprendre-texte strong {
+  color: #f6ecd4;
+  font-size: 1.05rem;
+}
+.carte-apprendre .btn {
+  flex: 1 1 100%;
+}
+
+/* Ambiance discrète en partie : derrière tout, fixe, très légère */
+.ambiance-discrete {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  z-index: -1;
+  opacity: 0.6;
+  -webkit-mask-image: none;
+  mask-image: none;
+}

@@ -12,9 +12,9 @@ function hasard(i: number, graine: number): number {
   return x - Math.floor(x);
 }
 
-export function Ambiance({ type }: { type: TypeAmbiance }) {
+export function Ambiance({ type, discret = false }: { type: TypeAmbiance; discret?: boolean }) {
   const particules = useMemo(() => {
-    const n = type === 'pluie' ? 46 : 38;
+    const n = discret ? (type === 'pluie' ? 26 : 22) : type === 'pluie' ? 46 : 38;
     return Array.from({ length: n }, (_, i) => {
       const gauche = hasard(i, 1) * 100;
       const duree = type === 'pluie' ? 0.7 + hasard(i, 2) * 0.6 : 7 + hasard(i, 2) * 7;
@@ -25,7 +25,7 @@ export function Ambiance({ type }: { type: TypeAmbiance }) {
     });
   }, [type]);
   return (
-    <div className={`ambiance ambiance-${type}`} aria-hidden="true">
+    <div className={`ambiance ambiance-${type}${discret ? ' ambiance-discrete' : ''}`} aria-hidden="true">
       {particules.map((p, i) => (
         <span
           key={i}

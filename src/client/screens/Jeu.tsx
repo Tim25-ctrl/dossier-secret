@@ -16,6 +16,7 @@ import { useSonMessages, useSonsPartie, useTicTac } from '../components/jeu/useS
 import type { Preferences } from '../preferences';
 import { MenuPrincipal } from '../components/Menu';
 import { ConseilsEnPartie } from '../components/jeu/Conseils';
+import { Ambiance } from '../components/Ambiance';
 import { ModaleDemandesPlace } from './Reprise';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
@@ -124,6 +125,7 @@ export function Jeu({
 
   return (
     <div className="jeu">
+      <Ambiance type={vue.affaire === 'train' ? 'neige' : 'pluie'} discret />
       <header className="barre-jeu">
         <span className="logo-jeu" title="Dossier Secret">
           <Sceau taille={36} />

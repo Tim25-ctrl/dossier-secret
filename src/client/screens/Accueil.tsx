@@ -2,7 +2,6 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { jouer } from '../sons';
 import { AFFAIRES } from '../../shared/data/catalogue';
 import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
-import { Ambiance, type TypeAmbiance } from '../components/Ambiance';
 import { grade, lireProfil } from '../profil';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
@@ -44,8 +43,9 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [envoi, setEnvoi] = useState(false);
   // Règles : false (fermées), true (choix de l'histoire dans la fenêtre) ou une histoire précise.
   const [regles, setRegles] = useState<boolean | AffaireId>(false);
-  // Ambiance de l'accueil : la pluie du manoir ou la neige du train, au hasard à chaque visite.
-  const [ambiance] = useState<TypeAmbiance>(() => (Math.random() < 0.5 ? 'pluie' : 'neige'));
+  // Cartes « Multijoueur » et « Seul contre des bots » : une seule ouverte à la fois.
+  const [ouverte, setOuverte] = useState<'multi' | 'solo' | null>(null);
+  const basculer = (c: 'multi' | 'solo') => setOuverte((o) => (o === c ? null : c));
   const [profilLocal] = useState(lireProfil);
   const gradeActuel = grade(profilLocal.victoires).actuel;
   const resume = lireResume();
@@ -60,7 +60,6 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     setProfil(false);
     setChoixGuide(true);
   };
-  const [solo, setSolo] = useState(false);
   const [profil, setProfil] = useState(false);
   const installation = useInstallation();
   const [aideIos, setAideIos] = useState(false);
@@ -106,7 +105,6 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
 
   return (
     <main className="accueil">
-      <Ambiance type={ambiance} />
       {mode === 'menu' && (
         <div className="accueil-haut">
           <button className="puce-profil" onClick={() => setProfil(true)} aria-label={`Mon profil : ${gradeActuel.titre}`}>
@@ -140,6 +138,24 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           <p style={{ maxWidth: 560, color: 'var(--ivoire-doux)' }}>
             Un crime, six suspects, un huis clos coupé du monde. Menez l'enquête entre amis… mais méfiez-vous : l'un de vous protège le meurtrier.
           </p>
+          {!guidesFinis && (
+            <section className="carte-apprendre" aria-label="Apprendre à jouer">
+              <span className="carte-mode-icone">
+                <Icone nom="livre" taille={28} />
+              </span>
+              <span className="carte-apprendre-texte">
+                <strong>{guidesTermines.length ? 'Encore un rôle à découvrir' : 'Nouveau ? Apprenez à jouer en 5 minutes'}</strong>
+                <span>
+                  {guidesTermines.length
+                    ? `Faites la partie guidée ${guidesTermines.includes('enqueteur') ? 'du complice' : "de l'enquêteur"} pour connaître tous les secrets du jeu.`
+                    : 'Une vraie partie contre deux bots, avec un guide qui vous montre où toucher à chaque étape.'}
+                </span>
+              </span>
+              <button className="btn btn-or" onClick={() => setChoixGuide(true)}>
+                Apprendre à jouer
+              </button>
+            </section>
+          )}
           <details className="affaires-deroulant">
             <summary>
               Les histoires <span className="muet">({AFFAIRES_IDS.length})</span>
@@ -180,25 +196,32 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               </section>
             )}
 
-            <section className="carte-mode" aria-labelledby="titre-multijoueur">
-              <div className="carte-mode-entete">
+            <section className={`carte-mode${ouverte === 'multi' ? ' ouverte' : ''}`}>
+              <button className="carte-mode-entete" aria-expanded={ouverte === 'multi'} aria-controls="zone-multi" onClick={() => basculer('multi')}>
                 <span className="carte-mode-icone">
                   <Icone nom="joueurs" taille={30} />
                 </span>
-                <div>
-                  <h2 id="titre-multijoueur">Multijoueur</h2>
-                  <p>3 à 6 joueurs, chacun sur son appareil. Créez un salon et partagez son code.</p>
+                <span className="carte-mode-texte">
+                  <span className="carte-mode-titre">Multijoueur</span>
+                  <span>De 3 à 6 joueurs, chacun sur son téléphone : créez un salon et envoyez le code à vos amis.</span>
+                </span>
+                <span className="carte-mode-chevron" aria-hidden="true">
+                  ▾
+                </span>
+              </button>
+              {ouverte === 'multi' && (
+                <div id="zone-multi" className="carte-mode-contenu">
+                  <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
+                    Créer une partie
+                  </button>
+                  <button className="btn" onClick={() => ouvrir('rejoindre')}>
+                    Rejoindre une partie
+                  </button>
+                  <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
+                    {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
+                  </button>
                 </div>
-              </div>
-              <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
-                Créer une partie
-              </button>
-              <button className="btn" onClick={() => ouvrir('rejoindre')}>
-                Rejoindre une partie
-              </button>
-              <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
-                {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
-              </button>
+              )}
               <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
               {erreurFichier && (
                 <p className="erreur petit" role="alert" style={{ margin: 0 }}>
@@ -207,33 +230,31 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               )}
             </section>
 
-            <section className="carte-mode" aria-labelledby="titre-solo">
-              <div className="carte-mode-entete">
+            <section className={`carte-mode${ouverte === 'solo' ? ' ouverte' : ''}`}>
+              <button className="carte-mode-entete" aria-expanded={ouverte === 'solo'} aria-controls="zone-solo" onClick={() => basculer('solo')}>
                 <span className="carte-mode-icone">
-                  <Icone nom="loupe" taille={30} />
+                  <Icone nom="joueur" taille={30} />
                 </span>
-                <div>
-                  <h2 id="titre-solo">Seul contre des bots</h2>
-                  <p>Une vraie partie face à 2 à 5 joueurs automatiques, à votre rythme.</p>
-                </div>
-              </div>
-              <button className="btn" onClick={() => setSolo(true)}>
-                Jouer contre des bots
+                <span className="carte-mode-texte">
+                  <span className="carte-mode-titre">Seul contre des bots</span>
+                  <span>Pas d'amis sous la main ? Enquêtez face à des détectives automatiques… dont l'un protège peut-être le meurtrier.</span>
+                </span>
+                <span className="carte-mode-chevron" aria-hidden="true">
+                  ▾
+                </span>
               </button>
+              {ouverte === 'solo' && (
+                <div id="zone-solo" className="carte-mode-contenu">
+                  <FormulaireSolo prefs={prefs} majPrefs={majPrefs} />
+                </div>
+              )}
             </section>
 
-            {(!guidesFinis || installation !== 'indisponible') && (
+            {installation !== 'indisponible' && (
               <div className="ligne accueil-secondaire">
-                {!guidesFinis && (
-                  <button className="btn btn-discret" onClick={() => setChoixGuide(true)}>
-                    Apprendre à jouer (partie guidée)
-                  </button>
-                )}
-                {installation !== 'indisponible' && (
-                  <button className="btn btn-discret" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
-                    Installer le jeu sur cet appareil
-                  </button>
-                )}
+                <button className="btn btn-discret" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
+                  Installer le jeu sur cet appareil
+                </button>
               </div>
             )}
             <p className="muet petit" style={{ margin: 0 }}>
@@ -329,7 +350,6 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           </div>
         </Modale>
       )}
-      {solo && <ModaleSolo prefs={prefs} majPrefs={majPrefs} onFermer={() => setSolo(false)} />}
       {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} pseudo={prefs.pseudo} onPseudo={(p) => majPrefs({ pseudo: p })} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} onGuide={revoirGuide} />}
       {tutoriel && (
@@ -370,7 +390,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
 }
 
 /** Partie seul contre des bots : quelques réglages, puis l'enquête commence aussitôt. */
-function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void; onFermer: () => void }) {
+function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
   const [pseudo, setPseudo] = useState(prefs.pseudo);
   const [bots, setBots] = useState(3);
   const [duree, setDuree] = useState<number | null>(null);
@@ -389,11 +409,7 @@ function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPref
     if (!r.ok) setErreur(r.erreur);
   };
   return (
-    <Modale titre="Jouer contre des bots" onFermer={onFermer}>
-      <form onSubmit={lancer} noValidate>
-        <p className="muet petit" style={{ marginTop: 0 }}>
-          Une vraie partie, seul face à des joueurs automatiques. L'un d'eux sera peut-être le complice… ou ce sera vous.
-        </p>
+    <form onSubmit={lancer} noValidate className="formulaire-solo">
         <div className="champ">
           <label htmlFor="pseudo-solo">Votre pseudonyme</label>
           <input id="pseudo-solo" value={pseudo} maxLength={PSEUDO_MAX} onChange={(e) => setPseudo(e.target.value)} autoComplete="nickname" />
@@ -441,17 +457,10 @@ function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPref
             {erreur}
           </div>
         )}
-        <div className="ligne" style={{ marginTop: 8 }}>
-          <button type="button" className="btn btn-discret" onClick={onFermer}>
-            Annuler
-          </button>
-          <span className="espace" />
-          <button type="submit" className="btn btn-or" disabled={envoi}>
-            {envoi ? 'Lancement…' : "Lancer l'enquête"}
-          </button>
-        </div>
+        <button type="submit" className="btn btn-or btn-bloc" disabled={envoi} style={{ marginTop: 8 }}>
+          {envoi ? 'Lancement…' : "Lancer l'enquête"}
+        </button>
       </form>
-    </Modale>
   );
 }
 

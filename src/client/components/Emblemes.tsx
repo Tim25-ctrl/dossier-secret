@@ -343,7 +343,7 @@ export function Sceau({ taille = 96 }: { taille?: number }) {
 }
 
 /** Petites icônes d'interface. */
-export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' | 'couronne' | 'robot' | 'loupe' | 'reglages' | 'livre' | 'plume' | 'dossier' | 'bulle' | 'joueurs' | 'insigne'; taille?: number }) {
+export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' | 'couronne' | 'robot' | 'loupe' | 'reglages' | 'livre' | 'plume' | 'dossier' | 'bulle' | 'joueurs' | 'joueur' | 'insigne'; taille?: number }) {
   const chemins: Record<typeof nom, ReactNode> = {
     cadenas: <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" />,
     oeil: (
@@ -371,6 +371,14 @@ export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' 
         <path d="M2 19.5c.3-2.7 1.6-4.2 3.5-4.2 1 0 1.8.4 2.4 1.1" />
         <circle cx="18.5" cy="11" r="2" />
         <path d="M22 19.5c-.3-2.7-1.6-4.2-3.5-4.2-1 0-1.8.4-2.4 1.1" />
+      </>
+    ),
+    // Une silhouette à chapeau melon : l'enquêteur seul.
+    joueur: (
+      <>
+        <path d="M8 6.5h8M9 6.5c0-3.4 6-3.4 6 0" />
+        <circle cx="12" cy="10.5" r="3" />
+        <path d="M6 21c.5-4.2 2.8-6.6 6-6.6s5.5 2.4 6 6.6" />
       </>
     ),
     // Insigne étoilé (grade de l'enquêteur).

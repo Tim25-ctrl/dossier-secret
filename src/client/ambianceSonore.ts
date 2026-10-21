@@ -9,6 +9,7 @@
 // RÈGLE (comme pour les bruitages) : rien ne réagit à une information propre au complice. La
 // tension de la musique ne dépend que de la manche, que tout le monde voit.
 
+import { intensiteMeteo } from './meteo';
 import { lancerMusique } from './musique';
 import { contexteAudio, bruitDe, type CouleurBruit, type ReglageCanal } from './sons';
 
@@ -103,8 +104,13 @@ function synchroniser() {
   session.musique.gain.setTargetAtTime(niveau(reglages.musique), t, 0.3);
   session.echoAmbiance.gain.setTargetAtTime(niveau(reglages.ambiance), t, 0.3);
   session.echoMusique.gain.setTargetAtTime(niveau(reglages.musique), t, 0.3);
-  session.intemperies.gain.setTargetAtTime(1 - 0.7 * aubeVoulue, t, 3);
+  session.intemperies.gain.setTargetAtTime(niveauIntemperies(), t, 3);
   session.tension = tensionVoulue;
+}
+
+/** Pluie ou neige : par averses (comme à l'écran), et plus faible à l'aube. */
+function niveauIntemperies() {
+  return (1 - 0.7 * aubeVoulue) * intensiteMeteo();
 }
 
 function arreter() {
@@ -185,6 +191,7 @@ function demarrer(affaire: AffaireSonore): Session | null {
     const horloge = c.createGain();
     const musique = c.createGain();
     const intemperies = c.createGain();
+    intemperies.gain.value = niveauIntemperies();
     const reverb = reverberation(c, 2.8);
     const retour = c.createGain();
     retour.gain.value = 0.35;
@@ -199,6 +206,8 @@ function demarrer(affaire: AffaireSonore): Session | null {
     echoMusique.connect(reverb);
     intemperies.connect(ambiance);
     const s: Session = { affaire, c, maitre, ambiance, horloge, musique, echoAmbiance, echoMusique, intemperies, reverb, sources: [], minuteurs: new Set(), tension: tensionVoulue };
+    // L'averse arrive et repart en même temps que les gouttes à l'écran.
+    repeter(s, 1000, 1000, () => s.intemperies.gain.setTargetAtTime(niveauIntemperies(), s.c.currentTime, 1.5), 1000);
     if (affaire === 'manoir') decorManoir(s);
     else decorTrain(s);
     lancerMusique(
@@ -329,13 +338,14 @@ function decorManoir(s: Session) {
   bruitContinu(s, s.intemperies, [{ type: 'lowpass', freq: 700 }], 0.07, 'brun');
   // Rafales de vent.
   vent(s, 1.2, 0.015, 0.45, 300, 900);
-  // Tonnerre : un craquement parfois, puis un long grondement qui roule.
+  // Tonnerre (seulement pendant une averse) : un craquement parfois, puis un long grondement.
   const tonnerre = () => {
+    if (intensiteMeteo() < 0.4) return;
     if (Math.random() < 0.5) bouffee(s, { filtre: 'highpass', freq: 900, gain: 0.18, attaque: 0.02, duree: 0.7, reverb: true });
     bouffee(s, { filtre: 'lowpass', freq: 650, gain: 0.85, attaque: 0.25, duree: alea(4, 6), reverb: true, couleur: 'brun', debut: 0.1 });
     bouffee(s, { filtre: 'lowpass', freq: 450, gain: 0.6, attaque: 0.6, duree: alea(4, 6), couleur: 'brun', debut: alea(1, 2) });
   };
-  repeter(s, 100_000, 200_000, tonnerre, alea(20_000, 40_000));
+  repeter(s, 70_000, 150_000, tonnerre, alea(30_000, 60_000));
 }
 
 function decorTrain(s: Session) {

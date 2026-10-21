@@ -16,7 +16,7 @@ import { useSonMessages, useSonsPartie, useTicTac } from '../components/jeu/useS
 import type { Preferences } from '../preferences';
 import { MenuPrincipal } from '../components/Menu';
 import { ConseilsEnPartie } from '../components/jeu/Conseils';
-import { Ambiance } from '../components/Ambiance';
+import { AmbianceEnPartie } from '../components/Ambiance';
 import { phaseNuit, useAmbianceSonore } from '../nuit';
 import { useSceneAccusation } from '../components/jeu/Scenes';
 import { ModaleDemandesPlace } from './Reprise';
@@ -141,7 +141,7 @@ export function Jeu({
   return (
     <div className="jeu">
       <div className="nuit" aria-hidden="true" style={{ '--obscurite': nuit.obscurite, '--aube': nuit.aube } as CSSProperties} />
-      <Ambiance type={vue.affaire === 'train' ? 'neige' : 'pluie'} discret attenuation={nuit.aube * 0.6} />
+      <AmbianceEnPartie type={vue.affaire === 'train' ? 'neige' : 'pluie'} attenuation={nuit.aube * 0.6} />
       <header className="barre-jeu">
         <span className="logo-jeu" title="Dossier Secret">
           <Sceau taille={36} />

@@ -17,3 +17,32 @@ describe('La nuit qui avance', () => {
     expect(phases.slice(0, 8).every((p) => p.aube === 0)).toBe(true);
   });
 });
+
+describe('météo par averses', () => {
+  it('alterne averses et temps sec, avec des durées raisonnables', async () => {
+    const { intensiteMeteo } = await import('../src/client/meteo');
+    const debut = Date.UTC(2026, 9, 21);
+    const pluies: number[] = [];
+    const secs: number[] = [];
+    let etat = intensiteMeteo(debut) > 0;
+    let duree = 0;
+    for (let s = 0; s < 24 * 3600; s++) {
+      const i = intensiteMeteo(debut + s * 1000);
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(i).toBeLessThanOrEqual(1);
+      const pleut = i > 0;
+      if (pleut !== etat) {
+        (etat ? pluies : secs).push(duree);
+        etat = pleut;
+        duree = 0;
+      }
+      duree++;
+    }
+    pluies.shift();
+    secs.shift();
+    expect(Math.min(...pluies)).toBeGreaterThanOrEqual(95);
+    expect(Math.max(...pluies)).toBeLessThanOrEqual(175);
+    expect(Math.min(...secs)).toBeGreaterThanOrEqual(25);
+    expect(Math.max(...secs)).toBeLessThanOrEqual(185);
+  });
+});

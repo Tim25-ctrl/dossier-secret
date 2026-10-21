@@ -3,6 +3,7 @@
 // « Animations réduites » et par le réglage du système.
 
 import { useMemo } from 'react';
+import { useMeteo } from '../meteo';
 
 export type TypeAmbiance = 'pluie' | 'neige';
 
@@ -12,8 +13,21 @@ function hasard(i: number, graine: number): number {
   return x - Math.floor(x);
 }
 
-/** `attenuation` (0 à 1) : la pluie ou la neige faiblit (à l'aube). */
-export function Ambiance({ type, discret = false, attenuation = 0 }: { type: TypeAmbiance; discret?: boolean; attenuation?: number }) {
+/**
+ * `attenuation` (0 à 1) : la pluie ou la neige faiblit (à l'aube). `intensite` (0 à 1) : force de
+ * l'averse du moment (voir meteo.ts) ; à 0, plus rien ne tombe.
+ */
+export function Ambiance({
+  type,
+  discret = false,
+  attenuation = 0,
+  intensite = 1,
+}: {
+  type: TypeAmbiance;
+  discret?: boolean;
+  attenuation?: number;
+  intensite?: number;
+}) {
   const particules = useMemo(() => {
     const n = discret ? (type === 'pluie' ? 26 : 22) : type === 'pluie' ? 46 : 38;
     return Array.from({ length: n }, (_, i) => {
@@ -27,9 +41,9 @@ export function Ambiance({ type, discret = false, attenuation = 0 }: { type: Typ
   }, [type]);
   return (
     <div
-      className={`ambiance ambiance-${type}${discret ? ' ambiance-discrete' : ''}`}
+      className={`ambiance ambiance-${type}${discret ? ' ambiance-discrete' : ''}${intensite <= 0 ? ' ambiance-calme' : ''}`}
       aria-hidden="true"
-      style={attenuation > 0 ? { opacity: (discret ? 0.6 : 1) * (1 - attenuation) } : undefined}
+      style={attenuation > 0 || intensite < 1 ? { opacity: (discret ? 0.6 : 1) * (1 - attenuation) * intensite } : undefined}
     >
       {particules.map((p, i) => (
         <span
@@ -45,4 +59,10 @@ export function Ambiance({ type, discret = false, attenuation = 0 }: { type: Typ
       ))}
     </div>
   );
+}
+
+/** En partie : pluie ou neige par averses, au même rythme que le son (voir meteo.ts). */
+export function AmbianceEnPartie({ type, attenuation }: { type: TypeAmbiance; attenuation: number }) {
+  const intensite = useMeteo();
+  return <Ambiance type={type} discret attenuation={attenuation} intensite={intensite} />;
 }

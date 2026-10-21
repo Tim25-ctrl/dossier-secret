@@ -4,11 +4,12 @@
 // - Manoir : pluie continue, rafales de vent, tonnerre lointain ; l'horloge sonne à chaque manche.
 // - Train (immobilisé par l'avalanche, donc sans roulement) : vent de montagne, craquements du
 //   métal, souffle de vapeur de la locomotive à l'arrêt ; la cloche du valet à chaque manche.
-// - Musique : notes lentes et graves (piano, violoncelle), plus tendue dans les dernières manches.
+// - Musique : de vrais petits morceaux (voir musique.ts), plus tendus dans les dernières manches.
 //
 // RÈGLE (comme pour les bruitages) : rien ne réagit à une information propre au complice. La
 // tension de la musique ne dépend que de la manche, que tout le monde voit.
 
+import { lancerMusique } from './musique';
 import { contexteAudio, bruitDe, type CouleurBruit, type ReglageCanal } from './sons';
 
 export type AffaireSonore = 'manoir' | 'train';
@@ -200,7 +201,10 @@ function demarrer(affaire: AffaireSonore): Session | null {
     const s: Session = { affaire, c, maitre, ambiance, horloge, musique, echoAmbiance, echoMusique, intemperies, reverb, sources: [], minuteurs: new Set(), tension: tensionVoulue };
     if (affaire === 'manoir') decorManoir(s);
     else decorTrain(s);
-    lancerMusique(s);
+    lancerMusique(
+      { c, sortie: musique, echo: echoMusique, vivante: () => session === s, tension: () => s.tension, minuteurs: s.minuteurs },
+      affaire,
+    );
     return s;
   } catch {
     return null; // l'ambiance n'est jamais indispensable
@@ -251,21 +255,23 @@ function bruitContinu(
   return { g, filtre: fs[fs.length - 1] };
 }
 
-/** Rafales : le vent forcit et faiblit au hasard. */
+/** Vent : un souffle très léger, et de temps en temps seulement une rafale qui monte puis retombe. */
 function vent(s: Session, q: number, gainMin: number, gainMax: number, freqMin: number, freqMax: number) {
-  const v = bruitContinu(s, s.ambiance, [{ type: 'bandpass', freq: (freqMin + freqMax) / 2, q }], gainMin);
-  // Une rafale sur deux environ : le vent monte nettement, puis retombe.
+  const milieu = (freqMin + freqMax) / 2;
+  const v = bruitContinu(s, s.ambiance, [{ type: 'bandpass', freq: milieu, q }], gainMin);
   repeter(
     s,
-    2500,
-    6000,
+    40_000,
+    90_000,
     () => {
       const t = s.c.currentTime;
-      const rafale = Math.random() < 0.45;
-      v.g.gain.setTargetAtTime(rafale ? alea(gainMax * 0.7, gainMax) : alea(gainMin, gainMin * 2), t, rafale ? alea(0.6, 1.2) : alea(1.5, 2.5));
-      v.filtre.frequency.setTargetAtTime(rafale ? alea((freqMin + freqMax) / 2, freqMax) : alea(freqMin, (freqMin + freqMax) / 2), t, alea(0.8, 1.8));
+      const duree = alea(3, 6);
+      v.g.gain.setTargetAtTime(alea(gainMax * 0.6, gainMax), t, alea(0.8, 1.4));
+      v.filtre.frequency.setTargetAtTime(alea(milieu, freqMax), t, alea(0.8, 1.6));
+      v.g.gain.setTargetAtTime(gainMin, t + duree, alea(1.5, 2.5));
+      v.filtre.frequency.setTargetAtTime(alea(freqMin, milieu), t + duree, 2);
     },
-    1500,
+    alea(15_000, 30_000),
   );
 }
 
@@ -322,21 +328,21 @@ function decorManoir(s: Session) {
   bruitContinu(s, s.intemperies, [{ type: 'highpass', freq: 350 }, { type: 'lowpass', freq: 2400 }], 0.1);
   bruitContinu(s, s.intemperies, [{ type: 'lowpass', freq: 700 }], 0.07, 'brun');
   // Rafales de vent.
-  vent(s, 1.2, 0.03, 0.9, 300, 900);
+  vent(s, 1.2, 0.015, 0.45, 300, 900);
   // Tonnerre : un craquement parfois, puis un long grondement qui roule.
   const tonnerre = () => {
     if (Math.random() < 0.5) bouffee(s, { filtre: 'highpass', freq: 900, gain: 0.18, attaque: 0.02, duree: 0.7, reverb: true });
     bouffee(s, { filtre: 'lowpass', freq: 650, gain: 0.85, attaque: 0.25, duree: alea(4, 6), reverb: true, couleur: 'brun', debut: 0.1 });
     bouffee(s, { filtre: 'lowpass', freq: 450, gain: 0.6, attaque: 0.6, duree: alea(4, 6), couleur: 'brun', debut: alea(1, 2) });
   };
-  repeter(s, 30_000, 70_000, tonnerre, alea(8_000, 14_000));
+  repeter(s, 100_000, 200_000, tonnerre, alea(20_000, 40_000));
 }
 
 function decorTrain(s: Session) {
   // Neige soufflée contre les vitres, très douce.
   bruitContinu(s, s.intemperies, [{ type: 'highpass', freq: 1800 }, { type: 'lowpass', freq: 5000 }], 0.035);
   // Vent de montagne : plus sifflant (filtre étroit).
-  vent(s, 3, 0.04, 1, 400, 1200);
+  vent(s, 3, 0.02, 0.5, 400, 1200);
   // Chaudière de la locomotive, maintenue en chauffe : un ronronnement grave.
   for (const [f, gain] of [
     [47, 0.035],
@@ -353,16 +359,16 @@ function decorTrain(s: Session) {
   // Souffle de vapeur.
   repeter(
     s,
-    22_000,
-    55_000,
-    () => bouffee(s, { filtre: 'highpass', freq: 1800, gain: 0.22, attaque: 0.35, duree: alea(1.8, 3.2) }),
-    alea(6_000, 15_000),
+    70_000,
+    150_000,
+    () => bouffee(s, { filtre: 'highpass', freq: 1800, gain: 0.18, attaque: 0.35, duree: alea(1.8, 3.2) }),
+    alea(25_000, 50_000),
   );
   // Craquements du métal qui refroidit.
   repeter(
     s,
-    12_000,
-    32_000,
+    50_000,
+    120_000,
     () => {
       const t = s.c.currentTime;
       const duree = alea(0.5, 1.2);
@@ -383,105 +389,6 @@ function decorTrain(s: Session) {
       osc.start(t);
       osc.stop(t + duree + 0.1);
     },
-    alea(4_000, 10_000),
+    alea(30_000, 60_000),
   );
-}
-
-// ---------------------------------------------------------------------------
-// Musique
-// ---------------------------------------------------------------------------
-
-// Ré mineur : graves pour le violoncelle, médiums pour le piano.
-// (Assez aiguës pour être entendues sur les haut-parleurs d'un téléphone.)
-const VIOLONCELLE = [146.83, 174.61, 220, 196, 130.81];
-const PIANO = [293.66, 349.23, 440, 523.25, 587.33, 698.46, 392];
-const TENSION = [311.13, 277.18, 415.3]; // mi bémol, do dièse, sol dièse : notes qui grincent
-
-function piano(s: Session, freq: number, debut = 0, gain = 0.24) {
-  const t = s.c.currentTime + debut;
-  for (const [rapport, part, type] of [
-    [1, 1, 'triangle'],
-    [2, 0.25, 'sine'],
-    [3, 0.08, 'sine'],
-  ] as const) {
-    const osc = s.c.createOscillator();
-    osc.type = type;
-    osc.frequency.value = freq * rapport;
-    const g = s.c.createGain();
-    enveloppe(g, t, gain * part, 0.01, 4.5 / rapport);
-    osc.connect(g);
-    g.connect(s.musique);
-    g.connect(s.echoMusique);
-    osc.start(t);
-    osc.stop(t + 4.6);
-  }
-}
-
-function violoncelle(s: Session, freq: number, duree: number, gain = 0.15) {
-  const t = s.c.currentTime;
-  const osc = s.c.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.value = freq;
-  const vibrato = s.c.createOscillator();
-  vibrato.frequency.value = 5;
-  const profondeur = s.c.createGain();
-  profondeur.gain.value = freq * 0.006;
-  vibrato.connect(profondeur).connect(osc.frequency);
-  const f = s.c.createBiquadFilter();
-  f.type = 'lowpass';
-  f.frequency.value = 1600;
-  const g = s.c.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(gain, t + 1.4);
-  g.gain.setValueAtTime(gain, t + duree * 0.6);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
-  osc.connect(f).connect(g);
-  g.connect(s.musique);
-  g.connect(s.echoMusique);
-  osc.start(t);
-  vibrato.start(t);
-  osc.stop(t + duree + 0.1);
-  vibrato.stop(t + duree + 0.1);
-}
-
-/** Battement sourd, comme un cœur (dernières manches). */
-function battement(s: Session) {
-  for (const debut of [0, 0.28]) {
-    const t = s.c.currentTime + debut;
-    const osc = s.c.createOscillator();
-    osc.frequency.setValueAtTime(62, t);
-    osc.frequency.exponentialRampToValueAtTime(40, t + 0.18);
-    const g = s.c.createGain();
-    enveloppe(g, t, debut ? 0.05 : 0.08, 0.01, 0.22);
-    osc.connect(g).connect(s.musique);
-    osc.start(t);
-    osc.stop(t + 0.3);
-  }
-}
-
-function lancerMusique(s: Session) {
-  let n = 0;
-  const phrase = () => {
-    n++;
-    if (n % 3 === 1) violoncelle(s, VIOLONCELLE[Math.floor(Math.random() * VIOLONCELLE.length)], alea(7, 10));
-    const notes = s.tension && Math.random() < 0.5 ? TENSION : PIANO;
-    piano(s, notes[Math.floor(Math.random() * notes.length)]);
-    if (Math.random() < 0.4) piano(s, PIANO[Math.floor(Math.random() * PIANO.length)], alea(0.6, 1.4), 0.16);
-  };
-  // Rythme lent, plus serré quand la tension monte. La première phrase vient vite.
-  let premiere = true;
-  const suite = () => {
-    const id = window.setTimeout(
-      () => {
-        s.minuteurs.delete(id);
-        if (session !== s) return;
-        phrase();
-        suite();
-      },
-      premiere ? ((premiere = false), 1500) : s.tension ? alea(2800, 4500) : alea(5000, 8500),
-    );
-    s.minuteurs.add(id);
-  };
-  suite();
-  repeter(s, 1150, 1250, () => s.tension && battement(s), 1200);
 }

@@ -71,7 +71,7 @@ const CANAUX: { id: CanalSon; titre: string; aide: string; essai?: Son }[] = [
   { id: 'messages', titre: 'Messages', aide: 'Nouveau message dans la discussion.', essai: 'message' },
   { id: 'ambiance', titre: 'Ambiance', aide: 'Pluie, vent et tonnerre au manoir ; vent, vapeur et métal dans le train.' },
   { id: 'horloge', titre: 'Horloge et cloche', aide: 'Elles sonnent à chaque nouvelle manche.' },
-  { id: 'musique', titre: 'Musique', aide: 'Piano et violoncelle pendant la partie.' },
+  { id: 'musique', titre: 'Musique', aide: 'Manoir : piano et violoncelle. Train : piano et contrebasse, façon années 30.' },
 ];
 
 export function ModaleParametres({

@@ -5,8 +5,8 @@ import { nomElement } from '../../../shared/data/catalogue';
 import { combinaisonsPossibles } from '../../../shared/logique';
 import { elementsDe, type ElementId, type Marque, type VueJoueur } from '../../../shared/types';
 import { connexion } from '../../connexion';
-import { Aide, Prive } from '../Commun';
-import { Embleme } from '../Emblemes';
+import { Aide } from '../Commun';
+import { Embleme, Icone } from '../Emblemes';
 import { CarteDeJeu } from './Dossier';
 import { texteEntreePrivee, type Noms } from './Textes';
 
@@ -119,7 +119,15 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
             </div>
             <div className="marques" role="group" aria-label={`Statut de ${nomElement(e)}`}>
               {MARQUES.map((x) => (
-                <button key={x.m} type="button" aria-pressed={m === x.m} title={x.long} aria-label={x.long} onClick={() => void marquer(e, x.m)}>
+                <button
+                  key={x.m}
+                  type="button"
+                  className={`marque-${x.m}`}
+                  aria-pressed={m === x.m}
+                  title={x.long}
+                  aria-label={x.long}
+                  onClick={() => void marquer(e, x.m)}
+                >
                   {x.court}
                 </button>
               ))}
@@ -131,9 +139,14 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
   );
 
   return (
-    <Prive titre="Carnet de déduction — privé, jamais partagé">
-      <div className="ligne" style={{ marginBottom: 10 }}>
-        <span className="petit muet">? inconnu · ✗ écarté · ~ probable · ✓ certain</span>
+    // Un vrai carnet : couverture de cuir, anneaux, page lignée avec marge rouge.
+    <section className="carnet-livre" aria-label="Carnet de déduction">
+      <div className="carnet-titre">
+        <Icone nom="cadenas" taille={14} /> Carnet de déduction — privé, jamais partagé
+      </div>
+      <div className="carnet-page">
+      <div className="ligne carnet-legende">
+        <span className="petit">? inconnu · ✗ écarté · ~ probable · ✓ certain</span>
         <span className="espace" />
         <Aide libelle="Aide sur le carnet">
           Notez ce que vous savez de chaque suspect, lieu et arme. Touchez une icône pour voir la carte en grand. Personne d'autre ne voit votre carnet.
@@ -156,7 +169,8 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
           <li key={i}>{texteEntreePrivee(e, nom, vue.regles.historiqueCartes === 'anonymes')}</li>
         ))}
       </ul>
+      </div>
       {enGrand && <ModaleCarte id={enGrand} onFermer={() => setEnGrand(null)} />}
-    </Prive>
+    </section>
   );
 }

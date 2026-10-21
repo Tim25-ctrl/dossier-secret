@@ -296,7 +296,7 @@ textarea:focus {
 /* Zones PRIVÉES : visibles par le joueur seul — distinction par icône, texte ET style. */
 .prive {
   position: relative;
-  background: repeating-linear-gradient(135deg, var(--prive), var(--prive) 12px, #2e2616 12px, #2e2616 24px);
+  background: linear-gradient(180deg, rgba(201, 164, 92, 0.1), rgba(201, 164, 92, 0.03) 60%), var(--panneau);
   border: 1px dashed var(--or);
   border-radius: var(--rayon);
   padding: 14px;
@@ -3346,5 +3346,199 @@ button.carte:hover:not(:disabled) {
 @media (max-width: 420px) {
   .segments button {
     padding: 6px 9px;
+  }
+}
+
+/* Colonnes latérales : barre de défilement fine, qui ne vient pas mordre sur les cadres. */
+.colonne-gauche,
+.colonne-droite {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ardoise-clair) transparent;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+
+/* ---------- Carnet de déduction : un vrai carnet ---------- */
+.carnet-livre {
+  position: relative;
+  padding: 10px 12px 14px 30px;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(255, 220, 160, 0.08), transparent 60%),
+    linear-gradient(180deg, #4a2e1b, #331f12);
+  border: 1px solid #1e120a;
+  box-shadow: var(--ombre), inset 0 0 0 2px rgba(201, 164, 92, 0.25);
+}
+.carnet-titre {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--or-clair);
+}
+.carnet-page {
+  position: relative;
+  padding: 12px 14px 16px 44px;
+  border-radius: 3px 8px 8px 3px;
+  color: #2b2418;
+  background:
+    linear-gradient(90deg, transparent 32px, rgba(200, 70, 60, 0.5) 32px 33px, transparent 33px),
+    linear-gradient(180deg, #f6eed8, #ece0bf);
+  box-shadow: inset 0 0 30px rgba(120, 90, 40, 0.18), 2px 2px 0 #d9caa2, 4px 4px 0 #c8b78c;
+}
+/* Anneaux de la reliure. */
+.carnet-page::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -22px;
+  width: 30px;
+  background: radial-gradient(ellipse 9px 5px at 50% 50%, #c9b27a 0 4px, #6b5530 5px, transparent 6px) 0 0 / 30px 34px repeat-y;
+  pointer-events: none;
+}
+.carnet-legende {
+  margin-bottom: 8px;
+  color: #6b5a3c;
+}
+.carnet-page h4 {
+  margin: 6px 0 2px;
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: #6b3a1f;
+}
+.carnet-page .carnet-ligne {
+  border-bottom: 1px solid rgba(80, 120, 170, 0.28);
+  padding: 3px 0;
+}
+.carnet-page .carnet-ligne .libelle {
+  font-family: var(--titre);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2b2418;
+}
+.carnet-page .carnet-ligne.ecarte .libelle {
+  color: #8a7a5c;
+  text-decoration: line-through;
+  text-decoration-color: #b0372b;
+  text-decoration-thickness: 2px;
+}
+.carnet-page .source {
+  color: #8a5a20;
+}
+/* Marques au crayon : la marque choisie est entourée à la main. */
+.carnet-page .marques {
+  border: none;
+  gap: 0;
+  overflow: visible;
+}
+.carnet-page .marques button {
+  min-width: 30px;
+  min-height: 34px;
+  padding: 0 4px;
+  border: 2px solid transparent;
+  border-radius: 50% 45% 55% 48%;
+  color: #7d6c4c;
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.carnet-page .marques button + button {
+  border-left: 2px solid transparent;
+}
+.carnet-page .marques button:hover {
+  background: rgba(120, 90, 40, 0.1);
+}
+.carnet-page .marques button[aria-pressed='true'] {
+  background: transparent;
+  font-weight: 700;
+  transform: rotate(-6deg);
+}
+.carnet-page .marques button.marque-inconnu[aria-pressed='true'] {
+  color: #4a3d28;
+  transform: none;
+}
+.carnet-page .marques button.marque-ecarte[aria-pressed='true'] {
+  color: #b0372b;
+  border-color: #b0372b;
+}
+.carnet-page .marques button.marque-probable[aria-pressed='true'] {
+  color: #a8650f;
+  border-color: #a8650f;
+}
+.carnet-page .marques button.marque-certain[aria-pressed='true'] {
+  color: #1f6b3a;
+  border-color: #1f6b3a;
+}
+.carnet-page .marques button:focus-visible {
+  outline: 2px solid #6b3a1f;
+  outline-offset: 1px;
+}
+/* Notes écrites à la main, sur les lignes. */
+.carnet-page label {
+  color: #6b3a1f;
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 1.4rem;
+}
+.carnet-page label .muet {
+  font-family: var(--texte);
+  color: #8a7a5c;
+}
+.carnet-page textarea {
+  border: none;
+  border-radius: 0;
+  padding: 2px 4px;
+  color: #1d3a7a;
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 1.35rem;
+  line-height: 32px;
+  background: repeating-linear-gradient(180deg, transparent 0 31px, rgba(80, 120, 170, 0.3) 31px 32px);
+  background-attachment: local;
+}
+.carnet-page textarea::placeholder {
+  color: #9a8a6a;
+}
+.carnet-page textarea:focus {
+  outline: 2px dashed rgba(107, 58, 31, 0.4);
+  outline-offset: 2px;
+}
+/* Mes observations, au crayon. */
+.carnet-page .journal li {
+  background: none;
+  border-left: 2px solid rgba(107, 58, 31, 0.35);
+  color: #2b2418;
+}
+
+.carnet-page .carnet-grille {
+  gap: 2px 22px;
+}
+/* Noms longs : à la ligne plutôt que coupés. */
+.carnet-page .carnet-ligne .libelle {
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.15;
+}
+.carnet-page label .muet {
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  .carnet-livre {
+    padding: 8px 6px 10px 20px;
+  }
+  .carnet-page {
+    padding: 10px 8px 14px 30px;
+    background:
+      linear-gradient(90deg, transparent 22px, rgba(200, 70, 60, 0.5) 22px 23px, transparent 23px),
+      linear-gradient(180deg, #f6eed8, #ece0bf);
+  }
+  .carnet-page::before {
+    left: -17px;
+    width: 22px;
+    background-size: 22px 34px;
   }
 }

@@ -2747,3 +2747,49 @@ button.carte:hover:not(:disabled) {
   background: rgba(201, 164, 92, 0.06);
   border-radius: 6px;
 }
+
+/* ---------- La nuit qui avance (voile sombre, puis lueur de l'aube) ---------- */
+.nuit,
+.nuit::before,
+.nuit::after {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.nuit {
+  z-index: -2;
+}
+.nuit::before,
+.nuit::after {
+  content: '';
+  transition: opacity 6s ease;
+}
+/* Voile de nuit, de plus en plus sombre. */
+.nuit::before {
+  background: #02040c;
+  opacity: var(--obscurite, 0);
+}
+/* Lueur de l'aube, montant de l'horizon. */
+.nuit::after {
+  background: linear-gradient(to top, rgba(232, 150, 110, 0.24), rgba(160, 120, 170, 0.1) 35%, transparent 65%);
+  opacity: var(--aube, 0);
+}
+.ambiance {
+  transition: opacity 6s ease;
+}
+.heure-nuit {
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.heure-nuit::before {
+  content: '· ';
+}
+@media (max-width: 600px) {
+  .heure-nuit {
+    display: block;
+  }
+  .heure-nuit::before {
+    content: none;
+  }
+}

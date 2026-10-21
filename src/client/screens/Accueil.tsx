@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { jouer } from '../sons';
+import { jouer, vibrationsPossibles } from '../sons';
 import { AFFAIRES } from '../../shared/data/catalogue';
 import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
 import { grade, lireProfil } from '../profil';
@@ -578,6 +578,50 @@ export function ModaleParametres({
           />
         </div>
       )}
+      {prefs.son && (
+        <>
+          <div className="champ">
+            <label htmlFor="ambiance">Ambiance sonore en partie</label>
+            <select id="ambiance" value={prefs.ambiance ? 'oui' : 'non'} onChange={(e) => majPrefs({ ambiance: e.target.value === 'oui' })}>
+              <option value="oui">Activée (pluie, vent, horloge…)</option>
+              <option value="non">Coupée</option>
+            </select>
+          </div>
+          <div className="champ">
+            <label htmlFor="musique">Musique en partie</label>
+            <select id="musique" value={prefs.musique ? 'oui' : 'non'} onChange={(e) => majPrefs({ musique: e.target.value === 'oui' })}>
+              <option value="oui">Activée</option>
+              <option value="non">Coupée</option>
+            </select>
+          </div>
+          {(prefs.ambiance || prefs.musique) && (
+            <div className="champ">
+              <label htmlFor="volume-ambiance">Volume de l'ambiance et de la musique : {Math.round(prefs.volumeAmbiance * 100)} %</label>
+              <input
+                id="volume-ambiance"
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={prefs.volumeAmbiance}
+                onChange={(e) => majPrefs({ volumeAmbiance: Number(e.target.value) })}
+              />
+            </div>
+          )}
+        </>
+      )}
+      <div className="champ">
+        <label htmlFor="vibrations">Vibrations (votre tour, interrogation)</label>
+        <select id="vibrations" value={prefs.vibrations ? 'oui' : 'non'} disabled={!vibrationsPossibles()} onChange={(e) => majPrefs({ vibrations: e.target.value === 'oui' })}>
+          <option value="oui">Activées</option>
+          <option value="non">Coupées</option>
+        </select>
+        {!vibrationsPossibles() && (
+          <p className="petit muet" style={{ margin: '6px 0 0' }}>
+            Cet appareil ne permet pas aux sites de vibrer (c'est le cas des iPhone).
+          </p>
+        )}
+      </div>
       <div className="champ">
         <label htmlFor="conseils">Conseils en partie</label>
         <select id="conseils" value={prefs.conseils ? 'oui' : 'non'} onChange={(e) => majPrefs({ conseils: e.target.value === 'oui' })}>

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { MessageChat } from '../../../shared/protocole';
 import { SANS_LIMITE, type VueJoueur } from '../../../shared/types';
-import { jouer, type Son } from '../../sons';
+import { jouer, vibrer, type Son } from '../../sons';
 
 /**
  * Déclenche les bruitages à partir des NOUVEAUX événements de la partie (jamais ceux déjà vus
@@ -39,8 +39,14 @@ export function useSonsPartie(vue: VueJoueur, doitRepondre: boolean) {
   // Fronts montants : début de mon tour, début d'une interrogation qui me concerne.
   const avant = useRef({ monTour, doitRepondre });
   useEffect(() => {
-    if (monTour && !avant.current.monTour) jouer('tour');
-    if (doitRepondre && !avant.current.doitRepondre) jouer('interrogation');
+    if (monTour && !avant.current.monTour) {
+      jouer('tour');
+      vibrer([90, 70, 90]);
+    }
+    if (doitRepondre && !avant.current.doitRepondre) {
+      jouer('interrogation');
+      vibrer(220);
+    }
     avant.current = { monTour, doitRepondre };
   }, [monTour, doitRepondre]);
 }

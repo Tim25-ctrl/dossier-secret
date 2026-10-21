@@ -29,8 +29,8 @@ export function reglerSons(sonActif: boolean, vol: number) {
   volume = Math.min(1, Math.max(0, vol));
 }
 
-function contexte(): AudioContext | null {
-  if (!actif || volume <= 0) return null;
+/** Contexte audio partagé (bruitages, ambiance, musique), créé à la demande. */
+export function contexteAudio(): AudioContext | null {
   try {
     ctx ??= new AudioContext();
   } catch {
@@ -40,9 +40,16 @@ function contexte(): AudioContext | null {
   return ctx;
 }
 
+function contexte(): AudioContext | null {
+  if (!actif || volume <= 0) return null;
+  return contexteAudio();
+}
+
 if (typeof window !== 'undefined') {
+  // Le navigateur ne laisse sortir le son qu'après un geste : on (ré)active le contexte au premier.
   const debloquer = () => {
-    if (actif && ctx?.state !== 'running') contexte();
+    if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => undefined);
+    else if (actif && !ctx) contexte();
   };
   window.addEventListener('pointerdown', debloquer, { passive: true });
   window.addEventListener('keydown', debloquer);
@@ -55,6 +62,38 @@ function bruit(c: AudioContext): AudioBuffer {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
   return bruitBlanc;
+}
+
+const bruitsLongs = new Map<number, AudioBuffer>();
+/** Bruit blanc de quelques secondes (bouclé par l'ambiance sans répétition audible). */
+export function bruitDe(c: AudioContext, secondes: number): AudioBuffer {
+  let b = bruitsLongs.get(secondes);
+  if (!b) {
+    b = c.createBuffer(1, Math.floor(c.sampleRate * secondes), c.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    bruitsLongs.set(secondes, b);
+  }
+  return b;
+}
+
+// ---------------------------------------------------------------------------
+// Vibrations (Android ; les iPhone ne permettent pas aux sites de vibrer)
+// ---------------------------------------------------------------------------
+
+let vibrations = true;
+export function reglerVibrations(actives: boolean) {
+  vibrations = actives;
+}
+export const vibrationsPossibles = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+/** Fait vibrer le téléphone (sans effet si c'est impossible ou désactivé). */
+export function vibrer(motif: number | number[]) {
+  if (!vibrations || !vibrationsPossibles()) return;
+  try {
+    navigator.vibrate(motif);
+  } catch {
+    /* refusé par le navigateur */
+  }
 }
 
 interface Note {

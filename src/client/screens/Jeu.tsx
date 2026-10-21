@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { INDICES_PAR_ID, libelleCategorie } from '../../shared/data/catalogue';
 import { nomCourt, nomElement } from '../../shared/data/catalogue';
 import type { EtatClient } from '../../shared/protocole';
@@ -17,6 +17,7 @@ import type { Preferences } from '../preferences';
 import { MenuPrincipal } from '../components/Menu';
 import { ConseilsEnPartie } from '../components/jeu/Conseils';
 import { Ambiance } from '../components/Ambiance';
+import { heureDeManche, phaseNuit, useAmbianceSonore } from '../nuit';
 import { ModaleDemandesPlace } from './Reprise';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
@@ -75,6 +76,10 @@ export function Jeu({
 
   const erreur = (e: string) => afficher(e, true);
 
+  // La nuit qui avance : heure affichée, ciel qui s'assombrit puis s'éclaire, ambiance sonore.
+  const nuit = phaseNuit(vue.manche, vue.regles.manchesMax);
+  useAmbianceSonore(vue.affaire, vue.manche, vue.regles.manchesMax, vue.etape === 'terminee');
+
   // Au début de la partie (une fois par partie sur cet appareil) : l'histoire de l'affaire.
   const [histoire, setHistoire] = useState(() => !etat.salon.code.startsWith('GUIDE') && vue.etape !== 'terminee' && histoireAPresenter(vue.partieId));
   const fermerHistoire = () => {
@@ -125,14 +130,17 @@ export function Jeu({
 
   return (
     <div className="jeu">
-      <Ambiance type={vue.affaire === 'train' ? 'neige' : 'pluie'} discret />
+      <div className="nuit" aria-hidden="true" style={{ '--obscurite': nuit.obscurite, '--aube': nuit.aube } as CSSProperties} />
+      <Ambiance type={vue.affaire === 'train' ? 'neige' : 'pluie'} discret attenuation={nuit.aube * 0.6} />
       <header className="barre-jeu">
         <span className="logo-jeu" title="Dossier Secret">
           <Sceau taille={36} />
         </span>
         <div className="indicateurs">
         <div className="indicateur">
-          <small>Manche</small>
+          <small>
+            Manche <span className="heure-nuit">{heureDeManche(vue.affaire, vue.manche)}</span>
+          </small>
           <strong>
             {vue.manche} / {vue.regles.manchesMax}
           </strong>

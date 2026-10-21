@@ -60,6 +60,8 @@ export interface InfosAffaire {
   fenetreCrime: { de: string; a: string };
   /** Texte de l'heure du crime dans l'explication finale (« entre 22 h 50 et 23 h 10 »). */
   heureCrime: string;
+  /** « la nuit du 17 octobre » : titre de la révélation finale. */
+  nuit: string;
   /** Lieu où le corps a été découvert. */
   lieuDecouverte: LieuId;
   corpsNonDeplace: string;

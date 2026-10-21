@@ -19,6 +19,7 @@ export const AFFAIRE_TRAIN: InfosAffaire = {
   ],
   fenetreCrime: { de: '00:50', a: '01:10' },
   heureCrime: 'entre 0 h 50 et 1 h 10',
+  nuit: 'la nuit du 9 au 10 mars',
   lieuDecouverte: 'compartiment',
   corpsNonDeplace: "Le corps n'a pas été déplacé : Octave est mort dans son propre compartiment.",
   corpsDeplace: "Le corps a ensuite été ramené dans le compartiment n° 7, à la faveur de la pénombre du couloir, pour égarer les soupçons.",

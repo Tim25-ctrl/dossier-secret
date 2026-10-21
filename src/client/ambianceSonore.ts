@@ -40,6 +40,8 @@ let reglages: Reglages = { sons: true, ambiance: true, musique: true, volume: 0.
 let voulue: AffaireSonore | null = null;
 let session: Session | null = null;
 let tensionVoulue = false;
+/** Moment de suspense (accusation) : l'ambiance et la musique se taisent presque. */
+let assourdie = false;
 let aubeVoulue = 0;
 
 const alea = (min: number, max: number) => min + Math.random() * (max - min);
@@ -63,6 +65,7 @@ export function demarrerAmbiance(affaire: AffaireSonore) {
 /** En quittant la partie. */
 export function arreterAmbiance() {
   voulue = null;
+  assourdie = false;
   tensionVoulue = false;
   aubeVoulue = 0;
   arreter();
@@ -79,7 +82,7 @@ function synchroniser() {
   const t = session.c.currentTime;
   const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
   // Volumes volontairement bas : l'ambiance reste derrière les bruitages et la lecture.
-  session.maitre.gain.setTargetAtTime(visible ? reglages.volume * 1.6 : 0, t, 0.4);
+  session.maitre.gain.setTargetAtTime(visible ? reglages.volume * 1.6 * (assourdie ? 0.1 : 1) : 0, t, assourdie ? 0.5 : 1.2);
   session.ambiance.gain.setTargetAtTime(reglages.ambiance ? 1 : 0, t, 0.4);
   session.musique.gain.setTargetAtTime(reglages.musique ? 1 : 0, t, 0.4);
   session.intemperies.gain.setTargetAtTime(1 - 0.7 * aubeVoulue, t, 3);
@@ -106,6 +109,12 @@ function arreter() {
 }
 
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', synchroniser);
+
+/** Suspense : baisse l'ambiance presque jusqu'au silence (et la remonte ensuite). */
+export function assourdir(oui: boolean) {
+  assourdie = oui;
+  synchroniser();
+}
 
 /** Dernières manches : musique plus tendue. */
 export function definirTension(tension: boolean) {

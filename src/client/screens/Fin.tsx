@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Revelation, revelationAMontrer } from '../components/jeu/Scenes';
 import { jouer } from '../sons';
 import { AFFAIRES, INDICES_PAR_ID, indicesDe } from '../../shared/data/catalogue';
 import { jourDuJournal } from '../../shared/data/indices';
@@ -32,13 +33,17 @@ export function Fin({ etat }: { etat: EtatClient }) {
   const gagnant = r.accusations.find((a) => a.correcte);
   // Profil : la partie est comptée une fois (pas les parties guidées).
   const bilan = etat.salon.code.startsWith('GUIDE') ? null : bilanPartie(vue);
+  // D'abord la révélation (une fois par partie sur cet appareil, pas pour les parties guidées), puis le bilan.
+  const [revelation, setRevelation] = useState(() => !etat.salon.code.startsWith('GUIDE') && revelationAMontrer(vue.partieId));
   useEffect(() => {
-    jouer(gagne ? 'victoire' : 'defaite');
-  }, [vue.partieId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!revelation) jouer(gagne ? 'victoire' : 'defaite');
+  }, [vue.partieId, revelation]); // eslint-disable-line react-hooks/exhaustive-deps
   // Pages du carnet de la victime vraies pour la solution : elles racontent sa dernière semaine sans contradiction.
   const infos = AFFAIRES[vue.affaire];
   const pagesJournal = indicesDe(vue.affaire).filter((c) => c.categorie === 'journal' && indiceValide(c, r.solution)).sort((a, b) => jourDuJournal(a) - jourDuJournal(b));
   const pagesLues = new Set([...vue.moi.indicesConsultes.map((i) => i.indice), ...vue.indicesPublics.map((i) => i.indice)]);
+
+  if (revelation) return <Revelation vue={vue} nom={nom} onBilan={() => setRevelation(false)} />;
 
   return (
     <main className="page">

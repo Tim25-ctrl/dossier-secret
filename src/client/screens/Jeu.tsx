@@ -18,6 +18,7 @@ import { MenuPrincipal } from '../components/Menu';
 import { ConseilsEnPartie } from '../components/jeu/Conseils';
 import { Ambiance } from '../components/Ambiance';
 import { phaseNuit, useAmbianceSonore } from '../nuit';
+import { useSceneAccusation } from '../components/jeu/Scenes';
 import { ModaleDemandesPlace } from './Reprise';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
@@ -79,6 +80,8 @@ export function Jeu({
   // La nuit qui avance : ciel qui s'assombrit puis s'éclaire, ambiance sonore (l'horloge sonne les heures).
   const nuit = phaseNuit(vue.manche, vue.regles.manchesMax);
   useAmbianceSonore(vue.affaire, vue.manche, vue.regles.manchesMax, vue.etape === 'terminee');
+  // Accusation mise en scène pour tous (une accusation fausse ; la juste est jouée par l'écran de fin).
+  const sceneAccusation = useSceneAccusation(vue, nom);
   // Thème visuel de l'histoire, sur toute la page (les fenêtres s'affichent hors de la zone de jeu).
   useEffect(() => {
     document.documentElement.dataset.affaire = vue.affaire;
@@ -399,6 +402,7 @@ export function Jeu({
         <ConseilsEnPartie vue={vue} monTour={monTour} doitRepondre={doitRepondre} prefs={prefs} majPrefs={majPrefs} />
       )}
       {notification}
+      {sceneAccusation}
     </div>
   );
 }

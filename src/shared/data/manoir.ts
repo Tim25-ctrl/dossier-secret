@@ -19,6 +19,7 @@ export const AFFAIRE: InfosAffaire = {
   ],
   fenetreCrime: { de: '22:50', a: '23:10' },
   heureCrime: 'entre 22 h 50 et 23 h 10',
+  nuit: 'la nuit du 17 octobre',
   lieuDecouverte: 'bureau',
   corpsNonDeplace: "Le corps n'a pas été déplacé : Armand est mort là où on l'a trouvé.",
   corpsDeplace: "Le corps a ensuite été transporté jusqu'au bureau pour égarer les soupçons.",

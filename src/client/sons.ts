@@ -17,7 +17,10 @@ export type Son =
   | 'defaite'
   | 'message'
   | 'tic'
-  | 'tac';
+  | 'tac'
+  | 'retourne'
+  | 'verdictJuste'
+  | 'verdictFaux';
 
 let ctx: AudioContext | null = null;
 let actif = true;
@@ -116,6 +119,8 @@ export const vibrationsPossibles = () => typeof navigator !== 'undefined' && typ
 /** Fait vibrer le téléphone (sans effet si c'est impossible ou désactivé). */
 export function vibrer(motif: number | number[]) {
   if (!vibrations || !vibrationsPossibles()) return;
+  // Avant le premier toucher, le navigateur refuse (et le signale en erreur) : inutile d'essayer.
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try {
     navigator.vibrate(motif);
   } catch {
@@ -239,6 +244,22 @@ const RECETTES: Record<Son, (c: AudioContext, s: AudioNode) => void> = {
   tac: (c, s) => {
     note(c, s, { freq: 1500, duree: 0.04, gain: 0.12, type: 'triangle' });
     souffle(c, s, { duree: 0.02, filtre: 'highpass', freq: 3000, gain: 0.08 });
+  },
+  // Carte qu'on retourne d'un coup sec sur la table.
+  retourne: (c, s) => {
+    souffle(c, s, { duree: 0.18, filtre: 'bandpass', freq: 1200, freqFin: 3200, q: 0.9, gain: 0.2, attaque: 0.02 });
+    souffle(c, s, { debut: 0.16, duree: 0.04, filtre: 'lowpass', freq: 900, gain: 0.3 });
+  },
+  // Accusation juste : accord majeur éclatant, comme des cuivres.
+  verdictJuste: (c, s) => {
+    note(c, s, { freq: 98, freqFin: 60, duree: 0.4, gain: 0.45 });
+    for (const f of [261.63, 329.63, 392, 523.25]) note(c, s, { freq: f, duree: 2, type: 'sawtooth', gain: 0.045, attaque: 0.04 });
+    note(c, s, { freq: 1046.5, debut: 0.05, duree: 1.6, type: 'triangle', gain: 0.08 });
+  },
+  // Accusation fausse : coup sourd et accord mineur qui retombe.
+  verdictFaux: (c, s) => {
+    note(c, s, { freq: 90, freqFin: 38, duree: 0.7, gain: 0.6 });
+    for (const f of [146.83, 174.61, 207.65]) note(c, s, { freq: f, duree: 1.6, type: 'triangle', gain: 0.12, attaque: 0.03 });
   },
   // Descente mineure, lente.
   defaite: (c, s) => {

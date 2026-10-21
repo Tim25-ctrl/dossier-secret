@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { INDICES_PAR_ID, affaireDeCarte, libelleCategorie } from '../../shared/data/catalogue';
 import { nomCourt, nomElement } from '../../shared/data/catalogue';
 import { ceQueLIndiceEcarte, precision } from '../../shared/logique';
-import { categorieDe, type CarteIndice as CarteIndiceType, type ElementId, type Triplet } from '../../shared/types';
+import { categorieDe, type CarteIndice as CarteIndiceType, type CategorieIndice, type ElementId, type Triplet } from '../../shared/types';
 import { Embleme, Icone } from './Emblemes';
 
 export const LIBELLE_CATEGORIE = { suspect: 'Suspect', lieu: 'Lieu', arme: 'Arme' } as const;
@@ -68,20 +68,68 @@ export function texteTriplet(t: Triplet) {
   return `${nomElement(t.suspect)} · ${nomElement(t.lieu)} · ${nomElement(t.arme)}`;
 }
 
+/**
+ * Aspect « papier » de chaque sorte de dossier. Huis clos (tempête, avalanche) : ni police ni
+ * gendarmerie, tout a été recueilli ou trouvé sur place par les enquêteurs. Déposition tapée à la
+ * machine et signée par le témoin, fiche cartonnée annotée au crayon, étiquette nouée à un objet,
+ * document trouvé, page manuscrite du carnet de la victime.
+ * Un dossier trafiqué par le complice prend exactement l'aspect de la sorte affichée : rien ne le trahit.
+ */
+const PAPIERS: Record<CategorieIndice, { famille: 'pv' | 'fiche' | 'etiquette' | 'officiel' | 'journal'; entete: string; marque?: string }> = {
+  temoignage: { famille: 'pv', entete: 'Déposition recueillie sur place' },
+  contradiction: { famille: 'pv', entete: 'Confrontation des témoins' },
+  trace: { famille: 'fiche', entete: 'Constatation faite sur place', marque: 'Vu' },
+  horaire: { famille: 'fiche', entete: 'Relevé tiré des registres de la maison', marque: 'Vérifié' },
+  deplacement: { famille: 'fiche', entete: 'Relevé tiré des registres de la maison', marque: 'Vérifié' },
+  objet: { famille: 'etiquette', entete: 'Objet trouvé sur place' },
+  document: { famille: 'officiel', entete: 'Document trouvé sur place' },
+  journal: { famille: 'journal', entete: '' },
+};
+
+/** Signature griffonnée au bas d'un procès-verbal. */
+function Signature() {
+  return (
+    <svg className="signature" viewBox="0 0 120 34" aria-hidden="true">
+      <path d="M4 24c8-14 14-18 16-12s-6 14-2 12 10-16 14-14-2 12 3 11 8-10 12-9-1 8 4 8 9-7 14-6 3 5 8 4 12-6 18-4" />
+      <path d="M30 29c20-3 46-4 80-6" />
+    </svg>
+  );
+}
+
 export function CarteIndice({ id, dossier, ouvert = true, categorie }: { id: string; dossier?: number; ouvert?: boolean; categorie?: CarteIndiceType['categorie'] }) {
   const c = INDICES_PAR_ID[id];
   const [details, setDetails] = useState(ouvert);
   if (!c) return null;
   const affichee = categorie ?? c.categorie;
+  const affaire = affaireDeCarte(c);
+  const papier = PAPIERS[affichee] ?? PAPIERS.document;
   return (
-    <article className={affichee === 'journal' ? 'indice page-journal' : 'indice'}>
+    <article className={`indice papier-${papier.famille}${papier.famille === 'journal' ? ' page-journal' : ''}`}>
+      {papier.famille !== 'journal' && (
+        <div className="papier-entete">
+          {papier.famille === 'etiquette' && <i className="oeillet" aria-hidden="true" />}
+          <span>{papier.entete}</span>
+          {dossier !== undefined && <span>N° {dossier}</span>}
+        </div>
+      )}
+      {papier.marque && (
+        <span className="marque-crayon" aria-hidden="true">
+          {papier.marque}
+        </span>
+      )}
+      <h4>{papier.famille === 'pv' ? <>Objet : {c.titre}</> : c.titre}</h4>
+      <p>{c.texte}</p>
+      {papier.famille === 'pv' && (
+        <div className="papier-signature">
+          Lu et approuvé
+          <Signature />
+        </div>
+      )}
       <div className="meta">
-        <span>{libelleCategorie(affichee, affaireDeCarte(c))}</span>
-        {dossier !== undefined && <span>Dossier n° {dossier}</span>}
+        <span>{libelleCategorie(affichee, affaire)}</span>
+        {papier.famille === 'journal' && dossier !== undefined && <span>Dossier n° {dossier}</span>}
         <span>Précision {precision(c)}</span>
       </div>
-      <h4>{c.titre}</h4>
-      <p>{c.texte}</p>
       <button type="button" className="btn btn-discret btn-petit" style={{ color: '#5b4520' }} onClick={() => setDetails(!details)} aria-expanded={details}>
         {details ? 'Masquer' : 'Afficher'} ce que l'indice permet d'écarter
       </button>

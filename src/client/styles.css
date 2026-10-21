@@ -2777,3 +2777,220 @@ button.carte:hover:not(:disabled) {
 .ambiance {
   transition: opacity 6s ease;
 }
+
+/* ---------- Dossiers d'archives : un aspect de vrai document par sorte ---------- */
+.indice {
+  position: relative;
+}
+.indice .meta {
+  margin: 10px 0 0;
+}
+.papier-entete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  margin: -2px 0 8px;
+  padding-bottom: 6px;
+  font-family: var(--texte);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid currentColor;
+  opacity: 0.85;
+}
+.papier-entete span:first-of-type {
+  flex: 1;
+}
+/* Procès-verbal tapé à la machine. */
+.indice.papier-pv {
+  background: #f3efe4;
+  color: #2a2620;
+  border-color: #b9ad92;
+  border-radius: 4px;
+  box-shadow: inset 0 0 24px rgba(120, 100, 60, 0.12);
+}
+.papier-pv h4,
+.papier-pv p {
+  font-family: 'Special Elite', 'Courier New', monospace;
+  font-weight: 400;
+}
+.papier-pv h4 {
+  font-size: 0.95rem;
+}
+.papier-pv p {
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+.papier-signature {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-family: 'Special Elite', 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+.signature {
+  width: 92px;
+  height: 26px;
+  fill: none;
+  stroke: #1d3a7a;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+/* Fiche de police scientifique, avec tampon. */
+/* Fiche cartonnée (bristol ligné), remplie sur place. */
+.indice.papier-fiche {
+  background:
+    linear-gradient(180deg, transparent 0 40px, rgba(190, 70, 70, 0.35) 40px 41px, transparent 41px),
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(80, 120, 170, 0.16) 25px 26px),
+    #f6f3ea;
+  color: #23262c;
+  border-color: #b5ad98;
+  border-radius: 3px;
+  box-shadow: inset 0 0 24px rgba(90, 80, 50, 0.1);
+}
+.papier-fiche .papier-entete {
+  border-bottom-style: dashed;
+}
+.papier-fiche p {
+  font-family: var(--texte);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.indice .meta span {
+  border-color: currentColor;
+  color: inherit;
+  opacity: 0.75;
+}
+/* Marque au crayon des enquêteurs (« Vu », « Vérifié »), entourée à la main. */
+.marque-crayon {
+  float: right;
+  margin: 0 4px 6px 12px;
+  padding: 0 10px 2px;
+  transform: rotate(-7deg);
+  border: 1.5px solid rgba(60, 60, 72, 0.6);
+  border-radius: 50% 45% 55% 48%;
+  color: rgba(55, 55, 68, 0.85);
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+/* Étiquette de scellé, avec son œillet. */
+.indice.papier-etiquette {
+  background: #e8d3a3;
+  color: #3a2a10;
+  border-color: #8c6d33;
+  border-radius: 4px 22px 22px 4px;
+}
+.oeillet {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #8c6d33;
+  background: #f6ead0;
+}
+.papier-etiquette .papier-entete span:first-of-type {
+  flex: 1;
+}
+/* Document officiel à en-tête. */
+.indice.papier-officiel {
+  background: #f6f1e3;
+  color: #2a2214;
+  border-color: #b9a77a;
+  border-radius: 2px;
+}
+.papier-officiel .papier-entete {
+  justify-content: center;
+  text-align: center;
+  border-bottom-color: #c9b88a;
+}
+.papier-officiel .papier-entete span:first-of-type {
+  flex: none;
+}
+.papier-officiel .papier-entete span + span::before {
+  content: '· ';
+}
+.papier-officiel p {
+  font-style: italic;
+}
+/* Carnet de la victime : écriture manuscrite. */
+.papier-journal h4,
+.papier-journal p {
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-style: normal;
+}
+.papier-journal h4 {
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 28px;
+}
+.papier-journal p {
+  font-size: 1.35rem;
+  line-height: 28px;
+  margin: 0;
+}
+
+/* ---------- Thème visuel de chaque histoire (pendant la partie) ---------- */
+/* Manoir : boiseries sombres, filets dorés, lueur de chandelle. */
+:root[data-affaire='manoir'] {
+  --nuit: #120c08;
+  --nuit-2: #1c130d;
+  --panneau: #2a1c13;
+  --panneau-2: #34241a;
+  --ardoise: #5c4128;
+  --ardoise-clair: #7d5c3c;
+}
+:root[data-affaire='manoir'] body {
+  background: radial-gradient(ellipse at top, #2b1b11 0%, var(--nuit) 60%) fixed, var(--nuit);
+}
+:root[data-affaire='manoir'] .panneau {
+  background: linear-gradient(180deg, var(--panneau), #1b120c);
+}
+:root[data-affaire='manoir'] .barre-jeu {
+  background: rgba(30, 20, 12, 0.94);
+  border-bottom-color: var(--or-sombre);
+}
+:root[data-affaire='manoir'] .nuit {
+  background:
+    radial-gradient(ellipse 60% 45% at 0% 100%, rgba(255, 150, 60, 0.13), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 100% 0%, rgba(255, 170, 80, 0.07), transparent 70%);
+}
+/* Train : velours vert Pullman, cuivre, givre sur les bords de l'écran. */
+:root[data-affaire='train'] {
+  --nuit: #07120e;
+  --nuit-2: #0c1c16;
+  --panneau: #132820;
+  --panneau-2: #18322a;
+  --ardoise: #2f5246;
+  --ardoise-clair: #4b7466;
+  --or: #c69462;
+  --or-clair: #e8bf92;
+  --or-sombre: #8a5b37;
+}
+:root[data-affaire='train'] body {
+  background: radial-gradient(ellipse at top, #123128 0%, var(--nuit) 60%) fixed, var(--nuit);
+}
+:root[data-affaire='train'] .panneau {
+  background: linear-gradient(180deg, var(--panneau), #0d1d17);
+}
+:root[data-affaire='train'] .barre-jeu {
+  background: rgba(12, 28, 22, 0.94);
+  border-bottom-color: var(--or-sombre);
+}
+:root[data-affaire='train'] .nuit {
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 50%, transparent 62%, rgba(215, 232, 245, 0.11) 100%),
+    radial-gradient(circle at 0% 0%, rgba(230, 242, 250, 0.12), transparent 22%),
+    radial-gradient(circle at 100% 100%, rgba(230, 242, 250, 0.1), transparent 20%);
+}
+@media (max-width: 820px) {
+  :root[data-affaire='manoir'] .onglets {
+    background: rgba(30, 20, 12, 0.97);
+  }
+  :root[data-affaire='train'] .onglets {
+    background: rgba(12, 28, 22, 0.97);
+  }
+}

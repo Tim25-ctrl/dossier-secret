@@ -79,6 +79,13 @@ export function Jeu({
   // La nuit qui avance : ciel qui s'assombrit puis s'éclaire, ambiance sonore (l'horloge sonne les heures).
   const nuit = phaseNuit(vue.manche, vue.regles.manchesMax);
   useAmbianceSonore(vue.affaire, vue.manche, vue.regles.manchesMax, vue.etape === 'terminee');
+  // Thème visuel de l'histoire, sur toute la page (les fenêtres s'affichent hors de la zone de jeu).
+  useEffect(() => {
+    document.documentElement.dataset.affaire = vue.affaire;
+    return () => {
+      delete document.documentElement.dataset.affaire;
+    };
+  }, [vue.affaire]);
 
   // Au début de la partie (une fois par partie sur cet appareil) : l'histoire de l'affaire.
   const [histoire, setHistoire] = useState(() => !etat.salon.code.startsWith('GUIDE') && vue.etape !== 'terminee' && histoireAPresenter(vue.partieId));

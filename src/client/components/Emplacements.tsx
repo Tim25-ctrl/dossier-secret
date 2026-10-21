@@ -1,14 +1,14 @@
 // Emplacements de sauvegarde : 3 pour les parties solo, 3 pour les parties multijoueur.
 // - En partie (menu ☰ → Sauvegarder la partie) : on choisit l'emplacement où enregistrer.
 // - À l'accueil (« Charger une partie ») : on recharge, ou on efface, une partie enregistrée.
-// Les emplacements sont rangés sur le serveur sous le code joueur de l'appareil.
+// Les emplacements appartiennent au compte du joueur : sans compte, on ne peut pas sauvegarder.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { AFFAIRES } from '../../shared/data/catalogue';
 import { NB_EMPLACEMENTS, type EtatClient, type InfoEmplacement, type TypePartie } from '../../shared/protocole';
-import { changerCodeJoueur, codeJoueur, connexion, useConnexion } from '../connexion';
+import { connexion, useConnexion } from '../connexion';
 import { Modale } from './Commun';
-import { Icone } from './Emblemes';
+import { InvitationCompte } from './Compte';
 
 /** « à l'instant », « il y a 5 min », « il y a 2 h », « il y a 3 jours ». */
 export function depuis(t: number): string {
@@ -28,9 +28,9 @@ function useEmplacements(type: TypePartie) {
   const [liste, setListe] = useState<InfoEmplacement[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [tour, setTour] = useState(0);
-  const { statut } = useConnexion();
+  const { statut, compte } = useConnexion();
   useEffect(() => {
-    if (statut !== 'connecte') return;
+    if (statut !== 'connecte' || !compte) return;
     let actif = true;
     setErreur(null);
     void connexion.listerEmplacements().then((r) => {
@@ -41,7 +41,7 @@ function useEmplacements(type: TypePartie) {
     return () => {
       actif = false;
     };
-  }, [type, tour, statut]);
+  }, [type, tour, statut, compte?.nom]);
   return { liste, erreur, recharger: () => setTour((x) => x + 1) };
 }
 
@@ -84,80 +84,22 @@ function Emplacement({ numero, info, actif, children }: { numero: number; info?:
   );
 }
 
-/** Code joueur de l'appareil : à noter pour retrouver ses sauvegardes ailleurs, ou à remplacer par celui d'un autre appareil. */
-function CodeJoueur({ onChange }: { onChange: () => void }) {
-  const [code, setCode] = useState(codeJoueur);
-  const [saisie, setSaisie] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const copier = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setMessage('Code copié.');
-    } catch {
-      setMessage('Copie impossible : recopiez le code à la main.');
-    }
-  };
-  const valider = () => {
-    if (saisie === null) return;
-    if (!changerCodeJoueur(saisie)) return setMessage('Ce code ne convient pas : il fait 12 caractères, par exemple ABCD-EFGH-JK23.');
-    setCode(codeJoueur());
-    setSaisie(null);
-    setMessage('Code changé : voici les sauvegardes de ce code.');
-    onChange();
-  };
-  return (
-    <div className="code-joueur">
-      <p className="petit" style={{ margin: 0 }}>
-        Vos sauvegardes sont rangées sous votre <strong>code joueur</strong> :
-      </p>
-      <div className="ligne">
-        <span className="code-joueur-valeur">{code}</span>
-        <button className="btn btn-petit btn-discret" onClick={() => void copier()}>
-          <Icone nom="copie" /> Copier
-        </button>
-        {saisie === null && (
-          <button className="btn btn-petit btn-discret" onClick={() => (setSaisie(''), setMessage(null))}>
-            Utiliser un autre code
-          </button>
-        )}
-      </div>
-      {saisie !== null ? (
-        <div className="ligne">
-          <input
-            aria-label="Code joueur d'un autre appareil"
-            className="code-input"
-            value={saisie}
-            maxLength={14}
-            placeholder="ABCD-EFGH-JK23"
-            autoCapitalize="characters"
-            autoComplete="off"
-            autoFocus
-            onChange={(e) => setSaisie(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === 'Enter' && valider()}
-          />
-          <button className="btn btn-petit btn-or" onClick={valider}>
-            Valider
-          </button>
-          <button className="btn btn-petit btn-discret" onClick={() => (setSaisie(null), setMessage(null))}>
-            Annuler
-          </button>
-        </div>
-      ) : (
-        <p className="petit muet" style={{ margin: 0 }}>
-          Notez-le : sur un autre téléphone ou ordinateur, « Utiliser un autre code » avec ce code y affiche les mêmes sauvegardes.
-        </p>
-      )}
-      {message && (
-        <p className="petit" role="status" style={{ margin: 0 }}>
-          {message}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /** Accueil : charger (ou effacer) une partie enregistrée. */
-export function ModaleCharger({ type, onFermer, onFichier }: { type: TypePartie; onFermer: () => void; onFichier?: () => void }) {
+export function ModaleCharger({
+  type,
+  onFermer,
+  onFichier,
+  pseudo,
+  onConnecte,
+}: {
+  type: TypePartie;
+  onFermer: () => void;
+  onFichier?: () => void;
+  /** Pseudonyme proposé si le joueur crée un compte depuis cette fenêtre. */
+  pseudo?: string;
+  onConnecte?: (nom: string) => void;
+}) {
+  const { compte } = useConnexion();
   const { liste, erreur, recharger } = useEmplacements(type);
   const [effacer, setEffacer] = useState<number | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -196,13 +138,16 @@ export function ModaleCharger({ type, onFermer, onFichier }: { type: TypePartie;
         </>
       }
     >
-      {erreur && (
+      {!compte && (
+        <InvitationCompte texte="Les parties sauvegardées sont gardées dans votre compte. Connectez-vous pour les retrouver." pseudo={pseudo} onConnecte={onConnecte} />
+      )}
+      {compte && erreur && (
         <p className="erreur" role="alert">
           {erreur}
         </p>
       )}
-      {!liste && !erreur && <p className="muet">Chargement des sauvegardes…</p>}
-      {liste && (
+      {compte && !liste && !erreur && <p className="muet">Chargement des sauvegardes…</p>}
+      {compte && liste && (
         <ul className="emplacements">
           {NUMEROS.map((n) => {
             const info = liste.find((e) => e.numero === n);
@@ -238,12 +183,16 @@ export function ModaleCharger({ type, onFermer, onFichier }: { type: TypePartie;
           {erreurAction}
         </p>
       )}
-      {type === 'multi' && (
+      {compte && type === 'multi' && (
         <p className="petit muet">
           La partie reprend dans une salle d'attente : les autres joueurs reviennent avec le code du salon et <strong>le même pseudonyme</strong>.
         </p>
       )}
-      <CodeJoueur onChange={recharger} />
+      {compte && (
+        <p className="petit muet" style={{ marginBottom: 0 }}>
+          Sauvegardes du compte <strong>{compte.nom}</strong>, retrouvées sur tous vos appareils.
+        </p>
+      )}
     </Modale>
   );
 }
@@ -252,6 +201,7 @@ export function ModaleCharger({ type, onFermer, onFichier }: { type: TypePartie;
 export function EnregistrerPartie({ etat }: { etat: EtatClient }) {
   const type: TypePartie = etat.salon.solo ? 'solo' : 'multi';
   const autorise = etat.salon.solo || etat.salon.hote === etat.moi;
+  const { compte } = useConnexion();
   const { liste, erreur, recharger } = useEmplacements(type);
   const [remplacer, setRemplacer] = useState<number | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -266,6 +216,18 @@ export function EnregistrerPartie({ etat }: { etat: EtatClient }) {
       </p>
     );
   }
+
+  if (!compte)
+    return (
+      <InvitationCompte
+        texte={
+          <>
+            Pour sauvegarder vos parties, il faut un <strong>compte</strong>. Vous pouvez le créer maintenant : la partie continue pendant ce temps.
+          </>
+        }
+        pseudo={etat.salon.joueurs.find((j) => j.id === etat.moi)?.nom}
+      />
+    );
 
   const enregistrer = async (numero: number) => {
     setEnvoi(true);

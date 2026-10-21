@@ -9,9 +9,9 @@
 import { useSyncExternalStore } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import {
-  ALPHABET_CODE,
-  LONGUEUR_CODE_JOUEUR,
   type AttentePlace,
+  type CompteVue,
+  type ConnexionCompte,
   type EtatClient,
   type EvenementsClient,
   type EvenementsServeur,
@@ -21,6 +21,15 @@ import {
   type TypePartie,
 } from '../shared/protocole';
 import type { ActionJeu, AffaireId } from '../shared/types';
+import {
+  CLE_SESSION_COMPTE,
+  definirProfilCompte,
+  effacerProfilInvite,
+  normaliserProfil,
+  profilInvite,
+  surChangementProfilCompte,
+  type Profil,
+} from './profil';
 
 const CLE_SESSION = 'dossier-secret:session';
 const CLE_DERNIERE = 'dossier-secret:derniere-session';
@@ -29,44 +38,39 @@ const CLE_SAUVEGARDE = 'dossier-secret:sauvegarde';
 const SALON_INCONNU = 'Aucun salon ne correspond';
 /** Résumé lisible de la dernière partie (histoire, manche, joueurs) pour l'accueil. */
 const CLE_RESUME = 'dossier-secret:resume-partie';
-/** Code joueur : clé secrète des emplacements de sauvegarde rangés sur le serveur. */
+/**
+ * Ancien « code joueur » d'appareil (avant les comptes) : à la première connexion à un compte, ses
+ * sauvegardes sont reprises par le compte, puis il est oublié.
+ */
 const CLE_CODE_JOUEUR = 'dossier-secret:code-joueur';
-
-/** « ABCD1234EFGH » -> « ABCD-1234-EFGH » ; null si le code est mal formé. */
-export function formaterCodeJoueur(brut: string): string | null {
-  const c = brut.toUpperCase().replace(/[\s-]/g, '');
-  if (c.length !== LONGUEUR_CODE_JOUEUR || [...c].some((x) => !ALPHABET_CODE.includes(x))) return null;
-  return c.match(/.{4}/g)!.join('-');
+function ancienCodeJoueur(): string | undefined {
+  try {
+    return localStorage.getItem(CLE_CODE_JOUEUR) ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-/** Code joueur de cet appareil (tiré au hasard la première fois). */
-export function codeJoueur(): string {
-  try {
-    const existant = formaterCodeJoueur(localStorage.getItem(CLE_CODE_JOUEUR) ?? '');
-    if (existant) return existant;
-  } catch {
-    /* stockage indisponible : un code pour cette visite seulement */
-  }
-  const alea = crypto.getRandomValues(new Uint8Array(LONGUEUR_CODE_JOUEUR));
-  const code = formaterCodeJoueur([...alea].map((n) => ALPHABET_CODE[n % ALPHABET_CODE.length]).join(''))!;
-  try {
-    localStorage.setItem(CLE_CODE_JOUEUR, code);
-  } catch {
-    /* idem */
-  }
-  return code;
+/** Compte connecté sur cet appareil : pseudonyme et jeton de session. */
+interface CompteLocal {
+  nom: string;
+  jeton: string;
 }
-
-/** Utiliser sur cet appareil le code joueur d'un autre appareil. Retourne false si le code est mal formé. */
-export function changerCodeJoueur(brut: string): boolean {
-  const code = formaterCodeJoueur(brut);
-  if (!code) return false;
+function lireCompte(): CompteLocal | null {
   try {
-    localStorage.setItem(CLE_CODE_JOUEUR, code);
+    const c = JSON.parse(localStorage.getItem(CLE_SESSION_COMPTE) ?? 'null') as CompteLocal | null;
+    return c && typeof c.nom === 'string' && typeof c.jeton === 'string' ? c : null;
   } catch {
-    return false;
+    return null;
   }
-  return true;
+}
+function ecrireCompte(c: CompteLocal | null) {
+  try {
+    if (c) localStorage.setItem(CLE_SESSION_COMPTE, JSON.stringify(c));
+    else localStorage.removeItem(CLE_SESSION_COMPTE);
+  } catch {
+    /* stockage indisponible : le compte reste connecté jusqu'à la fermeture de la page */
+  }
 }
 
 export interface ResumePartie {
@@ -128,8 +132,10 @@ export interface Instantane {
   tutoriel: boolean;
   /** Demande de reprise d'une place (autre appareil) en attente d'un joueur présent, ou refusée. */
   demandePlace: (AttentePlace & { refus?: string }) | null;
-  /** Le serveur propose les emplacements de sauvegarde (null : pas encore connu). */
-  emplacements: boolean | null;
+  /** Le serveur propose les comptes et les emplacements de sauvegarde (null : pas encore connu). */
+  comptes: boolean | null;
+  /** Compte connecté sur cet appareil. */
+  compte: { nom: string } | null;
 }
 
 /**
@@ -221,7 +227,8 @@ class Connexion {
     reprise: false,
     tutoriel: false,
     demandePlace: null,
-    emplacements: null,
+    comptes: null,
+    compte: typeof localStorage !== 'undefined' && lireCompte() ? { nom: lireCompte()!.nom } : null,
   };
   private local: MoteurLocal | null = null;
 
@@ -231,6 +238,7 @@ class Connexion {
     this.socket = io({ transports: ['websocket', 'polling'], reconnectionDelayMax: 4000 });
     this.socket.on('connect', () => {
       this.maj({ statut: 'connecte' });
+      void this.reprendreCompte();
       // Reconnexion automatique (rafraîchissement, coupure réseau, mise en veille du téléphone).
       if (this.etat.session && !this.etat.expulsion && !this.local) void this.reprendre(this.etat.session);
     });
@@ -262,7 +270,9 @@ class Connexion {
       this.maj({ expulsion: raison, etat: null });
     });
     this.socket.on('version', verifierVersion);
-    this.socket.on('capacites', (c) => this.maj({ emplacements: c.emplacements }));
+    this.socket.on('capacites', (c) => this.maj({ comptes: c.comptes }));
+    // Profil du compte : chaque changement (partie terminée, remise à zéro) part au serveur.
+    surChangementProfilCompte((p) => void this.envoyer('compte:profil', { profil: p }));
     // Copie chiffrée du salon, gardée sur l'appareil : elle permet de le reprendre si le serveur redémarre.
     // Réponse à une demande de place : la session de ce joueur (nouveau jeton), ou un refus.
     this.socket.on('place', (p) => {
@@ -457,15 +467,90 @@ class Connexion {
     this.maj({ session: null, etat: null, expulsion: null });
   }
 
-  // Emplacements de sauvegarde (3 solo + 3 multijoueur, rangés sous le code joueur).
-  listerEmplacements = () => this.envoyer<{ emplacements: InfoEmplacement[] }>('emplacements:lister', { codeJoueur: codeJoueur() });
-  enregistrerEmplacement = (numero: number) => this.envoyer<{ emplacement: InfoEmplacement }>('emplacements:enregistrer', { codeJoueur: codeJoueur(), numero });
-  effacerEmplacement = (type: TypePartie, numero: number) => this.envoyer('emplacements:effacer', { codeJoueur: codeJoueur(), type, numero });
+  // ---------------- Compte (pseudonyme + mot de passe) ----------------
+
+  /** À chaque connexion au serveur, l'appareil présente son jeton de compte ; un jeton périmé est oublié. */
+  private async reprendreCompte() {
+    const c = lireCompte();
+    if (!c) return;
+    const r = await this.envoyer<{ compte: CompteVue | null }>('compte:reprendre', { jeton: c.jeton });
+    if (!r.ok) return; // serveur momentanément sans base : on garde le compte pour la prochaine fois
+    if (!r.compte) return this.oublierCompte();
+    definirProfilCompte(normaliserProfil(r.compte.profil));
+    this.maj({ compte: { nom: r.compte.nom } });
+  }
+
+  private ouvrirCompte(r: ConnexionCompte, profil: Profil) {
+    ecrireCompte({ nom: r.compte.nom, jeton: r.jeton });
+    definirProfilCompte(profil);
+    // Les sauvegardes de l'ancien code joueur ont été reprises par le compte.
+    try {
+      localStorage.removeItem(CLE_CODE_JOUEUR);
+    } catch {
+      /* rien */
+    }
+    this.maj({ compte: { nom: r.compte.nom } });
+  }
+
+  private oublierCompte() {
+    ecrireCompte(null);
+    definirProfilCompte(null);
+    this.maj({ compte: null });
+  }
+
+  /** Création : le profil sans compte de l'appareil (grade, succès) devient celui du compte. */
+  async creerCompte(nom: string, motDePasse: string) {
+    const invite = profilInvite();
+    const r = await this.envoyer<ConnexionCompte>('compte:creer', {
+      nom,
+      motDePasse,
+      profil: invite.parties > 0 ? invite : undefined,
+      codeJoueur: ancienCodeJoueur(),
+    });
+    if (r.ok) {
+      this.ouvrirCompte(r, invite);
+      effacerProfilInvite();
+    }
+    return r;
+  }
+
+  /** Connexion : le profil du compte remplace, sur cet appareil, le profil sans compte (qui revient à la déconnexion). */
+  async connecterCompte(nom: string, motDePasse: string) {
+    const r = await this.envoyer<ConnexionCompte>('compte:connecter', { nom, motDePasse, codeJoueur: ancienCodeJoueur() });
+    if (r.ok) this.ouvrirCompte(r, normaliserProfil(r.compte.profil));
+    return r;
+  }
+
+  /** Mot de passe oublié : code de secours + nouveau mot de passe (un nouveau code de secours est donné). */
+  async recupererCompte(nom: string, codeSecours: string, motDePasse: string) {
+    const r = await this.envoyer<ConnexionCompte>('compte:recuperer', { nom, codeSecours, motDePasse });
+    if (r.ok) this.ouvrirCompte(r, normaliserProfil(r.compte.profil));
+    return r;
+  }
+
+  async deconnecterCompte() {
+    await this.envoyer('compte:deconnecter', {});
+    this.oublierCompte();
+  }
+
+  changerMotDePasse = (ancien: string, nouveau: string) => this.envoyer('compte:motDePasse', { ancien, nouveau });
+
+  async supprimerCompte(motDePasse: string) {
+    const r = await this.envoyer('compte:supprimer', { motDePasse });
+    if (r.ok) this.oublierCompte();
+    return r;
+  }
+
+  // ---------------- Emplacements de sauvegarde du compte (3 solo + 3 multijoueur) ----------------
+  listerEmplacements = () => this.envoyer<{ emplacements: InfoEmplacement[] }>('emplacements:lister', {});
+  enregistrerEmplacement = (numero: number) => this.envoyer<{ emplacement: InfoEmplacement }>('emplacements:enregistrer', { numero });
+  effacerEmplacement = (type: TypePartie, numero: number) => this.envoyer('emplacements:effacer', { type, numero });
   async chargerEmplacement(type: TypePartie, numero: number) {
-    const r = await this.envoyer<{ session: Session }>('emplacements:charger', { codeJoueur: codeJoueur(), type, numero });
+    const r = await this.envoyer<{ session: Session }>('emplacements:charger', { type, numero });
     if (r.ok) this.memoriser(r.session);
     return r;
   }
+
 
   demarrer = () => this.envoyer('salon:demarrer', {});
   rejouer = () => this.envoyer('salon:rejouer', {});

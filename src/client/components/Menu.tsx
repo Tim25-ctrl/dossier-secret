@@ -97,8 +97,8 @@ export function MenuPrincipal({ etat, prefs, majPrefs }: { etat: EtatClient; pre
  * et le fichier téléchargeable.
  */
 function ModaleSauvegarde({ etat, onFermer }: { etat: EtatClient; onFermer: () => void }) {
-  const { emplacements } = useConnexion();
-  if (!emplacements) return <SauvegardeAppareil onFermer={onFermer} />;
+  const { comptes, compte } = useConnexion();
+  if (!comptes) return <SauvegardeAppareil onFermer={onFermer} />;
   return (
     <Modale
       titre="Sauvegarder la partie"
@@ -110,10 +110,16 @@ function ModaleSauvegarde({ etat, onFermer }: { etat: EtatClient; onFermer: () =
       }
     >
       <EnregistrerPartie etat={etat} />
-      <details className="autres-sauvegardes">
-        <summary>Sauvegarde automatique et fichier</summary>
-        <SauvegardeAppareil />
-      </details>
+      {compte ? (
+        <details className="autres-sauvegardes">
+          <summary>Sauvegarde automatique et fichier</summary>
+          <SauvegardeAppareil />
+        </details>
+      ) : (
+        <p className="petit muet autres-sauvegardes">
+          Sans compte, la partie est seulement protégée contre les coupures : si la connexion ou le serveur s'interrompt, elle reprend toute seule.
+        </p>
+      )}
     </Modale>
   );
 }

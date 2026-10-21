@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { effacerProfil, grade, lireProfil, SUCCES, type Profil } from '../profil';
 import { Modale } from './Commun';
+import { InvitationCompte, ModaleCompte } from './Compte';
+import { useConnexion } from '../connexion';
 import { PSEUDO_MAX } from '../../shared/protocole';
 
 const pourcent = (v: number, n: number) => (n ? `${Math.round((v / n) * 100)} %` : '—');
@@ -37,7 +39,11 @@ export function ModaleProfil({
   pseudo?: string;
   onPseudo?: (p: string) => void;
 }) {
-  const [profil, setProfil] = useState(lireProfil);
+  const { comptes, compte } = useConnexion();
+  const [gerer, setGerer] = useState(false);
+  // Relu à chaque affichage : il change avec la connexion au compte et après une remise à zéro.
+  const [, setTic] = useState(0);
+  const profil = lireProfil();
   const [confirmer, setConfirmer] = useState(false);
   const debloques = SUCCES.filter((s) => profil.succes[s.id]).length;
   return (
@@ -48,6 +54,29 @@ export function ModaleProfil({
           <input id="pseudo-profil" value={pseudo ?? ''} maxLength={PSEUDO_MAX} placeholder="Inspecteur Martin" onChange={(e) => onPseudo(e.target.value)} autoComplete="nickname" />
         </div>
       )}
+      {comptes && compte && (
+        <p className="ligne compte-profil">
+          <span>
+            Compte : <strong>{compte.nom}</strong>
+          </span>
+          <button className="btn btn-petit btn-discret" onClick={() => setGerer(true)}>
+            Gérer mon compte
+          </button>
+        </p>
+      )}
+      {comptes && !compte && (
+        <InvitationCompte
+          texte={
+            <>
+              Sans compte, ce profil reste sur cet appareil et vos parties ne peuvent pas être sauvegardées. Avec un compte, vos sauvegardes, votre grade et
+              vos succès vous suivent partout.
+            </>
+          }
+          pseudo={pseudo}
+          onConnecte={(nom) => !pseudo?.trim() && onPseudo?.(nom)}
+        />
+      )}
+      {gerer && <ModaleCompte onFermer={() => setGerer(false)} />}
       <Grade profil={profil} />
       <div className="stats-profil">
         <div>
@@ -100,7 +129,8 @@ export function ModaleProfil({
         ))}
       </ul>
       <p className="petit muet">
-        Votre profil est gardé sur cet appareil uniquement. Les parties guidées ne comptent pas.{' '}
+        {compte ? 'Votre profil est gardé dans votre compte.' : 'Votre profil est gardé sur cet appareil uniquement.'} Les parties guidées ne comptent
+        pas.{' '}
         {profil.parties > 0 &&
           (confirmer ? (
             <>
@@ -109,7 +139,7 @@ export function ModaleProfil({
                 className="btn btn-discret btn-petit"
                 onClick={() => {
                   effacerProfil();
-                  setProfil(lireProfil());
+                  setTic((x) => x + 1);
                   setConfirmer(false);
                 }}
               >

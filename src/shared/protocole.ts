@@ -6,8 +6,7 @@ export const LONGUEUR_CODE = 6;
 export const ALPHABET_CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const PSEUDO_MAX = 20;
 export const MESSAGE_MAX = 280;
-/** Code joueur : clé secrète des emplacements de sauvegarde (affiché par groupes de 4). */
-export const LONGUEUR_CODE_JOUEUR = 12;
+export const MOT_DE_PASSE_MIN = 6;
 /** Emplacements de sauvegarde par type de partie. */
 export const NB_EMPLACEMENTS = 3;
 
@@ -23,6 +22,24 @@ export interface ResumeEmplacement {
   bots: number;
   /** Pseudonyme de celui qui a enregistré. */
   nom: string;
+}
+
+/** Compte connecté, tel que l'appareil le voit. */
+export interface CompteVue {
+  nom: string;
+  /** Profil (grade, succès) gardé avec le compte, ou null. */
+  profil: unknown;
+}
+
+/** Réponse à une création, une connexion ou une récupération de compte. */
+export interface ConnexionCompte {
+  compte: CompteVue;
+  /** Jeton secret de session, gardé par l'appareil. */
+  jeton: string;
+  /** Code de secours (création et récupération seulement), montré une seule fois. */
+  codeSecours?: string;
+  /** Sauvegardes de l'ancien code joueur de l'appareil reprises par le compte. */
+  repris?: number;
 }
 
 export interface InfoEmplacement {
@@ -130,13 +147,24 @@ export interface EvenementsClient {
   'salon:message': (p: { texte: string }, ack: (r: Reponse) => void) => void;
   'salon:reglages': (p: Partial<ReglagesSalon>, ack: (r: Reponse) => void) => void;
   'jeu:action': (p: ActionJeu, ack: (r: Reponse) => void) => void;
-  /** Emplacements de sauvegarde rangés sous ce code joueur. */
-  'emplacements:lister': (p: { codeJoueur: string }, ack: (r: Reponse<{ emplacements: InfoEmplacement[] }>) => void) => void;
+  // Comptes (pseudonyme + mot de passe). `codeJoueur` : ancien code d'appareil dont les sauvegardes sont reprises.
+  'compte:creer': (p: { nom: string; motDePasse: string; profil?: unknown; codeJoueur?: string }, ack: (r: Reponse<ConnexionCompte>) => void) => void;
+  'compte:connecter': (p: { nom: string; motDePasse: string; codeJoueur?: string }, ack: (r: Reponse<ConnexionCompte>) => void) => void;
+  /** À chaque connexion au serveur : l'appareil présente son jeton (compte null s'il n'est plus valable). */
+  'compte:reprendre': (p: { jeton: string }, ack: (r: Reponse<{ compte: CompteVue | null }>) => void) => void;
+  'compte:deconnecter': (p: object, ack: (r: Reponse) => void) => void;
+  /** Mot de passe oublié : code de secours + nouveau mot de passe. */
+  'compte:recuperer': (p: { nom: string; codeSecours: string; motDePasse: string }, ack: (r: Reponse<ConnexionCompte>) => void) => void;
+  'compte:motDePasse': (p: { ancien: string; nouveau: string }, ack: (r: Reponse) => void) => void;
+  'compte:supprimer': (p: { motDePasse: string }, ack: (r: Reponse) => void) => void;
+  'compte:profil': (p: { profil: unknown }, ack: (r: Reponse) => void) => void;
+  /** Emplacements de sauvegarde du compte connecté. */
+  'emplacements:lister': (p: object, ack: (r: Reponse<{ emplacements: InfoEmplacement[] }>) => void) => void;
   /** Enregistre la partie en cours (solo, ou multijoueur si l'on est l'hôte) dans un emplacement. */
-  'emplacements:enregistrer': (p: { codeJoueur: string; numero: number }, ack: (r: Reponse<{ emplacement: InfoEmplacement }>) => void) => void;
+  'emplacements:enregistrer': (p: { numero: number }, ack: (r: Reponse<{ emplacement: InfoEmplacement }>) => void) => void;
   /** Recharge la partie d'un emplacement : on y reprend sa place (en multijoueur, les autres reviennent avec le code). */
-  'emplacements:charger': (p: { codeJoueur: string; type: TypePartie; numero: number }, ack: (r: Reponse<{ session: Session }>) => void) => void;
-  'emplacements:effacer': (p: { codeJoueur: string; type: TypePartie; numero: number }, ack: (r: Reponse) => void) => void;
+  'emplacements:charger': (p: { type: TypePartie; numero: number }, ack: (r: Reponse<{ session: Session }>) => void) => void;
+  'emplacements:effacer': (p: { type: TypePartie; numero: number }, ack: (r: Reponse) => void) => void;
 }
 
 /** Événements envoyés par le serveur. */
@@ -148,8 +176,8 @@ export interface EvenementsServeur {
   version: (v: string) => void;
   /** Copie chiffrée du salon, gardée par l'appareil pour le restaurer si le serveur redémarre. */
   sauvegarde: (p: { code: string; sauvegarde: string }) => void;
-  /** Services proposés par ce serveur (envoyé à la connexion). */
-  capacites: (p: { emplacements: boolean }) => void;
+  /** Services proposés par ce serveur (envoyé à la connexion) : comptes et emplacements de sauvegarde. */
+  capacites: (p: { comptes: boolean }) => void;
   /** Réponse à une demande de place : la session à reprendre, ou la raison du refus. */
   place: (p: { session: Session } | { refus: string }) => void;
 }

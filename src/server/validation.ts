@@ -50,11 +50,32 @@ export const schemaRetirer = z.object({ joueurId: idJoueur });
 export const schemaRepondrePlace = z.object({ demandeId: z.string().min(1).max(40), accepter: z.boolean() });
 export const schemaEmplacement = z
   .object({
-    codeJoueur: z.string().max(40),
     numero: z.number().int().optional(),
     type: z.enum(['solo', 'multi']).optional(),
   })
   .strict();
+const motDePasse = z.string().max(200);
+const profil = z
+  .object({
+    parties: z.number().int().min(0).max(1e7),
+    victoires: z.number().int().min(0).max(1e7),
+    enqueteur: z.object({ parties: z.number().int().min(0).max(1e7), victoires: z.number().int().min(0).max(1e7) }).strict(),
+    complice: z.object({ parties: z.number().int().min(0).max(1e7), victoires: z.number().int().min(0).max(1e7) }).strict(),
+    serie: z.number().int().min(0).max(1e7),
+    meilleureSerie: z.number().int().min(0).max(1e7),
+    succes: z.record(z.string().max(40), z.number()).refine((s) => Object.keys(s).length <= 100),
+    comptees: z.array(z.string().max(60)).max(100),
+  })
+  .strict();
+export const schemaProfil = z.object({ profil }).strict();
+export const schemaCreerCompte = z
+  .object({ nom: z.string().max(60), motDePasse, profil: profil.optional(), codeJoueur: z.string().max(40).optional() })
+  .strict();
+export const schemaConnecterCompte = z.object({ nom: z.string().max(60), motDePasse, codeJoueur: z.string().max(40).optional() }).strict();
+export const schemaReprendreCompte = z.object({ jeton: z.string().max(200) }).strict();
+export const schemaRecupererCompte = z.object({ nom: z.string().max(60), codeSecours: z.string().max(40), motDePasse }).strict();
+export const schemaChangerMotDePasse = z.object({ ancien: motDePasse, nouveau: motDePasse }).strict();
+export const schemaSupprimerCompte = z.object({ motDePasse }).strict();
 export const schemaReglages = z
   .object({
     dureeTourS: z.number().int().min(30).max(3600).nullable().optional(),

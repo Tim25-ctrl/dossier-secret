@@ -18,7 +18,7 @@ export function useQuitter(etat: EtatClient): { libelle: string; demander: () =>
   const dernier = !etat.salon.joueurs.some((j) => j.id !== etat.moi && !j.bot && !j.parti && j.connecte);
   // Dernier joueur d'une partie qu'il peut enregistrer : on lui rappelle de le faire avant de partir.
   const rappelSauvegarde =
-    enPartie && dernier && !connexion.instantane().tutoriel && connexion.instantane().emplacements && (etat.salon.solo || etat.salon.hote === etat.moi);
+    enPartie && dernier && !connexion.instantane().tutoriel && connexion.instantane().comptes && (etat.salon.solo || etat.salon.hote === etat.moi);
 
   const quitter = async () => {
     setEnvoi(true);

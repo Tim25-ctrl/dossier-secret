@@ -1,25 +1,18 @@
-// Emplacements de sauvegarde (3 pour les parties solo, 3 pour les parties multijoueur).
+// Données gardées par le serveur : comptes joueurs, emplacements de sauvegarde (3 solo + 3 multijoueur
+// par compte) et, avec une base de données, l'état des salons en cours.
 //
-// Ils sont rangés sous le « code joueur » de chacun : un code secret tiré au hasard par son appareil,
-// qu'il peut recopier sur un autre appareil pour y retrouver ses sauvegardes. Le serveur n'en garde
-// que l'empreinte (SHA-256) : il ne peut pas retrouver le code à partir de ce qu'il stocke.
+// Trois dépôts : une base PostgreSQL (variable DATABASE_URL, par exemple chez Neon) pour le site en
+// ligne, un fichier JSON pour jouer en local, et la mémoire pour les tests. Le dépôt PostgreSQL garde
+// aussi l'état des salons en cours, pour qu'un redémarrage du serveur ne coupe plus aucune partie.
 //
-// Deux dépôts : une base PostgreSQL (variable DATABASE_URL, par exemple chez Neon) pour le site en
-// ligne, et un fichier JSON pour jouer en local. Le dépôt PostgreSQL garde aussi l'état des salons
-// en cours, pour qu'un redémarrage du serveur ne coupe plus aucune partie.
+// Les emplacements sont rangés sous une clé : « compte:<id> » pour un compte. Les clés plus anciennes
+// (empreinte d'un « code joueur » d'appareil, avant les comptes) sont reprises par le compte à la connexion.
 
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  ALPHABET_CODE,
-  LONGUEUR_CODE_JOUEUR,
-  NB_EMPLACEMENTS,
-  type InfoEmplacement,
-  type ResumeEmplacement,
-  type TypePartie,
-} from '../shared/protocole';
+import { ALPHABET_CODE, NB_EMPLACEMENTS, type InfoEmplacement, type ResumeEmplacement, type TypePartie } from '../shared/protocole';
 import { ErreurJeu, type Salon } from './salons';
 
 /** Emplacement complet : le salon tel qu'il était au moment de l'enregistrement et la place de son auteur. */
@@ -28,25 +21,60 @@ export interface Emplacement extends InfoEmplacement {
   salon: Salon;
 }
 
-export interface DepotEmplacements {
+export interface Compte {
+  id: string;
+  /** Pseudonyme tel qu'il a été choisi (affiché). */
+  nom: string;
+  /** Pseudonyme en minuscules : deux comptes ne peuvent pas avoir le même. */
+  nomCle: string;
+  /** Empreinte du mot de passe (voir comptes.ts). */
+  mdp: string;
+  /** Empreinte du code de secours. */
+  secours: string;
+  /** Profil du joueur (grades, succès) en JSON, ou null. */
+  profil: string | null;
+  creeLe: number;
+}
+
+export type ChampsCompte = Partial<Pick<Compte, 'mdp' | 'secours' | 'profil'>>;
+
+export interface Depot {
   /** « base » : base de données en ligne ; « fichier » : fichier local (développement). */
   readonly genre: 'base' | 'fichier' | 'memoire';
+  // Emplacements
   lister(cle: string): Promise<InfoEmplacement[]>;
   lire(cle: string, type: TypePartie, numero: number): Promise<Emplacement | null>;
   ecrire(cle: string, e: Emplacement): Promise<void>;
   effacer(cle: string, type: TypePartie, numero: number): Promise<void>;
+  // Comptes
+  /** Retourne false si le pseudonyme est déjà pris. */
+  creerCompte(c: Compte): Promise<boolean>;
+  compteParNom(nomCle: string): Promise<Compte | null>;
+  compteParId(id: string): Promise<Compte | null>;
+  majCompte(id: string, champs: ChampsCompte): Promise<void>;
+  /** Supprime le compte, ses sessions et ses emplacements. */
+  supprimerCompte(id: string): Promise<void>;
+  // Sessions (empreinte du jeton remis à l'appareil -> compte)
+  ajouterSession(jetonHash: string, compteId: string, t: number): Promise<void>;
+  sessionCompte(jetonHash: string): Promise<{ compteId: string; t: number } | null>;
+  supprimerSession(jetonHash: string): Promise<void>;
+  /** Toutes les sessions du compte (mot de passe réinitialisé), sauf éventuellement une. */
+  supprimerSessions(compteId: string, sauf?: string): Promise<void>;
   /** État des salons en cours (sauvegarde automatique côté serveur), si le dépôt sait le garder. */
   lireEtat?(): Promise<string | null>;
   ecrireEtat?(json: string): Promise<void>;
   fermer?(): Promise<void>;
 }
+/** Ancien nom. */
+export type DepotEmplacements = Depot;
 
-/** Code joueur saisi (avec ou sans tirets) -> clé de rangement. Refuse tout code mal formé. */
-export function cleJoueur(brut: unknown): string {
-  if (typeof brut !== 'string') throw new ErreurJeu('Code joueur invalide.');
+export const cleCompte = (id: string) => `compte:${id}`;
+
+/** Ancien « code joueur » d'appareil (12 caractères) -> clé de ses emplacements, ou null s'il est mal formé. */
+export function cleCodeJoueur(brut: unknown): string | null {
+  if (typeof brut !== 'string') return null;
   const code = brut.trim().toUpperCase().replace(/[\s-]/g, '');
-  if (code.length !== LONGUEUR_CODE_JOUEUR || [...code].some((c) => !ALPHABET_CODE.includes(c)))
-    throw new ErreurJeu(`Le code joueur comporte ${LONGUEUR_CODE_JOUEUR} caractères (lettres et chiffres).`);
+  if (code.length !== 12 || [...code].some((c) => !ALPHABET_CODE.includes(c))) return null;
   return createHash('sha256').update(`emplacements:${code}`).digest('hex');
 }
 
@@ -69,16 +97,37 @@ export function resumer(s: Salon, auteur: string): ResumeEmplacement {
   };
 }
 
+/**
+ * Reprend les emplacements rangés sous une autre clé (ancien code joueur) dans les places libres du
+ * compte. Un emplacement déjà occupé côté compte est gardé ; celui de l'ancienne clé est alors laissé.
+ */
+export async function reprendreEmplacements(depot: Depot, de: string, vers: string): Promise<number> {
+  const libres = new Set((await depot.lister(vers)).map((e) => `${e.type}|${e.numero}`));
+  let repris = 0;
+  for (const e of await depot.lister(de)) {
+    if (libres.has(`${e.type}|${e.numero}`)) continue;
+    const complet = await depot.lire(de, e.type, e.numero);
+    if (!complet) continue;
+    await depot.ecrire(vers, complet);
+    await depot.effacer(de, e.type, e.numero);
+    repris++;
+  }
+  return repris;
+}
+
 const tri = (a: InfoEmplacement, b: InfoEmplacement) => (a.type === b.type ? a.numero - b.numero : a.type < b.type ? 1 : -1);
 const info = ({ type, numero, t, resume }: Emplacement): InfoEmplacement => ({ type, numero, t, resume });
+const copie = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
 // ---------------------------------------------------------------------------
 // En mémoire (tests) et dans un fichier (jeu en local)
 // ---------------------------------------------------------------------------
 
-export class DepotMemoire implements DepotEmplacements {
+export class DepotMemoire implements Depot {
   readonly genre: 'memoire' | 'fichier' = 'memoire';
   protected donnees = new Map<string, Emplacement>();
+  protected comptes = new Map<string, Compte>();
+  protected sessions = new Map<string, { compteId: string; t: number }>();
   private static cle = (cle: string, type: TypePartie, numero: number) => `${cle}|${type}|${numero}`;
 
   async lister(cle: string) {
@@ -86,14 +135,57 @@ export class DepotMemoire implements DepotEmplacements {
   }
   async lire(cle: string, type: TypePartie, numero: number) {
     const e = this.donnees.get(DepotMemoire.cle(cle, type, numero));
-    return e ? (JSON.parse(JSON.stringify(e)) as Emplacement) : null;
+    return e ? copie(e) : null;
   }
   async ecrire(cle: string, e: Emplacement) {
-    this.donnees.set(DepotMemoire.cle(cle, e.type, e.numero), JSON.parse(JSON.stringify(e)) as Emplacement);
+    this.donnees.set(DepotMemoire.cle(cle, e.type, e.numero), copie(e));
     await this.persister();
   }
   async effacer(cle: string, type: TypePartie, numero: number) {
     this.donnees.delete(DepotMemoire.cle(cle, type, numero));
+    await this.persister();
+  }
+
+  async creerCompte(c: Compte) {
+    if ([...this.comptes.values()].some((x) => x.nomCle === c.nomCle)) return false;
+    this.comptes.set(c.id, copie(c));
+    await this.persister();
+    return true;
+  }
+  async compteParNom(nomCle: string) {
+    const c = [...this.comptes.values()].find((x) => x.nomCle === nomCle);
+    return c ? copie(c) : null;
+  }
+  async compteParId(id: string) {
+    const c = this.comptes.get(id);
+    return c ? copie(c) : null;
+  }
+  async majCompte(id: string, champs: ChampsCompte) {
+    const c = this.comptes.get(id);
+    if (!c) return;
+    this.comptes.set(id, { ...c, ...champs });
+    await this.persister();
+  }
+  async supprimerCompte(id: string) {
+    this.comptes.delete(id);
+    for (const [k, s] of this.sessions) if (s.compteId === id) this.sessions.delete(k);
+    for (const k of [...this.donnees.keys()]) if (k.startsWith(`${cleCompte(id)}|`)) this.donnees.delete(k);
+    await this.persister();
+  }
+
+  async ajouterSession(jetonHash: string, compteId: string, t: number) {
+    this.sessions.set(jetonHash, { compteId, t });
+    await this.persister();
+  }
+  async sessionCompte(jetonHash: string) {
+    return this.sessions.get(jetonHash) ?? null;
+  }
+  async supprimerSession(jetonHash: string) {
+    this.sessions.delete(jetonHash);
+    await this.persister();
+  }
+  async supprimerSessions(compteId: string, sauf?: string) {
+    for (const [k, s] of this.sessions) if (s.compteId === compteId && k !== sauf) this.sessions.delete(k);
     await this.persister();
   }
   protected async persister() {}
@@ -110,15 +202,25 @@ export class DepotFichier extends DepotMemoire {
   static async ouvrir(fichier: string) {
     const d = new DepotFichier(fichier);
     if (existsSync(fichier)) {
-      const data = JSON.parse(await readFile(fichier, 'utf8')) as { version: number; emplacements: [string, Emplacement][] };
-      if (data.version === 1) d.donnees = new Map(data.emplacements);
+      const data = JSON.parse(await readFile(fichier, 'utf8')) as {
+        version: number;
+        emplacements: [string, Emplacement][];
+        comptes?: [string, Compte][];
+        sessions?: [string, { compteId: string; t: number }][];
+      };
+      if (data.version === 1 || data.version === 2) {
+        d.donnees = new Map(data.emplacements);
+        d.comptes = new Map(data.comptes ?? []);
+        d.sessions = new Map(data.sessions ?? []);
+      }
     }
     return d;
   }
 
   protected override async persister() {
     await mkdir(path.dirname(this.fichier), { recursive: true });
-    await writeFile(`${this.fichier}.tmp`, JSON.stringify({ version: 1, emplacements: [...this.donnees] }));
+    const json = JSON.stringify({ version: 2, emplacements: [...this.donnees], comptes: [...this.comptes], sessions: [...this.sessions] });
+    await writeFile(`${this.fichier}.tmp`, json);
     await rename(`${this.fichier}.tmp`, this.fichier);
   }
 }
@@ -134,7 +236,17 @@ export interface ClientSql {
   close?(): Promise<void>;
 }
 
-export class DepotSql implements DepotEmplacements {
+const ligneCompte = (l: Record<string, unknown>): Compte => ({
+  id: String(l.id),
+  nom: String(l.nom),
+  nomCle: String(l.nom_cle),
+  mdp: String(l.mdp),
+  secours: String(l.secours),
+  profil: l.profil === null || l.profil === undefined ? null : String(l.profil),
+  creeLe: Number(l.cree_le),
+});
+
+export class DepotSql implements Depot {
   readonly genre = 'base' as const;
   private constructor(private sql: ClientSql) {}
 
@@ -154,6 +266,20 @@ export class DepotSql implements DepotEmplacements {
       id INTEGER PRIMARY KEY,
       t BIGINT NOT NULL,
       donnees TEXT NOT NULL
+    )`);
+    await sql.query(`CREATE TABLE IF NOT EXISTS comptes (
+      id TEXT PRIMARY KEY,
+      nom TEXT NOT NULL,
+      nom_cle TEXT NOT NULL UNIQUE,
+      mdp TEXT NOT NULL,
+      secours TEXT NOT NULL,
+      profil TEXT,
+      cree_le BIGINT NOT NULL
+    )`);
+    await sql.query(`CREATE TABLE IF NOT EXISTS sessions_comptes (
+      jeton_hash TEXT PRIMARY KEY,
+      compte_id TEXT NOT NULL,
+      t BIGINT NOT NULL
     )`);
     return new DepotSql(sql);
   }
@@ -198,6 +324,54 @@ export class DepotSql implements DepotEmplacements {
 
   async effacer(cle: string, type: TypePartie, numero: number) {
     await this.sql.query('DELETE FROM emplacements WHERE cle = $1 AND type = $2 AND numero = $3', [cle, type, numero]);
+  }
+
+  async creerCompte(c: Compte) {
+    const r = await this.sql.query(
+      `INSERT INTO comptes (id, nom, nom_cle, mdp, secours, profil, cree_le) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (nom_cle) DO NOTHING RETURNING id`,
+      [c.id, c.nom, c.nomCle, c.mdp, c.secours, c.profil, c.creeLe],
+    );
+    return r.rows.length === 1;
+  }
+
+  async compteParNom(nomCle: string) {
+    const r = await this.sql.query('SELECT * FROM comptes WHERE nom_cle = $1', [nomCle]);
+    return r.rows[0] ? ligneCompte(r.rows[0]) : null;
+  }
+
+  async compteParId(id: string) {
+    const r = await this.sql.query('SELECT * FROM comptes WHERE id = $1', [id]);
+    return r.rows[0] ? ligneCompte(r.rows[0]) : null;
+  }
+
+  async majCompte(id: string, champs: ChampsCompte) {
+    const colonnes = (['mdp', 'secours', 'profil'] as const).filter((k) => champs[k] !== undefined);
+    if (colonnes.length === 0) return;
+    await this.sql.query(`UPDATE comptes SET ${colonnes.map((k, i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`, [id, ...colonnes.map((k) => champs[k])]);
+  }
+
+  async supprimerCompte(id: string) {
+    await this.sql.query('DELETE FROM sessions_comptes WHERE compte_id = $1', [id]);
+    await this.sql.query('DELETE FROM emplacements WHERE cle = $1', [cleCompte(id)]);
+    await this.sql.query('DELETE FROM comptes WHERE id = $1', [id]);
+  }
+
+  async ajouterSession(jetonHash: string, compteId: string, t: number) {
+    await this.sql.query('INSERT INTO sessions_comptes (jeton_hash, compte_id, t) VALUES ($1, $2, $3)', [jetonHash, compteId, t]);
+  }
+
+  async sessionCompte(jetonHash: string) {
+    const r = await this.sql.query('SELECT compte_id, t FROM sessions_comptes WHERE jeton_hash = $1', [jetonHash]);
+    return r.rows[0] ? { compteId: String(r.rows[0].compte_id), t: Number(r.rows[0].t) } : null;
+  }
+
+  async supprimerSession(jetonHash: string) {
+    await this.sql.query('DELETE FROM sessions_comptes WHERE jeton_hash = $1', [jetonHash]);
+  }
+
+  async supprimerSessions(compteId: string, sauf?: string) {
+    await this.sql.query('DELETE FROM sessions_comptes WHERE compte_id = $1 AND jeton_hash <> $2', [compteId, sauf ?? '']);
   }
 
   async lireEtat() {

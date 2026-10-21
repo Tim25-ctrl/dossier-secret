@@ -2301,7 +2301,7 @@ button.carte:hover:not(:disabled) {
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  max-width: 70%;
+  max-width: calc(100% - 156px);
   padding: 4px 12px 4px 6px;
   border-radius: 999px;
   border: 1px solid var(--or-sombre);
@@ -2669,25 +2669,6 @@ button.carte:hover:not(:disabled) {
     justify-content: flex-end;
   }
 }
-.code-joueur {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--ardoise);
-}
-.code-joueur-valeur {
-  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 1.1em;
-  letter-spacing: 0.08em;
-  color: var(--or-clair);
-}
-.code-joueur .code-input {
-  max-width: 200px;
-  font-size: 1em;
-  letter-spacing: 0.08em;
-}
 .succes-sauvegarde {
   margin: 0 0 8px;
   color: var(--vert);
@@ -2700,4 +2681,61 @@ button.carte:hover:not(:disabled) {
 .autres-sauvegardes summary {
   cursor: pointer;
   color: var(--ivoire-doux);
+}
+
+/* ---------- Compte joueur ---------- */
+.onglets-compte {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.onglets-compte .btn {
+  flex: 1;
+}
+.code-secours {
+  margin: 12px 0;
+  padding: 12px;
+  text-align: center;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 1.4em;
+  letter-spacing: 0.1em;
+  color: var(--or-clair);
+  border: 1px dashed var(--or-sombre);
+  border-radius: var(--rayon);
+  background: rgba(201, 164, 92, 0.06);
+  overflow-wrap: anywhere;
+}
+.avertissement-code {
+  color: var(--ivoire-doux);
+}
+.invitation-compte {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--or-sombre);
+  border-radius: var(--rayon);
+  background: rgba(201, 164, 92, 0.06);
+}
+.compte-profil {
+  justify-content: space-between;
+  margin: 0 0 12px;
+}
+/* Sur téléphone, « Se connecter » n'est qu'une icône (le texte apparaît sur les écrans plus larges). */
+.bouton-connexion {
+  gap: 6px;
+  white-space: nowrap;
+}
+.bouton-connexion .libelle-large {
+  display: none;
+}
+@media (min-width: 600px) {
+  .bouton-connexion {
+    width: auto;
+    padding: 0 14px 0 10px;
+    border-radius: 999px;
+  }
+  .bouton-connexion .libelle-large {
+    display: inline;
+    color: var(--ivoire);
+    font-weight: 600;
+  }
 }

@@ -103,14 +103,16 @@ L'offre gratuite de l'hébergeur efface la mémoire et le disque du serveur à c
 - Si, en revenant, le joueur apprend que le salon n'existe plus, son navigateur envoie la copie à `POST /api/restaurer`. Le serveur la déchiffre, vérifie son authenticité (une copie modifiée, trop ancienne — 7 jours — ou chiffrée avec une autre clé est refusée), recrée le salon s'il n'existe pas déjà, puis le joueur reprend sa place avec son jeton habituel. Les autres joueurs le rejoignent de la même façon.
 - Une partie rechargée ainsi ouvre une **salle d'attente** (`salon.reprise`) : code du salon, partage, liste des joueurs revenus ou attendus, discussion, remplacement d'un absent par un bot. Elle se ferme d'elle-même quand plus personne ne manque (la partie n'est plus en pause).
 
-## Emplacements de sauvegarde et base de données
+## Comptes, emplacements de sauvegarde et base de données
 
-- `src/server/emplacements.ts` : 3 emplacements solo + 3 multijoueur par **code joueur** (12 caractères tirés au hasard par l'appareil, gardés dans son localStorage). Le serveur ne stocke que l'empreinte SHA-256 du code.
+- `src/server/comptes.ts` : comptes facultatifs, pseudonyme + mot de passe, sans e-mail. Mot de passe et code de secours gardés sous forme d'empreinte scrypt salée ; jeton de session aléatoire (empreinte SHA-256 côté serveur, 180 jours) ; 5 essais faux pour un pseudonyme = blocage de 5 minutes (en mémoire). Le code de secours (12 caractères, montré une fois) permet de choisir un nouveau mot de passe ; il est alors remplacé et les autres appareils sont déconnectés.
+- Le profil (grade, succès) suit le compte : copie locale `dossier-secret:profil-compte`, envoyée au serveur à chaque changement (`compte:profil`, validé par zod). À la création, le profil sans compte de l'appareil devient celui du compte ; à la connexion à un compte existant, le profil sans compte reste sur l'appareil (il revient à la déconnexion).
+- `src/server/emplacements.ts` : 3 emplacements solo + 3 multijoueur par **compte** (clé `compte:<id>`). Sans compte : pas d'emplacements (la sauvegarde automatique de secours reste). Les emplacements créés avant les comptes (empreinte d'un « code joueur » d'appareil) sont repris par le compte à la création ou à la connexion depuis cet appareil.
 - Enregistrer (`emplacements:enregistrer`) copie le salon entier tel quel (`GestionnaireSalons.instantane`) : en solo le joueur, en multijoueur l'hôte seulement. Un salon est « solo » s'il a été créé par « Seul contre des bots » (`Salon.solo`).
 - Charger (`emplacements:charger`, `GestionnaireSalons.chargerSauvegarde`) : nouveau jeton pour l'auteur, qui devient l'hôte ; même code de salon si libre (les autres retrouvent leur place avec leur ancienne session ou « Rejoindre » + même pseudonyme), nouveau code s'il est pris par une autre partie, refus si la même partie est encore jouée par quelqu'un.
 - Dépôts : `DepotSql` (PostgreSQL via `DATABASE_URL`, par exemple Neon), `DepotFichier` (`data/emplacements.json`, en local seulement : désactivé sur Render, dont le disque est effacé), `DepotMemoire` (tests). Les tests utilisent PGlite, un vrai PostgreSQL dans le processus.
 - Avec `DATABASE_URL`, l'état de tous les salons est aussi écrit dans la table `etat_serveur` (au plus toutes les 3 s, et à l'arrêt du serveur) puis rechargé au démarrage : une mise à jour ou une mise en veille ne coupe plus les parties. Les copies chiffrées sur les appareils restent en secours.
-- Le serveur annonce `capacites: { emplacements }` à la connexion : sans dépôt, le client garde l'ancien bouton « Reprendre une sauvegarde » (fichier).
+- Le serveur annonce `capacites: { comptes }` à la connexion : sans dépôt, pas de comptes et le client garde l'ancien bouton « Reprendre une sauvegarde » (fichier).
 
 ## Retour d'un joueur sur un autre appareil
 

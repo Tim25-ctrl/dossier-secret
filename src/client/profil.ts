@@ -17,7 +17,27 @@ export interface Profil {
   comptees: string[];
 }
 
+/** Profil sans compte (gardé sur l'appareil). */
 const CLE = 'dossier-secret:profil';
+/** Copie du profil du compte connecté (la référence est sur le serveur). */
+const CLE_COMPTE = 'dossier-secret:profil-compte';
+/** Compte connecté sur cet appareil (voir connexion.ts) : sa présence fait utiliser le profil du compte. */
+export const CLE_SESSION_COMPTE = 'dossier-secret:compte';
+
+const surCompte = () => {
+  try {
+    return !!localStorage.getItem(CLE_SESSION_COMPTE);
+  } catch {
+    return false;
+  }
+};
+
+/** Prévenu à chaque changement du profil du compte (pour l'envoyer au serveur). */
+let auChangementCompte: ((p: Profil) => void) | null = null;
+export function surChangementProfilCompte(fn: (p: Profil) => void) {
+  auChangementCompte = fn;
+}
+
 const VIDE: Profil = {
   parties: 0,
   victoires: 0,
@@ -29,21 +49,69 @@ const VIDE: Profil = {
   comptees: [],
 };
 
-export function lireProfil(): Profil {
+/** Profil complet à partir de données partielles ou inconnues (ancien format, serveur). */
+export function normaliserProfil(brut: unknown): Profil {
+  if (!brut || typeof brut !== 'object') return VIDE;
+  const p = brut as Partial<Profil>;
+  return {
+    ...VIDE,
+    ...p,
+    enqueteur: { ...VIDE.enqueteur, ...p.enqueteur },
+    complice: { ...VIDE.complice, ...p.complice },
+    succes: { ...p.succes },
+    comptees: Array.isArray(p.comptees) ? p.comptees.slice(-50) : [],
+  };
+}
+
+function lireCle(cle: string): Profil {
   try {
-    const p = JSON.parse(localStorage.getItem(CLE) ?? 'null') as Partial<Profil> | null;
-    return p ? { ...VIDE, ...p, enqueteur: { ...VIDE.enqueteur, ...p.enqueteur }, complice: { ...VIDE.complice, ...p.complice } } : VIDE;
+    return normaliserProfil(JSON.parse(localStorage.getItem(cle) ?? 'null'));
   } catch {
     return VIDE;
   }
 }
 
-function ecrireProfil(p: Profil) {
+function ecrireCle(cle: string, p: Profil | null) {
   try {
-    localStorage.setItem(CLE, JSON.stringify(p));
+    if (p) localStorage.setItem(cle, JSON.stringify(p));
+    else localStorage.removeItem(cle);
   } catch {
     /* stockage indisponible : le profil n'est pas gardé */
   }
+}
+
+/** Profil affiché : celui du compte connecté, sinon celui de l'appareil. */
+export function lireProfil(): Profil {
+  return lireCle(surCompte() ? CLE_COMPTE : CLE);
+}
+
+function ecrireProfil(p: Profil) {
+  if (surCompte()) {
+    ecrireCle(CLE_COMPTE, p);
+    auChangementCompte?.(p);
+  } else ecrireCle(CLE, p);
+}
+
+/** Profil sans compte de cet appareil. */
+export const profilInvite = (): Profil => lireCle(CLE);
+export const effacerProfilInvite = () => ecrireCle(CLE, null);
+/** Copie locale du profil du compte (à la connexion) ; null à la déconnexion. */
+export const definirProfilCompte = (p: Profil | null) => ecrireCle(CLE_COMPTE, p);
+
+/** Ajoute à un profil les parties d'un autre (profil sans compte repris par un compte). */
+export function fusionnerProfils(a: Profil, b: Profil): Profil {
+  const succes = { ...b.succes };
+  for (const [id, t] of Object.entries(a.succes)) succes[id] = Math.min(t, succes[id] ?? t);
+  return {
+    parties: a.parties + b.parties,
+    victoires: a.victoires + b.victoires,
+    enqueteur: { parties: a.enqueteur.parties + b.enqueteur.parties, victoires: a.enqueteur.victoires + b.enqueteur.victoires },
+    complice: { parties: a.complice.parties + b.complice.parties, victoires: a.complice.victoires + b.complice.victoires },
+    serie: a.serie,
+    meilleureSerie: Math.max(a.meilleureSerie, b.meilleureSerie),
+    succes,
+    comptees: [...new Set([...a.comptees, ...b.comptees])].slice(-50),
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -16,9 +16,20 @@ import { vuePour } from '../engine/vue';
 import type { ConfigPartie } from '../engine/config';
 import type { AttentePlace, EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import { ErreurJeu, GestionnaireSalons } from './salons';
-import { cleJoueur, resumer, verifierNumero, type DepotEmplacements } from './emplacements';
+import { ServiceComptes, vueCompte } from './comptes';
+import { cleCodeJoueur, cleCompte, reprendreEmplacements, resumer, verifierNumero, type Depot } from './emplacements';
 import { Coffre } from './sauvegarde';
-import { lireAction, schemaEmplacement, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer, schemaSolo } from './validation';
+import {
+  lireAction,
+  schemaChangerMotDePasse,
+  schemaConnecterCompte,
+  schemaCreerCompte,
+  schemaEmplacement,
+  schemaProfil,
+  schemaRecupererCompte,
+  schemaReprendreCompte,
+  schemaSupprimerCompte,
+  schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer, schemaSolo } from './validation';
 
 export interface OptionsServeur {
   port?: number;
@@ -34,8 +45,8 @@ export interface OptionsServeur {
   cleSauvegarde?: string | null;
   /** Délai minimal entre deux envois de sauvegarde aux joueurs d'un salon. */
   intervalleSauvegardeMs?: number;
-  /** Emplacements de sauvegarde (base de données ou fichier local). Sans eux, seules les sauvegardes des appareils existent. */
-  emplacements?: DepotEmplacements | null;
+  /** Comptes et emplacements de sauvegarde (base de données ou fichier local). Sans eux, seules les sauvegardes des appareils existent. */
+  emplacements?: Depot | null;
 }
 
 interface DonneesSocket {
@@ -43,6 +54,9 @@ interface DonneesSocket {
   joueurId?: string;
   /** Demande de place en attente envoyée depuis cette connexion. */
   demande?: { code: string; id: string };
+  /** Compte connecté sur cette connexion (et son jeton de session). */
+  compteId?: string;
+  jetonCompte?: string;
   jetons: number;
   dernierRemplissage: number;
 }
@@ -60,6 +74,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   // Sauvegarde sur disque (optionnelle)
   // ---------------------------------------------------------------------------
   const depot = o.emplacements ?? null;
+  const comptes = depot ? new ServiceComptes(depot) : null;
   // Avec une base de données, l'état des salons y est gardé (il survit aux redémarrages du serveur).
   const etatEnBase = depot?.lireEtat && depot.ecrireEtat ? depot : null;
   const fichier = !etatEnBase && o.dossierDonnees ? path.join(o.dossierDonnees, 'salons.json') : null;
@@ -336,7 +351,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
 
   io.on('connection', (socket: S) => {
     if (versionClient) socket.emit('version', versionClient);
-    socket.emit('capacites', { emplacements: !!depot });
+    socket.emit('capacites', { comptes: !!depot });
     socket.data.jetons = LIMITE;
     socket.data.dernierRemplissage = Date.now();
 
@@ -370,7 +385,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
         const repondre = typeof ack === 'function' ? ack : () => {};
         (async () => {
           limiter();
-          if (!depot) throw new ErreurJeu("Les emplacements de sauvegarde ne sont pas disponibles sur ce serveur.");
+          if (!depot || !comptes) throw new ErreurJeu('Les comptes et les sauvegardes ne sont pas disponibles sur ce serveur.');
           return (await fn(p)) ?? ({} as R);
         })().then(
           (r) => repondre({ ok: true, ...r }),
@@ -527,19 +542,104 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     });
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 
-    // ---------------- Emplacements de sauvegarde ----------------
+    // ---------------- Comptes ----------------
+    const monCompte = (): string => {
+      if (!socket.data.compteId) throw new ErreurJeu('Connectez-vous à votre compte pour sauvegarder vos parties.');
+      return socket.data.compteId;
+    };
+    const ouvrirCompte = async (r: { compte: { id: string }; jeton: string }, codeJoueur?: string) => {
+      socket.data.compteId = r.compte.id;
+      socket.data.jetonCompte = r.jeton;
+      // Sauvegardes faites avec l'ancien code joueur de cet appareil : le compte les reprend.
+      const ancienne = codeJoueur ? cleCodeJoueur(codeJoueur) : null;
+      return ancienne ? reprendreEmplacements(depot!, ancienne, cleCompte(r.compte.id)) : 0;
+    };
+
+    socket.on(
+      'compte:creer',
+      gererAsync('compte:creer', async (p: unknown) => {
+        const { nom, motDePasse, profil, codeJoueur } = schemaCreerCompte.parse(p);
+        const r = await comptes!.creer(nom, motDePasse, profil);
+        const repris = await ouvrirCompte(r, codeJoueur);
+        log('Compte créé.');
+        return { compte: vueCompte(r.compte), jeton: r.jeton, codeSecours: r.codeSecours, repris };
+      }),
+    );
+    socket.on(
+      'compte:connecter',
+      gererAsync('compte:connecter', async (p: unknown) => {
+        const { nom, motDePasse, codeJoueur } = schemaConnecterCompte.parse(p);
+        const r = await comptes!.connecter(nom, motDePasse);
+        const repris = await ouvrirCompte(r, codeJoueur);
+        return { compte: vueCompte(r.compte), jeton: r.jeton, repris };
+      }),
+    );
+    socket.on(
+      'compte:reprendre',
+      gererAsync('compte:reprendre', async (p: unknown) => {
+        const { jeton } = schemaReprendreCompte.parse(p);
+        const compte = await comptes!.reprendre(jeton);
+        socket.data.compteId = compte?.id;
+        socket.data.jetonCompte = compte ? jeton : undefined;
+        return { compte: compte ? vueCompte(compte) : null };
+      }),
+    );
+    socket.on(
+      'compte:deconnecter',
+      gererAsync('compte:deconnecter', async () => {
+        await comptes!.deconnecter(socket.data.jetonCompte);
+        socket.data.compteId = undefined;
+        socket.data.jetonCompte = undefined;
+      }),
+    );
+    socket.on(
+      'compte:recuperer',
+      gererAsync('compte:recuperer', async (p: unknown) => {
+        const { nom, codeSecours, motDePasse } = schemaRecupererCompte.parse(p);
+        const r = await comptes!.recuperer(nom, codeSecours, motDePasse);
+        await ouvrirCompte(r);
+        log('Compte récupéré avec le code de secours.');
+        return { compte: vueCompte(r.compte), jeton: r.jeton, codeSecours: r.codeSecours };
+      }),
+    );
+    socket.on(
+      'compte:motDePasse',
+      gererAsync('compte:motDePasse', async (p: unknown) => {
+        const { ancien, nouveau } = schemaChangerMotDePasse.parse(p);
+        await comptes!.changerMotDePasse(monCompte(), ancien, nouveau, socket.data.jetonCompte ?? '');
+      }),
+    );
+    socket.on(
+      'compte:supprimer',
+      gererAsync('compte:supprimer', async (p: unknown) => {
+        const { motDePasse } = schemaSupprimerCompte.parse(p);
+        await comptes!.supprimer(monCompte(), motDePasse);
+        socket.data.compteId = undefined;
+        socket.data.jetonCompte = undefined;
+        log('Compte supprimé.');
+      }),
+    );
+    socket.on(
+      'compte:profil',
+      gererAsync('compte:profil', async (p: unknown) => {
+        const { profil } = schemaProfil.parse(p);
+        await comptes!.enregistrerProfil(monCompte(), profil);
+      }),
+    );
+
+    // ---------------- Emplacements de sauvegarde (compte connecté) ----------------
     socket.on(
       'emplacements:lister',
       gererAsync('emplacements:lister', async (p: unknown) => {
-        const { codeJoueur } = schemaEmplacement.parse(p);
-        return { emplacements: await depot!.lister(cleJoueur(codeJoueur)) };
+        schemaEmplacement.parse(p ?? {});
+        return { emplacements: await depot!.lister(cleCompte(monCompte())) };
       }),
     );
     socket.on(
       'emplacements:enregistrer',
       gererAsync('emplacements:enregistrer', async (p: unknown) => {
-        const { codeJoueur, numero } = schemaEmplacement.parse(p);
-        const cle = cleJoueur(codeJoueur);
+        const { numero } = schemaEmplacement.parse(p);
+        const cle = cleCompte(monCompte());
         const n = verifierNumero(numero);
         const { code, joueurId } = session();
         const { type, salon } = gestionnaire.instantane(code, joueurId);
@@ -552,8 +652,8 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     socket.on(
       'emplacements:charger',
       gererAsync('emplacements:charger', async (p: unknown) => {
-        const { codeJoueur, type, numero } = schemaEmplacement.parse(p);
-        const e = await depot!.lire(cleJoueur(codeJoueur), type ?? 'solo', verifierNumero(numero));
+        const { type, numero } = schemaEmplacement.parse(p);
+        const e = await depot!.lire(cleCompte(monCompte()), type ?? 'solo', verifierNumero(numero));
         if (!e) throw new ErreurJeu('Cet emplacement est vide.');
         annulerMaDemande();
         const { salon, joueur, jeton } = gestionnaire.chargerSauvegarde(e.salon, e.joueurId);
@@ -566,8 +666,8 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     socket.on(
       'emplacements:effacer',
       gererAsync('emplacements:effacer', async (p: unknown) => {
-        const { codeJoueur, type, numero } = schemaEmplacement.parse(p);
-        await depot!.effacer(cleJoueur(codeJoueur), type ?? 'solo', verifierNumero(numero));
+        const { type, numero } = schemaEmplacement.parse(p);
+        await depot!.effacer(cleCompte(monCompte()), type ?? 'solo', verifierNumero(numero));
       }),
     );
 

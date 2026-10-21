@@ -5,6 +5,7 @@ import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '..
 import { grade, lireProfil } from '../profil';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
+import { ModaleCompte } from '../components/Compte';
 import { libelleDuree } from './Lobby';
 import { Modale } from '../components/Commun';
 import { Embleme, Icone, Sceau } from '../components/Emblemes';
@@ -37,7 +38,8 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   // Cartes « Multijoueur » et « Seul contre des bots » : une seule ouverte à la fois.
   const [ouverte, setOuverte] = useState<'multi' | 'solo' | null>(null);
   const basculer = (c: 'multi' | 'solo') => setOuverte((o) => (o === c ? null : c));
-  const [profilLocal] = useState(lireProfil);
+  // Relu à chaque affichage : il change quand on se connecte à un compte.
+  const profilLocal = lireProfil();
   const gradeActuel = grade(profilLocal.victoires).actuel;
   const resume = lireResume();
   const [parametres, setParametres] = useState(false);
@@ -53,8 +55,13 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   };
   const [profil, setProfil] = useState(false);
   // Emplacements de sauvegarde (si le serveur les propose) : fenêtre « Charger une partie ».
-  const { emplacements } = useConnexion();
+  const { comptes, compte } = useConnexion();
   const [charger, setCharger] = useState<TypePartie | null>(null);
+  const [fenetreCompte, setFenetreCompte] = useState(false);
+  /** Après une connexion : le nom du compte devient le pseudonyme par défaut s'il n'y en avait pas. */
+  const surConnexion = (nom: string) => {
+    if (!prefs.pseudo.trim()) majPrefs({ pseudo: nom });
+  };
   const installation = useInstallation();
   const [aideIos, setAideIos] = useState(false);
   // Reprise depuis un fichier de sauvegarde téléchargé pendant une partie.
@@ -106,13 +113,19 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               <Icone nom="insigne" taille={22} />
             </span>
             <span className="puce-profil-texte">
-              <strong>{prefs.pseudo.trim() || 'Mon profil'}</strong>
+              <strong>{compte?.nom ?? (prefs.pseudo.trim() || 'Mon profil')}</strong>
               <span>
                 {gradeActuel.titre} · {profilLocal.victoires} victoire{profilLocal.victoires > 1 ? 's' : ''}
               </span>
             </span>
           </button>
           <span className="espace" />
+          {comptes && !compte && (
+            <button className="bouton-icone bouton-connexion" onClick={() => setFenetreCompte(true)} aria-label="Se connecter ou créer un compte" title="Se connecter">
+              <Icone nom="joueur" taille={22} />
+              <span className="libelle-large">Se connecter</span>
+            </button>
+          )}
           <button className="bouton-icone" onClick={() => setRegles(true)} aria-label="Règles du jeu" title="Règles du jeu">
             <Icone nom="livre" taille={22} />
           </button>
@@ -211,7 +224,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
                   <button className="btn" onClick={() => ouvrir('rejoindre')}>
                     Rejoindre une partie
                   </button>
-                  {emplacements ? (
+                  {comptes ? (
                     <button className="btn" onClick={() => setCharger('multi')}>
                       Charger une partie
                     </button>
@@ -246,7 +259,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               {ouverte === 'solo' && (
                 <div id="zone-solo" className="carte-mode-contenu">
                   <FormulaireSolo prefs={prefs} majPrefs={majPrefs} />
-                  {emplacements && (
+                  {comptes && (
                     <button className="btn btn-bloc" onClick={() => setCharger('solo')}>
                       Charger une partie solo
                     </button>
@@ -358,6 +371,8 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
       {charger && (
         <ModaleCharger
           type={charger}
+          pseudo={prefs.pseudo}
+          onConnecte={surConnexion}
           onFermer={() => setCharger(null)}
           onFichier={() => {
             setCharger(null);
@@ -365,6 +380,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           }}
         />
       )}
+      {fenetreCompte && <ModaleCompte pseudo={prefs.pseudo} onConnecte={surConnexion} onFermer={() => setFenetreCompte(false)} />}
       {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} pseudo={prefs.pseudo} onPseudo={(p) => majPrefs({ pseudo: p })} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} onGuide={revoirGuide} />}
       {tutoriel && (

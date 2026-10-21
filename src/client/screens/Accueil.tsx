@@ -19,6 +19,65 @@ import { ModaleRegles } from './Regles';
 import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
 import { lancerPartieHorsLigne, partieHorsLigneEnCours, reprendrePartieHorsLigne } from '../horsLigne';
 
+/**
+ * Étoiles filantes : toutes les 10 à 20 s, une tête lumineuse traverse vite le haut du ciel en
+ * laissant une traînée qui s'efface, chaque fois à un endroit et un angle différents. Une fois sur
+ * quatre environ, c'est une petite pluie : 3 à 5 étoiles filantes presque parallèles, l'une après l'autre.
+ */
+interface Filante {
+  id: number;
+  haut: number;
+  gauche: number;
+  angle: number;
+  delai: number;
+}
+
+function EtoilesFilantes() {
+  const [filantes, setFilantes] = useState<Filante[]>([]);
+  useEffect(() => {
+    let id = 0;
+    const minuteurs = new Set<ReturnType<typeof setTimeout>>();
+    const plusTard = (ms: number, fn: () => void) => {
+      const m = setTimeout(() => {
+        minuteurs.delete(m);
+        fn();
+      }, ms);
+      minuteurs.add(m);
+    };
+    const lancer = () => {
+      const versLaGauche = Math.random() < 0.5;
+      const haut = 3 + Math.random() * 14;
+      const gauche = versLaGauche ? 72 + Math.random() * 24 : 4 + Math.random() * 24;
+      const angle = versLaGauche ? 150 + Math.random() * 20 : 10 + Math.random() * 20;
+      const pluie = Math.random() < 0.25;
+      const nb = pluie ? 3 + Math.floor(Math.random() * 3) : 1;
+      // Une pluie : même direction, départs un peu décalés, l'une après l'autre.
+      const nouvelles = Array.from({ length: nb }, (_, k) => ({
+        id: ++id,
+        haut: haut + (k ? (Math.random() - 0.3) * 14 : 0),
+        gauche: gauche + (k ? (Math.random() - 0.5) * 16 : 0),
+        angle: angle + (k ? (Math.random() - 0.5) * 6 : 0),
+        delai: k * (0.18 + Math.random() * 0.35),
+      }));
+      setFilantes((f) => [...f, ...nouvelles]);
+      const ids = new Set(nouvelles.map((n) => n.id));
+      plusTard(2500 + nb * 600, () => setFilantes((f) => f.filter((x) => !ids.has(x.id))));
+      plusTard(10_000 + Math.random() * 10_000, lancer);
+    };
+    plusTard(4_000 + Math.random() * 4_000, lancer);
+    return () => minuteurs.forEach(clearTimeout);
+  }, []);
+  return (
+    <>
+      {filantes.map((p) => (
+        <span key={p.id} className="filante" style={{ top: `${p.haut}%`, left: `${p.gauche}%`, transform: `rotate(${p.angle}deg)` }}>
+          <span className="filante-corps" style={{ animationDelay: `${p.delai}s` }} />
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Ciel de nuit derrière le logo de l'accueil : étoiles fixes, quelques-unes scintillent. */
 function CielEtoile() {
   const etoiles = Array.from({ length: 46 }, (_, i) => {
@@ -56,7 +115,7 @@ function CielEtoile() {
       {etincelles.map(([x, y, d], i) => (
         <span key={i} className="etincelle" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${d}s` }} />
       ))}
-      <span className="etoile-filante" />
+      <EtoilesFilantes />
     </div>
   );
 }

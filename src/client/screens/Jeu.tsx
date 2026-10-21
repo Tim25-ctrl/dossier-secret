@@ -15,6 +15,7 @@ import { useSonMessages, useSonsPartie, useTicTac } from '../components/jeu/useS
 import type { Preferences } from '../preferences';
 import { MenuPrincipal } from '../components/Menu';
 import { ConseilsEnPartie } from '../components/jeu/Conseils';
+import { ModaleDemandesPlace } from './Reprise';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
 
@@ -356,6 +357,7 @@ export function Jeu({
       {doitRepondre && !vue.pause && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {fenetrePause && (
         <ModalePause
+          code={etat.salon.code}
           pause={vue.pause!}
           nom={nom}
           maintenant={maintenant}
@@ -364,8 +366,10 @@ export function Jeu({
           moi={moi}
           onAttendre={() => setPauseMasquee(clePause)}
           onErreur={erreur}
+          onMessage={afficher}
         />
       )}
+      {etat.salon.demandes.length > 0 && <ModaleDemandesPlace etat={etat} onErreur={erreur} />}
       {peutFalsifier && !doitRepondre && !vue.pause && <ModaleFalsification key={h!.id} vue={vue} nom={nom} decalage={decalage} delai={vue.regles.delaiFalsificationMs} onErreur={erreur} />}
       {!etat.salon.code.startsWith('GUIDE') && (
         <ConseilsEnPartie vue={vue} monTour={monTour} doitRepondre={doitRepondre} prefs={prefs} majPrefs={majPrefs} />

@@ -4,6 +4,7 @@ import { Accueil } from './screens/Accueil';
 import { Fin } from './screens/Fin';
 import { Jeu } from './screens/Jeu';
 import { Lobby } from './screens/Lobby';
+import { EcranDemandePlace, SalleReprise } from './screens/Reprise';
 import { Sceau } from './components/Emblemes';
 import { CONSEILS_DU_TUTORIEL } from './components/jeu/Conseils';
 import { GuideTutoriel } from './tutoriel/Guide';
@@ -43,6 +44,7 @@ export function App() {
   if (c.session && c.etat) {
     const { etat } = c;
     if (etat.partie && etat.partie.etape === 'terminee') ecran = <Fin etat={etat} />;
+    else if (etat.partie && etat.salon.reprise) ecran = <SalleReprise etat={etat} prefs={prefs} majPrefs={majPrefs} />;
     else if (etat.partie) ecran = <Jeu etat={etat} decalage={c.decalage} prefs={prefs} majPrefs={majPrefs} />;
     else ecran = <Lobby etat={etat} prefs={prefs} majPrefs={majPrefs} />;
   } else if (c.session && (c.reprise || c.statut !== 'connecte')) {
@@ -55,6 +57,8 @@ export function App() {
         </button>
       </main>
     );
+  } else if (c.demandePlace) {
+    ecran = <EcranDemandePlace demande={c.demandePlace} />;
   } else {
     ecran = <Accueil prefs={prefs} majPrefs={majPrefs} />;
   }

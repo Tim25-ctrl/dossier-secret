@@ -197,7 +197,7 @@ interface MomentFrise {
  * victime, mêlée aux empreintes et aux dénonciations qu'elle a provoquées.
  */
 /** « de Bob », « d’Eva ». */
-const deNom = (n: string) => (/^[aeiouyhàâéèêëîïôöûüœ]/i.test(n) ? `d’${n}` : `de ${n}`);
+export const deNom = (n: string) => (/^[aeiouyhàâéèêëîïôöûüœ]/i.test(n) ? `d’${n}` : `de ${n}`);
 
 export function FriseComplice({ vue, nom }: { vue: VueJoueur; nom: (id: string) => string }) {
   const r = vue.resultat!;

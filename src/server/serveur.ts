@@ -14,10 +14,10 @@ import { prochaineEcheance } from '../engine/partie';
 import { cryptoRng } from '../engine/rng';
 import { vuePour } from '../engine/vue';
 import type { ConfigPartie } from '../engine/config';
-import type { EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
+import type { AttentePlace, EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import { ErreurJeu, GestionnaireSalons } from './salons';
 import { Coffre } from './sauvegarde';
-import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRetirer } from './validation';
+import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer } from './validation';
 
 export interface OptionsServeur {
   port?: number;
@@ -38,6 +38,8 @@ export interface OptionsServeur {
 interface DonneesSocket {
   code?: string;
   joueurId?: string;
+  /** Demande de place en attente envoyée depuis cette connexion. */
+  demande?: { code: string; id: string };
   jetons: number;
   dernierRemplissage: number;
 }
@@ -151,6 +153,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
   // Diffusion : chaque joueur reçoit uniquement SA vue.
   // ---------------------------------------------------------------------------
   const diffuser = (code: string) => {
+    verifierDemandes(code);
     const s = gestionnaire.salons.get(code);
     if (!s) return;
     for (const j of s.joueurs) {
@@ -161,6 +164,24 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     planifierBots(code);
     sauvegarder();
     envoyerSauvegarde(code);
+  };
+
+  /** Connexions qui attendent une réponse à leur demande de place, par identifiant de demande. */
+  const demandeurs = new Map<string, { code: string; socket: S }>();
+  const repondreDemandeur = (id: string, reponse: Parameters<EvenementsServeur['place']>[0]) => {
+    const d = demandeurs.get(id);
+    if (!d) return;
+    demandeurs.delete(id);
+    d.socket.data.demande = undefined;
+    d.socket.emit('place', reponse);
+  };
+  /** Prévient les demandeurs dont la demande a disparu (joueur revenu, délai dépassé, partie terminée). */
+  const verifierDemandes = (code: string) => {
+    const actives = new Set((gestionnaire.demandes.get(code) ?? []).map((d) => d.id));
+    for (const [id, d] of [...demandeurs]) {
+      if (d.code === code && !actives.has(id))
+        repondreDemandeur(id, { refus: "Votre demande n'est plus valable : le joueur est revenu, la partie est terminée ou personne n'a répondu à temps." });
+    }
   };
 
   /** Envoie à chaque joueur humain connecté la sauvegarde chiffrée de son salon (au plus toutes les quelques secondes). */
@@ -310,6 +331,15 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       };
     };
 
+    const annulerMaDemande = () => {
+      const d = socket.data.demande;
+      if (!d) return;
+      socket.data.demande = undefined;
+      demandeurs.delete(d.id);
+      gestionnaire.annulerDemande(d.code, d.id);
+      diffuser(d.code);
+    };
+
     const session = (): { code: string; joueurId: string } => {
       const { code, joueurId } = socket.data;
       if (!code || !joueurId) throw new ErreurJeu("Vous n'êtes connecté à aucun salon.");
@@ -332,6 +362,17 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       'salon:rejoindre',
       gerer('salon:rejoindre', (p: unknown) => {
         const { code, nom } = schemaRejoindre.parse(p);
+        annulerMaDemande();
+        if (gestionnaire.salon(code).statut === 'partie') {
+          // Partie en cours : un joueur revenu sur un autre appareil demande à reprendre sa place.
+          const { salon, place, demande, ecartees } = gestionnaire.demanderPlace(code, nom);
+          for (const d of ecartees) repondreDemandeur(d.id, { refus: 'Une autre demande a été envoyée pour cette place.' });
+          demandeurs.set(demande.id, { code: salon.code, socket });
+          socket.data.demande = { code: salon.code, id: demande.id };
+          log(`Salon ${salon.code} : demande de reprise d'une place.`);
+          diffuser(salon.code);
+          return { attente: { code: salon.code, nom: place.nom } satisfies AttentePlace };
+        }
         const { salon, joueur, jeton } = gestionnaire.rejoindre(code, nom);
         attacher(socket, salon.code, joueur.id);
         diffuser(salon.code);
@@ -348,6 +389,11 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
         diffuser(salon.code);
         return { session: { code: salon.code, joueurId: joueur.id, jeton } satisfies Session };
       }),
+    );
+
+    socket.on(
+      'salon:annulerDemande',
+      gerer('salon:annulerDemande', () => annulerMaDemande()),
     );
 
     socket.on(
@@ -398,6 +444,15 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       gestionnaire.remplacerParBot(code, id, joueurId);
       log(`Salon ${code} : un joueur absent est remplacé par un bot.`);
     });
+    actionSalon('salon:repondrePlace', (code, id, p) => {
+      const { demandeId, accepter } = schemaRepondrePlace.parse(p);
+      const { demande, jeton } = gestionnaire.repondrePlace(code, id, demandeId, accepter);
+      repondreDemandeur(
+        demande.id,
+        jeton ? { session: { code, joueurId: demande.joueurId, jeton } } : { refus: 'Un joueur de la partie a refusé votre demande.' },
+      );
+      log(`Salon ${code} : demande de reprise ${jeton ? 'acceptée' : 'refusée'}.`);
+    });
     actionSalon('salon:continuerSans', (code, id, p) => gestionnaire.continuerSans(code, id, schemaRetirer.parse(p).joueurId));
     actionSalon('salon:message', (code, id, p) => gestionnaire.message(code, id, schemaMessage.parse(p).texte));
     actionSalon('salon:reglages', (code, id, p) => {
@@ -408,12 +463,16 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     });
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 
-    socket.on('disconnect', () => detacher(socket));
+    socket.on('disconnect', () => {
+      annulerMaDemande();
+      detacher(socket);
+    });
   });
 
   // Entretien : hôte absent, joueurs partis du lobby, salons abandonnés.
   const entretien = setInterval(() => {
     for (const code of gestionnaire.entretien()) diffuser(code);
+    for (const code of new Set([...demandeurs.values()].map((d) => d.code))) verifierDemandes(code); // salons supprimés
     for (const code of minuteurs.keys()) if (!gestionnaire.salons.has(code)) nettoyerSalon(code);
   }, 10_000);
 

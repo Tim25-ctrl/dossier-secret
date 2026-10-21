@@ -1309,6 +1309,26 @@ button.carte:hover:not(:disabled) {
   padding: 10px 12px;
 }
 
+/* Retour des joueurs (salle de reprise, fenêtre de pause) */
+.comment-revenir {
+  margin: 0;
+  padding-left: 1.1em;
+}
+.comment-revenir li + li {
+  margin-top: 4px;
+}
+.demandes-place {
+  border-color: var(--or);
+}
+.demande-place + .demande-place {
+  border-top: 1px solid var(--ardoise);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.joueur-reprise {
+  flex-wrap: wrap;
+}
+
 /* ------------------------------------------------------------------ */
 /* Animations de jeu : uniquement des mouvements (jamais de fondu),    */
 /* coupées par le réglage « Animations réduites » et par le système.   */

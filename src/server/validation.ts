@@ -37,6 +37,7 @@ export const schemaRejoindre = z.object({ code: z.string().max(20), nom: z.strin
 export const schemaReprendre = z.object({ code: z.string().max(20), jeton: z.string().max(100) });
 export const schemaMessage = z.object({ texte: z.string().max(1000) });
 export const schemaRetirer = z.object({ joueurId: idJoueur });
+export const schemaRepondrePlace = z.object({ demandeId: z.string().min(1).max(40), accepter: z.boolean() });
 export const schemaReglages = z
   .object({ dureeTourS: z.number().int().min(30).max(3600).nullable().optional(), modeComplice: z.enum(['classique', 'ruse']).optional(), historiqueCartes: z.enum(['visibles', 'anonymes']).optional() })
   .strict();

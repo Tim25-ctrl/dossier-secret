@@ -8,7 +8,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import type { EtatClient, EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
+import type { AttentePlace, EtatClient, EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import type { ActionJeu } from '../shared/types';
 
 const CLE_SESSION = 'dossier-secret:session';
@@ -44,6 +44,8 @@ export interface Instantane {
   reprise: boolean;
   /** Partie guidée en cours : la partie tourne sur cet appareil, sans serveur. */
   tutoriel: boolean;
+  /** Demande de reprise d'une place (autre appareil) en attente d'un joueur présent, ou refusée. */
+  demandePlace: (AttentePlace & { refus?: string }) | null;
 }
 
 /**
@@ -134,6 +136,7 @@ class Connexion {
     expulsion: null,
     reprise: false,
     tutoriel: false,
+    demandePlace: null,
   };
   private local: MoteurLocal | null = null;
 
@@ -146,7 +149,11 @@ class Connexion {
       // Reconnexion automatique (rafraîchissement, coupure réseau, mise en veille du téléphone).
       if (this.etat.session && !this.etat.expulsion && !this.local) void this.reprendre(this.etat.session);
     });
-    this.socket.on('disconnect', () => this.maj({ statut: 'deconnecte' }));
+    this.socket.on('disconnect', () => {
+      // Le serveur oublie la demande de place quand la connexion coupe : il faudra la renvoyer.
+      const d = this.etat.demandePlace;
+      this.maj({ statut: 'deconnecte', demandePlace: d && !d.refus ? { ...d, refus: 'La connexion au serveur a été coupée : renvoyez votre demande.' } : d });
+    });
     this.socket.on('connect_error', () => this.maj({ statut: 'deconnecte' }));
     this.socket.on('etat', (e) => {
       if (this.local) return;
@@ -159,6 +166,15 @@ class Connexion {
     });
     this.socket.on('version', verifierVersion);
     // Copie chiffrée du salon, gardée sur l'appareil : elle permet de le reprendre si le serveur redémarre.
+    // Réponse à une demande de place : la session de ce joueur (nouveau jeton), ou un refus.
+    this.socket.on('place', (p) => {
+      const d = this.etat.demandePlace;
+      if (!d) return;
+      if ('session' in p) {
+        this.maj({ demandePlace: null });
+        void this.reprendre(p.session);
+      } else this.maj({ demandePlace: { ...d, refus: p.refus } });
+    });
     this.socket.on('sauvegarde', ({ code, sauvegarde }) => {
       if (!this.local && this.etat.session?.code === code) ecrireSauvegarde({ code, sauvegarde, t: Date.now() });
     });
@@ -261,10 +277,18 @@ class Connexion {
     return r;
   }
 
+  /** Rejoint un salon ; pendant une partie, demande à reprendre la place du joueur qui a ce pseudonyme. */
   async rejoindre(code: string, nom: string) {
-    const r = await this.envoyer<{ session: Session }>('salon:rejoindre', { code, nom });
-    if (r.ok) this.memoriser(r.session);
+    const r = await this.envoyer<{ session: Session } | { attente: AttentePlace }>('salon:rejoindre', { code, nom });
+    if (r.ok && 'attente' in r) this.maj({ demandePlace: r.attente });
+    else if (r.ok) this.memoriser(r.session);
     return r;
+  }
+
+  /** Abandonne la demande de place (ou ferme l'écran après un refus). */
+  annulerDemande() {
+    if (this.etat.demandePlace && !this.etat.demandePlace.refus) void this.envoyer('salon:annulerDemande', {});
+    this.maj({ demandePlace: null });
   }
 
   async reprendre(s: Session) {
@@ -327,6 +351,7 @@ class Connexion {
   retirer = (joueurId: string) => this.envoyer('salon:retirer', { joueurId });
   remplacerParBot = (joueurId: string) => this.envoyer('salon:remplacer', { joueurId });
   continuerSans = (joueurId: string) => this.envoyer('salon:continuerSans', { joueurId });
+  repondrePlace = (demandeId: string, accepter: boolean) => this.envoyer('salon:repondrePlace', { demandeId, accepter });
   message = (texte: string) => this.envoyer('salon:message', { texte });
   reglerDureeTour = (dureeTourS: number | null) => this.envoyer('salon:reglages', { dureeTourS });
   reglerModeComplice = (modeComplice: 'classique' | 'ruse') => this.envoyer('salon:reglages', { modeComplice });

@@ -49,7 +49,19 @@ export interface Salon {
   compteurMessages: number;
   creeLe: number;
   majLe: number;
+  /** Partie rechargée depuis une sauvegarde : salle d'attente jusqu'au retour de tous les joueurs. */
+  reprise?: boolean;
 }
+
+/** Un joueur revient sur un autre appareil (sans son jeton) : un joueur présent doit accepter. */
+export interface DemandePlace {
+  id: string;
+  joueurId: string;
+  t: number;
+}
+
+/** Une demande de place sans réponse est abandonnée au bout de ce délai. */
+const DUREE_DEMANDE_MS = 10 * 60_000;
 
 export interface OptionsGestionnaire {
   now?: () => number;
@@ -92,6 +104,8 @@ export function normaliserCode(brut: unknown): string {
 
 export class GestionnaireSalons {
   readonly salons = new Map<string, Salon>();
+  /** Demandes de place en attente, par code de salon (jamais sauvegardées). */
+  readonly demandes = new Map<string, DemandePlace[]>();
   private readonly now: () => number;
   private readonly rng: Rng;
   readonly botsAutorises: boolean;
@@ -155,6 +169,8 @@ export class GestionnaireSalons {
 
   private toucher(s: Salon) {
     s.majLe = this.now();
+    // Salle d'attente de reprise : elle se ferme dès que plus personne ne manque.
+    if (s.reprise && !s.partie?.pause) s.reprise = false;
   }
 
   // -------------------------------------------------------------------------
@@ -225,7 +241,10 @@ export class GestionnaireSalons {
     if (!j || j.connecte === connecte) return;
     j.connecte = connecte;
     j.deconnecteLe = connecte ? null : this.now();
-    if (connecte) j.parti = false;
+    if (connecte) {
+      j.parti = false;
+      this.retirerDemandes(s.code, (d) => d.joueurId === id); // il est revenu par lui-même
+    }
     if (s.partie) definirConnexion(s.partie, id, connecte, this.now());
     this.toucher(s);
   }
@@ -245,6 +264,7 @@ export class GestionnaireSalons {
     const dernier = this.humainsPresents(s, id).length === 0;
     if (dernier) {
       this.salons.delete(s.code);
+      this.demandes.delete(s.code);
       return { ferme: true };
     }
     if (s.statut === 'lobby') {
@@ -302,6 +322,73 @@ export class GestionnaireSalons {
     const candidats = s.joueurs.filter((j) => !j.bot && !j.parti && j.id !== s.hote);
     const suivant = candidats.find((j) => j.connecte) ?? candidats[0];
     if (suivant) s.hote = suivant.id;
+  }
+
+  // -------------------------------------------------------------------------
+  // Retour d'un joueur sur un autre appareil (partie en cours)
+  // -------------------------------------------------------------------------
+
+  /** Places qu'un joueur peut reprendre : humains absents, ou remplacés par un bot. */
+  placesLibres(s: Salon): JoueurSalon[] {
+    return s.joueurs.filter((j) => j.remplaceParBot || (!j.bot && !j.connecte));
+  }
+
+  /**
+   * Partie en cours : un joueur qui n'a plus sa session (autre appareil, données effacées) demande
+   * à reprendre sa place en donnant le code et le même pseudonyme. Le pseudonyme n'étant pas une
+   * preuve d'identité, un joueur présent doit accepter. Retourne aussi les demandes remplacées.
+   */
+  demanderPlace(codeBrut: unknown, nomBrut: unknown) {
+    const s = this.salon(codeBrut as string);
+    const nom = normaliserPseudo(nomBrut);
+    if (s.statut !== 'partie' || !s.partie) throw new ErreurJeu("La partie est terminée : ce salon n'accepte plus de joueurs.");
+    const libres = this.placesLibres(s);
+    const place = libres.find((j) => j.nom.toLocaleLowerCase('fr') === nom.toLocaleLowerCase('fr'));
+    if (!place)
+      throw new ErreurJeu(
+        libres.length
+          ? `La partie a déjà commencé. Pour reprendre votre place, entrez le pseudonyme que vous aviez : ${libres.map((j) => j.nom.replace(/ \(bot\)$/, '')).join(', ')}.`
+          : "La partie a déjà commencé : ce salon n'accepte plus de nouveaux joueurs.",
+      );
+    if (this.humainsPresents(s).length === 0)
+      throw new ErreurJeu("Aucun joueur n'est connecté pour accepter votre retour. Réessayez quand un autre joueur aura rouvert la partie.");
+    const ecartees = this.retirerDemandes(s.code, (d) => d.joueurId === place.id);
+    const demande: DemandePlace = { id: this.nouvelId(), joueurId: place.id, t: this.now() };
+    this.demandes.set(s.code, [...(this.demandes.get(s.code) ?? []), demande]);
+    this.toucher(s);
+    return { salon: s, place, demande, ecartees };
+  }
+
+  /** Un joueur présent accepte ou refuse une demande. En cas d'accord, la place reçoit un nouveau jeton. */
+  repondrePlace(code: string, id: string, demandeId: string, accepter: boolean) {
+    const s = this.salon(code);
+    const moi = this.joueur(s, id);
+    if (moi.bot || !moi.connecte) throw new ErreurJeu('Action réservée aux joueurs présents.');
+    const [demande] = this.retirerDemandes(s.code, (d) => d.id === demandeId);
+    if (!demande) throw new ErreurJeu("Cette demande n'existe plus.");
+    this.toucher(s);
+    if (!accepter) return { demande, jeton: null };
+    const place = this.joueur(s, demande.joueurId);
+    if (!this.placesLibres(s).includes(place)) throw new ErreurJeu('Ce joueur est déjà revenu.');
+    const { jeton, hash } = this.nouveauJeton();
+    place.jetonHash = hash; // l'ancienne session de ce joueur ne fonctionne plus
+    return { demande, jeton };
+  }
+
+  annulerDemande(code: string, demandeId: string) {
+    const s = this.salons.get(code);
+    if (s && this.retirerDemandes(code, (d) => d.id === demandeId).length) this.toucher(s);
+  }
+
+  /** Retire les demandes qui vérifient `filtre` et les retourne. */
+  private retirerDemandes(code: string, filtre: (d: DemandePlace) => boolean): DemandePlace[] {
+    const liste = this.demandes.get(code);
+    if (!liste) return [];
+    const retirees = liste.filter(filtre);
+    const restantes = liste.filter((d) => !filtre(d));
+    if (restantes.length) this.demandes.set(code, restantes);
+    else this.demandes.delete(code);
+    return retirees;
   }
 
   // -------------------------------------------------------------------------
@@ -392,6 +479,8 @@ export class GestionnaireSalons {
     if (s.statut !== 'terminee') throw new ErreurJeu("La partie en cours n'est pas terminée.");
     s.statut = 'lobby';
     s.partie = null;
+    s.reprise = false;
+    this.demandes.delete(s.code);
     this.toucher(s);
   }
 
@@ -431,7 +520,10 @@ export class GestionnaireSalons {
   }
 
   private apresChangement(s: Salon) {
-    if (s.partie?.etape === 'terminee') s.statut = 'terminee';
+    if (s.partie?.etape === 'terminee') {
+      s.statut = 'terminee';
+      this.demandes.delete(s.code);
+    }
     this.toucher(s);
   }
 
@@ -450,6 +542,8 @@ export class GestionnaireSalons {
       reglages: { ...s.reglages },
       min: JOUEURS_MIN,
       max: JOUEURS_MAX,
+      reprise: !!s.reprise && s.statut === 'partie',
+      demandes: (this.demandes.get(s.code) ?? []).map((d) => ({ id: d.id, joueurId: d.joueurId })),
     };
   }
 
@@ -476,8 +570,10 @@ export class GestionnaireSalons {
       const humains = s.joueurs.filter((j) => !j.bot && !j.parti);
       if (humains.every((j) => !j.connecte && j.deconnecteLe !== null && t - j.deconnecteLe > this.opts.suppressionSalonMs) || humains.length === 0) {
         this.salons.delete(s.code);
+        this.demandes.delete(s.code);
         continue;
       }
+      if (this.retirerDemandes(s.code, (d) => t - d.t > DUREE_DEMANDE_MS).length) change = true;
       if (s.statut === 'lobby') {
         const avant = s.joueurs.length;
         s.joueurs = s.joueurs.filter((j) => j.connecte || j.deconnecteLe === null || t - j.deconnecteLe < this.opts.expulsionLobbyMs);
@@ -520,6 +616,8 @@ export class GestionnaireSalons {
    */
   restaurer(s: Salon): boolean {
     if (this.salons.has(s.code)) return false;
+    // Partie en cours : salle d'attente le temps que les autres joueurs reviennent.
+    s.reprise = s.statut === 'partie' && !!s.partie;
     this.integrer(s);
     return true;
   }

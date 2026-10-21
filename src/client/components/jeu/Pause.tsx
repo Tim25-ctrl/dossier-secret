@@ -5,6 +5,7 @@ import { Chat } from '../Chat';
 import { Modale } from '../Commun';
 import { connexion } from '../../connexion';
 import type { Noms } from './Textes';
+import { BlocCode, CommentRevenir } from '../../screens/Reprise';
 
 /** Délai avant d'ouvrir la fenêtre : une page rechargée ne doit pas la faire clignoter chez les autres. */
 export const GRACE_PAUSE_MS = 3_000;
@@ -31,6 +32,7 @@ export function dureeLisible(ms: number): string {
  * La discussion reste accessible dans la fenêtre.
  */
 export function ModalePause({
+  code,
   pause,
   nom,
   maintenant,
@@ -39,7 +41,9 @@ export function ModalePause({
   moi,
   onAttendre,
   onErreur,
+  onMessage,
 }: {
+  code: string;
   pause: NonNullable<VueJoueur['pause']>;
   nom: Noms;
   maintenant: number;
@@ -48,6 +52,7 @@ export function ModalePause({
   moi: string;
   onAttendre: () => void;
   onErreur: (e: string) => void;
+  onMessage: (texte: string, erreur?: boolean) => void;
 }) {
   const [envoi, setEnvoi] = useState(false);
   const agir = async (fn: () => Promise<{ ok: boolean; erreur?: string }>) => {
@@ -92,7 +97,13 @@ export function ModalePause({
           ? 'Un bot peut jouer à sa place avec ses cartes, sans rien révéler ; en cas de retour, le joueur reprend sa place.'
           : 'En continuant sans ce joueur, ses tours et ses réponses passeront automatiquement.'}
       </p>
-      <h4 style={{ marginBottom: 6 }}>Discussion</h4>
+      <h4 style={{ marginBottom: 6 }}>Code du salon</h4>
+      <BlocCode code={code} onMessage={onMessage} />
+      <p className="petit" style={{ margin: '12px 0 4px' }}>
+        Pour revenir dans la partie :
+      </p>
+      <CommentRevenir />
+      <h4 style={{ margin: '16px 0 6px' }}>Discussion</h4>
       <Chat messages={messages} moi={moi} onErreur={onErreur} />
     </Modale>
   );

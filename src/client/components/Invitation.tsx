@@ -23,13 +23,14 @@ export function QrCode({ texte, taille = 240 }: { texte: string; taille?: number
   );
 }
 
-export function ModaleQr({ lien, code, onFermer }: { lien: string; code: string; onFermer: () => void }) {
+export function ModaleQr({ lien, code, texte, onFermer }: { lien: string; code: string; texte?: string; onFermer: () => void }) {
   return (
     <Modale titre="Rejoindre avec un téléphone" onFermer={onFermer}>
       <div className="qr-bloc">
         <QrCode texte={lien} />
         <p>
-          Scannez ce code avec l'appareil photo du téléphone : la page du salon <strong>{code}</strong> s'ouvre, il ne reste qu'à choisir un pseudonyme.
+          Scannez ce code avec l'appareil photo du téléphone : la page du salon <strong>{code}</strong> s'ouvre,{' '}
+          {texte ?? "il ne reste qu'à choisir un pseudonyme."}
         </p>
       </div>
     </Modale>

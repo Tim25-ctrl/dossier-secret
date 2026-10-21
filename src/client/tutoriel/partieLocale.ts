@@ -97,6 +97,8 @@ class PartieLocale implements MoteurLocal {
         reglages: { dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles' },
         min: 3,
         max: 6,
+        reprise: false,
+        demandes: [],
       },
       partie: vuePour(e, MOI),
       heureServeur: Date.now(),

@@ -185,6 +185,20 @@ export class ServiceComptes {
     await this.depot.supprimerSessions(compteId, hacherJeton(jetonActuel)); // les autres appareils sont déconnectés
   }
 
+  /** Nouveau pseudonyme (il sert aussi à se connecter) : confirmé par le mot de passe. */
+  async renommer(compteId: string, nomBrut: unknown, mdp: unknown): Promise<Compte> {
+    const compte = await this.depot.compteParId(compteId);
+    if (!compte) throw new ErreurJeu("Ce compte n'existe plus.");
+    const nom = normaliserPseudo(nomBrut);
+    this.verifierBlocage(compte.nomCle);
+    if (typeof mdp !== 'string' || !(await verifier(mdp, compte.mdp))) {
+      this.noterEchec(compte.nomCle);
+      throw new ErreurJeu('Mot de passe incorrect.');
+    }
+    if (!(await this.depot.renommerCompte(compteId, nom, cleNom(nom)))) throw new ErreurJeu('Ce pseudonyme est déjà pris par un autre compte.');
+    return { ...compte, nom, nomCle: cleNom(nom) };
+  }
+
   async supprimer(compteId: string, mdp: unknown) {
     const compte = await this.depot.compteParId(compteId);
     if (!compte) return;

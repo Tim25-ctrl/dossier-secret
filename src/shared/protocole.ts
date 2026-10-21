@@ -157,6 +157,8 @@ export interface EvenementsClient {
   'compte:recuperer': (p: { nom: string; codeSecours: string; motDePasse: string }, ack: (r: Reponse<ConnexionCompte>) => void) => void;
   'compte:motDePasse': (p: { ancien: string; nouveau: string }, ack: (r: Reponse) => void) => void;
   'compte:supprimer': (p: { motDePasse: string }, ack: (r: Reponse) => void) => void;
+  /** Nouveau pseudonyme pour le compte (confirmé par le mot de passe). */
+  'compte:renommer': (p: { nom: string; motDePasse: string }, ack: (r: Reponse<{ compte: CompteVue }>) => void) => void;
   'compte:profil': (p: { profil: unknown }, ack: (r: Reponse) => void) => void;
   /** Emplacements de sauvegarde du compte connecté. */
   'emplacements:lister': (p: object, ack: (r: Reponse<{ emplacements: InfoEmplacement[] }>) => void) => void;

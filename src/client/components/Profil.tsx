@@ -3,7 +3,6 @@ import { effacerProfil, grade, lireProfil, SUCCES, type Profil } from '../profil
 import { Modale } from './Commun';
 import { InvitationCompte, ModaleCompte } from './Compte';
 import { useConnexion } from '../connexion';
-import { PSEUDO_MAX } from '../../shared/protocole';
 
 const pourcent = (v: number, n: number) => (n ? `${Math.round((v / n) * 100)} %` : '—');
 
@@ -31,13 +30,11 @@ export function ModaleProfil({
   onFermer,
   onGuide,
   pseudo,
-  onPseudo,
 }: {
   onFermer: () => void;
   onGuide?: () => void;
-  /** Depuis l'accueil : pseudonyme par défaut, modifiable ici. */
+  /** Pseudonyme proposé si le joueur crée un compte depuis cette fenêtre. */
   pseudo?: string;
-  onPseudo?: (p: string) => void;
 }) {
   const { comptes, compte } = useConnexion();
   const [gerer, setGerer] = useState(false);
@@ -48,12 +45,6 @@ export function ModaleProfil({
   const debloques = SUCCES.filter((s) => profil.succes[s.id]).length;
   return (
     <Modale titre="Mon profil" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
-      {onPseudo && (
-        <div className="champ">
-          <label htmlFor="pseudo-profil">Pseudonyme</label>
-          <input id="pseudo-profil" value={pseudo ?? ''} maxLength={PSEUDO_MAX} placeholder="Inspecteur Martin" onChange={(e) => onPseudo(e.target.value)} autoComplete="nickname" />
-        </div>
-      )}
       {comptes && compte && (
         <p className="ligne compte-profil">
           <span>
@@ -73,7 +64,6 @@ export function ModaleProfil({
             </>
           }
           pseudo={pseudo}
-          onConnecte={(nom) => !pseudo?.trim() && onPseudo?.(nom)}
         />
       )}
       {gerer && <ModaleCompte onFermer={() => setGerer(false)} />}

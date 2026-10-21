@@ -81,7 +81,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   };
   const guider = (role: RoleGuide) => {
     majPrefs({ tutorielVu: true });
-    lancerPartieGuidee(prefs.pseudo.trim(), role);
+    lancerPartieGuidee((compte?.nom ?? prefs.pseudo).trim(), role);
   };
   const derniere = connexion.derniereSession();
 
@@ -94,11 +94,13 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const valider = async (e: FormEvent) => {
     e.preventDefault();
     setErreur(null);
-    if (!pseudo.trim()) return setErreur('Choisissez un pseudonyme.');
+    // Connecté : on joue toujours sous le nom du compte.
+    const nom = compte?.nom ?? pseudo;
+    if (!nom.trim()) return setErreur('Choisissez un pseudonyme.');
     if (mode === 'rejoindre' && code.replace(/\s/g, '').length !== 6) return setErreur("Le code d'invitation comporte 6 caractères.");
     setEnvoi(true);
-    majPrefs({ pseudo: pseudo.trim() });
-    const r = mode === 'creer' ? await connexion.creer(pseudo) : await connexion.rejoindre(code, pseudo);
+    if (!compte) majPrefs({ pseudo: pseudo.trim() });
+    const r = mode === 'creer' ? await connexion.creer(nom) : await connexion.rejoindre(code, nom);
     setEnvoi(false);
     if (!r.ok) setErreur(r.erreur);
     else if (codeUrl) history.replaceState(null, '', location.pathname);
@@ -301,18 +303,22 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               />
             </div>
           )}
-          <div className="champ">
-            <label htmlFor="pseudo">Votre pseudonyme</label>
-            <input
-              id="pseudo"
-              value={pseudo}
-              maxLength={PSEUDO_MAX}
-              onChange={(e) => setPseudo(e.target.value)}
-              placeholder="Inspecteur Martin"
-              autoComplete="nickname"
-              autoFocus={mode === 'creer' || !!codeUrl}
-            />
-          </div>
+          {compte ? (
+            <NomDuCompte nom={compte.nom} />
+          ) : (
+            <div className="champ">
+              <label htmlFor="pseudo">Votre pseudonyme</label>
+              <input
+                id="pseudo"
+                value={pseudo}
+                maxLength={PSEUDO_MAX}
+                onChange={(e) => setPseudo(e.target.value)}
+                placeholder="Inspecteur Martin"
+                autoComplete="nickname"
+                autoFocus={mode === 'creer' || !!codeUrl}
+              />
+            </div>
+          )}
           {erreur && (
             <div className="erreur" role="alert">
               {erreur}
@@ -381,7 +387,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
         />
       )}
       {fenetreCompte && <ModaleCompte pseudo={prefs.pseudo} onConnecte={surConnexion} onFermer={() => setFenetreCompte(false)} />}
-      {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} pseudo={prefs.pseudo} onPseudo={(p) => majPrefs({ pseudo: p })} />}
+      {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} pseudo={prefs.pseudo} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} onGuide={revoirGuide} />}
       {tutoriel && (
         <Modale
@@ -420,8 +426,18 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   );
 }
 
+/** Connecté à un compte : on joue sous son nom, sans champ à remplir. */
+function NomDuCompte({ nom }: { nom: string }) {
+  return (
+    <p className="nom-du-compte">
+      Vous jouez sous le nom de votre compte : <strong>{nom}</strong>
+    </p>
+  );
+}
+
 /** Partie seul contre des bots : quelques réglages, puis l'enquête commence aussitôt. */
 function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
+  const { compte } = useConnexion();
   const [pseudo, setPseudo] = useState(prefs.pseudo);
   const [bots, setBots] = useState(3);
   const [duree, setDuree] = useState<number | null>(null);
@@ -432,20 +448,25 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [envoi, setEnvoi] = useState(false);
   const lancer = async (e: FormEvent) => {
     e.preventDefault();
-    if (!pseudo.trim()) return setErreur('Choisissez un pseudonyme.');
+    const nom = compte?.nom ?? pseudo;
+    if (!nom.trim()) return setErreur('Choisissez un pseudonyme.');
     setEnvoi(true);
     setErreur(null);
-    majPrefs({ pseudo: pseudo.trim() });
-    const r = await connexion.solo(pseudo, bots, duree, mode, affaire, cartes);
+    if (!compte) majPrefs({ pseudo: pseudo.trim() });
+    const r = await connexion.solo(nom, bots, duree, mode, affaire, cartes);
     setEnvoi(false);
     if (!r.ok) setErreur(r.erreur);
   };
   return (
     <form onSubmit={lancer} noValidate className="formulaire-solo">
-        <div className="champ">
-          <label htmlFor="pseudo-solo">Votre pseudonyme</label>
-          <input id="pseudo-solo" value={pseudo} maxLength={PSEUDO_MAX} onChange={(e) => setPseudo(e.target.value)} autoComplete="nickname" />
-        </div>
+        {compte ? (
+          <NomDuCompte nom={compte.nom} />
+        ) : (
+          <div className="champ">
+            <label htmlFor="pseudo-solo">Votre pseudonyme</label>
+            <input id="pseudo-solo" value={pseudo} maxLength={PSEUDO_MAX} onChange={(e) => setPseudo(e.target.value)} autoComplete="nickname" />
+          </div>
+        )}
         <div className="champ">
           <label htmlFor="affaire-solo">Affaire</label>
           <select id="affaire-solo" value={affaire} onChange={(e) => setAffaire(e.target.value as AffaireId)}>
@@ -557,10 +578,6 @@ export function ModaleParametres({
           />
         </div>
       )}
-      <div className="champ">
-        <label htmlFor="pseudo-defaut">Pseudonyme par défaut</label>
-        <input id="pseudo-defaut" value={prefs.pseudo} maxLength={PSEUDO_MAX} onChange={(e) => majPrefs({ pseudo: e.target.value })} />
-      </div>
       <div className="champ">
         <label htmlFor="conseils">Conseils en partie</label>
         <select id="conseils" value={prefs.conseils ? 'oui' : 'non'} onChange={(e) => majPrefs({ conseils: e.target.value === 'oui' })}>

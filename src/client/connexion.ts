@@ -535,6 +535,17 @@ class Connexion {
 
   changerMotDePasse = (ancien: string, nouveau: string) => this.envoyer('compte:motDePasse', { ancien, nouveau });
 
+  /** Nouveau pseudonyme du compte : il sert désormais à se connecter et à jouer. */
+  async renommerCompte(nom: string, motDePasse: string) {
+    const r = await this.envoyer<{ compte: CompteVue }>('compte:renommer', { nom, motDePasse });
+    const c = lireCompte();
+    if (r.ok && c) {
+      ecrireCompte({ ...c, nom: r.compte.nom });
+      this.maj({ compte: { nom: r.compte.nom } });
+    }
+    return r;
+  }
+
   async supprimerCompte(motDePasse: string) {
     const r = await this.envoyer('compte:supprimer', { motDePasse });
     if (r.ok) this.oublierCompte();

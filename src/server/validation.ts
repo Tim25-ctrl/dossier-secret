@@ -76,6 +76,7 @@ export const schemaReprendreCompte = z.object({ jeton: z.string().max(200) }).st
 export const schemaRecupererCompte = z.object({ nom: z.string().max(60), codeSecours: z.string().max(40), motDePasse }).strict();
 export const schemaChangerMotDePasse = z.object({ ancien: motDePasse, nouveau: motDePasse }).strict();
 export const schemaSupprimerCompte = z.object({ motDePasse }).strict();
+export const schemaRenommerCompte = z.object({ nom: z.string().max(60), motDePasse }).strict();
 export const schemaReglages = z
   .object({
     dureeTourS: z.number().int().min(30).max(3600).nullable().optional(),

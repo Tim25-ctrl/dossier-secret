@@ -52,6 +52,8 @@ export interface Depot {
   compteParNom(nomCle: string): Promise<Compte | null>;
   compteParId(id: string): Promise<Compte | null>;
   majCompte(id: string, champs: ChampsCompte): Promise<void>;
+  /** Change le pseudonyme du compte. Retourne false s'il est déjà pris par un autre compte. */
+  renommerCompte(id: string, nom: string, nomCle: string): Promise<boolean>;
   /** Supprime le compte, ses sessions et ses emplacements. */
   supprimerCompte(id: string): Promise<void>;
   // Sessions (empreinte du jeton remis à l'appareil -> compte)
@@ -165,6 +167,13 @@ export class DepotMemoire implements Depot {
     if (!c) return;
     this.comptes.set(id, { ...c, ...champs });
     await this.persister();
+  }
+  async renommerCompte(id: string, nom: string, nomCle: string) {
+    const c = this.comptes.get(id);
+    if (!c || [...this.comptes.values()].some((x) => x.nomCle === nomCle && x.id !== id)) return false;
+    this.comptes.set(id, { ...c, nom, nomCle });
+    await this.persister();
+    return true;
   }
   async supprimerCompte(id: string) {
     this.comptes.delete(id);
@@ -349,6 +358,21 @@ export class DepotSql implements Depot {
     const colonnes = (['mdp', 'secours', 'profil'] as const).filter((k) => champs[k] !== undefined);
     if (colonnes.length === 0) return;
     await this.sql.query(`UPDATE comptes SET ${colonnes.map((k, i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`, [id, ...colonnes.map((k) => champs[k])]);
+  }
+
+  async renommerCompte(id: string, nom: string, nomCle: string) {
+    try {
+      const r = await this.sql.query(
+        `UPDATE comptes SET nom = $2, nom_cle = $3 WHERE id = $1
+         AND NOT EXISTS (SELECT 1 FROM comptes WHERE nom_cle = $3 AND id <> $1) RETURNING id`,
+        [id, nom, nomCle],
+      );
+      return r.rows.length === 1;
+    } catch (e) {
+      // Deux changements simultanés vers le même pseudonyme : la contrainte d'unicité tranche.
+      if ((e as { code?: string }).code === '23505') return false;
+      throw e;
+    }
   }
 
   async supprimerCompte(id: string) {

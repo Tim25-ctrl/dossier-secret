@@ -2739,3 +2739,11 @@ button.carte:hover:not(:disabled) {
     font-weight: 600;
   }
 }
+
+.nom-du-compte {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--or-sombre);
+  background: rgba(201, 164, 92, 0.06);
+  border-radius: 6px;
+}

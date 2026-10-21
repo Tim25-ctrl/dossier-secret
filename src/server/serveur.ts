@@ -27,6 +27,7 @@ import {
   schemaEmplacement,
   schemaProfil,
   schemaRecupererCompte,
+  schemaRenommerCompte,
   schemaReprendreCompte,
   schemaSupprimerCompte,
   schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer, schemaSolo } from './validation';
@@ -617,6 +618,13 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
         socket.data.compteId = undefined;
         socket.data.jetonCompte = undefined;
         log('Compte supprimé.');
+      }),
+    );
+    socket.on(
+      'compte:renommer',
+      gererAsync('compte:renommer', async (p: unknown) => {
+        const { nom, motDePasse } = schemaRenommerCompte.parse(p);
+        return { compte: vueCompte(await comptes!.renommer(monCompte(), nom, motDePasse)) };
       }),
     );
     socket.on(

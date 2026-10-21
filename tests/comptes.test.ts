@@ -56,6 +56,22 @@ describe('Comptes', () => {
     });
   });
 
+  it('changer de pseudonyme : mot de passe exigé, pseudonyme libre, connexion avec le nouveau', async () => {
+    await avecDepots(async (depot) => {
+      const s = new ServiceComptes(depot);
+      const a = await s.creer('Anne', 'motdepasse', null);
+      await s.creer('Bob', 'motdepasse', null);
+      await expect(s.renommer(a.compte.id, 'Annie', 'faux')).rejects.toThrow('Mot de passe incorrect');
+      await expect(s.renommer(a.compte.id, 'BOB', 'motdepasse')).rejects.toThrow('déjà pris');
+      expect((await s.renommer(a.compte.id, 'ANNE', 'motdepasse')).nom).toBe('ANNE'); // simple changement de majuscules
+      expect((await s.renommer(a.compte.id, 'Annie', 'motdepasse')).nom).toBe('Annie');
+      await expect(s.connecter('Anne', 'motdepasse')).rejects.toThrow('incorrect');
+      expect((await s.connecter('annie', 'motdepasse')).compte.id).toBe(a.compte.id);
+      expect((await s.reprendre(a.jeton))?.nom).toBe('Annie'); // l'appareil reste connecté
+      await s.creer('Anne', 'motdepasse', null); // l'ancien pseudonyme est libre
+    });
+  });
+
   it('bloque les essais après 5 mots de passe faux, quelques minutes', async () => {
     let t = 1_000_000;
     const s = new ServiceComptes(new DepotMemoire(), () => t);

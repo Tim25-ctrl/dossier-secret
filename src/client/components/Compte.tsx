@@ -8,7 +8,7 @@ import { connexion, useConnexion } from '../connexion';
 import { Modale } from './Commun';
 import { Icone } from './Emblemes';
 
-type Vue = 'connexion' | 'creation' | 'oubli' | 'motDePasse' | 'suppression';
+type Vue = 'connexion' | 'creation' | 'oubli' | 'motDePasse' | 'suppression' | 'pseudo';
 
 /** Code de secours à noter, montré une seule fois (après la création ou une récupération). */
 function CodeSecours({ code, repris, onFini }: { code: string; repris: number; onFini: () => void }) {
@@ -133,6 +133,17 @@ export function ModaleCompte({
       if (!r.ok) return setErreur(r.erreur);
       aller('connexion');
       setInfo('Mot de passe changé. Les autres appareils connectés à ce compte devront se reconnecter.');
+    } else if (vue === 'pseudo') {
+      if (!nom.trim()) {
+        setEnvoi(false);
+        return setErreur('Indiquez le nouveau pseudonyme.');
+      }
+      const r = await connexion.renommerCompte(nom, mdp);
+      setEnvoi(false);
+      if (!r.ok) return setErreur(r.erreur);
+      onConnecte?.(r.compte.nom);
+      aller('connexion');
+      setInfo(`Pseudonyme changé : vous jouez et vous vous connectez désormais avec « ${r.compte.nom} ».`);
     } else if (vue === 'suppression') {
       const r = await connexion.supprimerCompte(mdp);
       setEnvoi(false);
@@ -172,7 +183,7 @@ export function ModaleCompte({
     );
 
   // Compte connecté : gestion.
-  if (compte && vue !== 'motDePasse' && vue !== 'suppression')
+  if (compte && vue !== 'motDePasse' && vue !== 'suppression' && vue !== 'pseudo')
     return (
       <Modale
         titre="Mon compte"
@@ -190,6 +201,15 @@ export function ModaleCompte({
         <div className="ligne">
           <button className="btn" onClick={() => void connexion.deconnecterCompte().then(onFermer)}>
             Se déconnecter
+          </button>
+          <button
+            className="btn btn-discret"
+            onClick={() => {
+              aller('pseudo');
+              setNom(compte.nom);
+            }}
+          >
+            Changer de pseudonyme
           </button>
           <button className="btn btn-discret" onClick={() => aller('motDePasse')}>
             Changer le mot de passe
@@ -209,6 +229,7 @@ export function ModaleCompte({
     oubli: 'Mot de passe oublié',
     motDePasse: 'Changer le mot de passe',
     suppression: 'Supprimer mon compte',
+    pseudo: 'Changer de pseudonyme',
   };
   const boutons: Record<Vue, string> = {
     connexion: 'Se connecter',
@@ -216,6 +237,7 @@ export function ModaleCompte({
     oubli: 'Choisir ce mot de passe',
     motDePasse: 'Changer le mot de passe',
     suppression: 'Supprimer définitivement',
+    pseudo: 'Changer de pseudonyme',
   };
 
   return (
@@ -240,14 +262,19 @@ export function ModaleCompte({
           Entrez le code de secours reçu à la création du compte, puis choisissez un nouveau mot de passe.
         </p>
       )}
+      {vue === 'pseudo' && (
+        <p className="petit muet" style={{ marginTop: 0 }}>
+          Le nouveau pseudonyme servira à jouer <strong>et à vous connecter</strong>. Confirmez avec votre mot de passe.
+        </p>
+      )}
       {vue === 'suppression' && (
         <p className="petit" style={{ marginTop: 0 }}>
           Le compte, ses sauvegardes et son profil seront effacés <strong>définitivement</strong>. Confirmez avec votre mot de passe.
         </p>
       )}
       <form onSubmit={(e) => void valider(e)} noValidate>
-        {(vue === 'connexion' || vue === 'creation' || vue === 'oubli') && (
-          <Champ id="compte-nom" label="Pseudonyme">
+        {(vue === 'connexion' || vue === 'creation' || vue === 'oubli' || vue === 'pseudo') && (
+          <Champ id="compte-nom" label={vue === 'pseudo' ? 'Nouveau pseudonyme' : 'Pseudonyme'}>
             <input id="compte-nom" value={nom} maxLength={PSEUDO_MAX} onChange={(e) => setNom(e.target.value)} autoComplete="username" autoFocus={!nom} />
           </Champ>
         )}
@@ -266,7 +293,7 @@ export function ModaleCompte({
           </Champ>
         )}
         {vue === 'motDePasse' && champMdp('compte-ancien', 'Mot de passe actuel', ancien, setAncien, false)}
-        {(vue === 'connexion' || vue === 'suppression') && champMdp('compte-mdp', 'Mot de passe', mdp, setMdp, false)}
+        {(vue === 'connexion' || vue === 'suppression' || vue === 'pseudo') && champMdp('compte-mdp', 'Mot de passe', mdp, setMdp, false)}
         {(vue === 'creation' || vue === 'oubli' || vue === 'motDePasse') && (
           <>
             {champMdp('compte-mdp', vue === 'creation' ? `Mot de passe (${MOT_DE_PASSE_MIN} caractères minimum)` : `Nouveau mot de passe (${MOT_DE_PASSE_MIN} caractères minimum)`, mdp, setMdp, true)}
@@ -284,7 +311,7 @@ export function ModaleCompte({
             Mot de passe oublié ?
           </button>
         )}
-        {(vue === 'oubli' || vue === 'motDePasse' || vue === 'suppression') && (
+        {(vue === 'oubli' || vue === 'motDePasse' || vue === 'suppression' || vue === 'pseudo') && (
           <button className="btn btn-discret btn-petit" onClick={() => aller('connexion')}>
             ← Retour
           </button>

@@ -8,6 +8,7 @@ import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification 
 import { Embleme, Icone, Sceau } from '../components/Emblemes';
 import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, ResultatHypothese, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
+import { ModaleHistoire, histoireAPresenter, marquerHistoireLue } from '../components/jeu/Dossier';
 import { GRACE_PAUSE_MS, ModalePause, useHeureServeur } from '../components/jeu/Pause';
 import { texteEvenement, type Noms } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
@@ -72,6 +73,13 @@ export function Jeu({
   }, [monTour]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const erreur = (e: string) => afficher(e, true);
+
+  // Au début de la partie (une fois par partie sur cet appareil) : l'histoire de l'affaire.
+  const [histoire, setHistoire] = useState(() => !etat.salon.code.startsWith('GUIDE') && vue.etape !== 'terminee' && histoireAPresenter(vue.partieId));
+  const fermerHistoire = () => {
+    marquerHistoireLue(vue.partieId);
+    setHistoire(false);
+  };
 
   // Annonce de la dernière manche (une fois, quand elle commence).
   const derniereManche = vue.manche === vue.regles.manchesMax && vue.etape !== 'terminee';
@@ -351,6 +359,7 @@ export function Jeu({
         </aside>
       </div>
 
+      {histoire && <ModaleHistoire affaire={vue.affaire} onFermer={fermerHistoire} />}
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'accusation' && <ModaleAccusation affaire={vue.affaire} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}

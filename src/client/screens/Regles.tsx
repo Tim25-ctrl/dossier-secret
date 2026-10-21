@@ -231,7 +231,7 @@ export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: 
         <ContenuRegles affaire={affaire} />
       ) : (
         <>
-          <p className="muet petit">Fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
+          <p className="muet petit">L'histoire de l'affaire, puis les fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
           <Dossier affaire={affaire} />
         </>
       )}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/catalogue';
+import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/catalogue';
 import { categorieDe, elementsDe, type AffaireId, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../../shared/types';
+import { Modale } from '../Commun';
 import { Embleme } from '../Emblemes';
 
 /** Contenu de la fiche d'un élément : le même dans les règles et sur la carte du carnet. */
@@ -92,24 +93,86 @@ export function CarteDeJeu({ id }: { id: ElementId }) {
   );
 }
 
+/** L'histoire de l'affaire : le crime, le huis clos, la fenêtre du crime. */
+export function HistoireAffaire({ affaire }: { affaire: AffaireId }) {
+  const infos = AFFAIRES[affaire];
+  return (
+    <div className="histoire-affaire">
+      <h3>{infos.titre}</h3>
+      {infos.resume.map((p) => (
+        <p key={p}>{p}</p>
+      ))}
+    </div>
+  );
+}
+
+const CLE_HISTOIRES_LUES = 'dossier-secret:histoires-lues';
+
+/** Parties dont l'histoire a déjà été présentée sur cet appareil (les 30 dernières). */
+function histoiresLues(): string[] {
+  try {
+    const l = JSON.parse(localStorage.getItem(CLE_HISTOIRES_LUES) ?? '[]') as unknown;
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** L'histoire est-elle à présenter pour cette partie (première ouverture sur cet appareil) ? */
+export function histoireAPresenter(partieId: string): boolean {
+  return !histoiresLues().includes(partieId);
+}
+
+export function marquerHistoireLue(partieId: string) {
+  try {
+    localStorage.setItem(CLE_HISTOIRES_LUES, JSON.stringify([...histoiresLues().filter((x) => x !== partieId), partieId].slice(-30)));
+  } catch {
+    /* stockage indisponible : l'histoire sera reproposée */
+  }
+}
+
+/** Fenêtre d'ouverture de la partie : l'histoire de l'affaire, à lire avant de commencer. */
+export function ModaleHistoire({ affaire, onFermer }: { affaire: AffaireId; onFermer: () => void }) {
+  return (
+    <Modale
+      titre="L'affaire"
+      onFermer={onFermer}
+      pied={
+        <button className="btn btn-or" onClick={onFermer} autoFocus>
+          Commencer l'enquête
+        </button>
+      }
+    >
+      <HistoireAffaire affaire={affaire} />
+      <p className="petit muet" style={{ marginBottom: 0 }}>
+        Votre rôle et vos cartes sont dans le panneau privé. Vous retrouverez cette histoire à tout moment dans le menu ☰, « Le dossier de l'affaire ».
+      </p>
+    </Modale>
+  );
+}
+
 export function Dossier({ affaire }: { affaire: AffaireId }) {
-  const [section, setSection] = useState<'suspects' | 'lieux' | 'armes'>('suspects');
+  const [section, setSection] = useState<'histoire' | 'suspects' | 'lieux' | 'armes'>('histoire');
   const e = elementsDe(affaire);
   const ids: readonly ElementId[] = section === 'suspects' ? e.suspects : section === 'lieux' ? e.lieux : e.armes;
   return (
     <div>
       <div className="ligne" role="tablist" aria-label="Sections du dossier" style={{ marginBottom: 12 }}>
-        {(['suspects', 'lieux', 'armes'] as const).map((s) => (
+        {(['histoire', 'suspects', 'lieux', 'armes'] as const).map((s) => (
           <button key={s} role="tab" aria-selected={section === s} className={`btn btn-petit ${section === s ? 'btn-or' : ''}`} onClick={() => setSection(s)}>
-            {s === 'suspects' ? 'Les six suspects' : s === 'lieux' ? 'Les six lieux' : 'Les six armes'}
+            {s === 'histoire' ? "L'histoire" : s === 'suspects' ? 'Les six suspects' : s === 'lieux' ? 'Les six lieux' : 'Les six armes'}
           </button>
         ))}
       </div>
-      <div className="indices">
-        {ids.map((id) => (
-          <FicheDossier key={id} id={id} />
-        ))}
-      </div>
+      {section === 'histoire' ? (
+        <HistoireAffaire affaire={affaire} />
+      ) : (
+        <div className="indices">
+          {ids.map((id) => (
+            <FicheDossier key={id} id={id} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

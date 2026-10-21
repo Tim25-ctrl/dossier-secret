@@ -232,9 +232,9 @@ export const ARMES_TRAIN: Record<ArmesDe<'train'>, FicheArme> = {
     id: 'canne',
     nom: "Canne à pommeau d'argent",
     article: "avec la canne à pommeau d'argent",
-    description: "Canne d'ébène du colonel, au pommeau d'argent massif en forme de tête de lion.",
+    description: "Canne d'ébène du colonel, au lourd pommeau d'argent massif, poli par les années.",
     caracteristiques: ['Pommeau très lourd', 'Longue à manier', 'Ne quitte guère son propriétaire'],
-    recit: "La canne à pommeau d'argent a repris sa place au porte-parapluie, le lion tourné vers le mur.",
+    recit: "La canne à pommeau d'argent a repris sa place au porte-parapluie, comme si de rien n'était.",
     icone: 'canne',
   },
 };

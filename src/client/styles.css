@@ -1046,12 +1046,11 @@ button.carte:hover:not(:disabled) {
   font-weight: 700;
 }
 .aide-bulle {
-  position: absolute;
-  z-index: 50;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(280px, 80vw);
+  /* Placée par le composant Aide (coordonnées de l'écran), toujours entièrement visible. */
+  position: fixed;
+  z-index: 500;
+  width: min(280px, calc(100vw - 24px));
+  pointer-events: none;
   padding: 10px 12px;
   border-radius: 8px;
   background: #0a0f1d;
@@ -2242,4 +2241,13 @@ button.carte:hover:not(:disabled) {
 }
 .liste-affaires strong {
   color: var(--or-clair);
+}
+
+/* Histoire de l'affaire (dossier, fenêtre d'ouverture) */
+.histoire-affaire h3 {
+  margin-top: 0;
+  color: var(--or-clair);
+}
+.histoire-affaire p {
+  line-height: 1.55;
 }

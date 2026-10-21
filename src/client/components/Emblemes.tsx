@@ -289,15 +289,12 @@ const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
   ),
   canne: (
     <>
-      {/* Canne d'ébène inclinée, pommeau d'argent en tête de lion (crinière rayonnante), bague et embout */}
+      {/* Canne d'ébène inclinée : pommeau d'argent en olive (reflet), bague, embout */}
       <path d="M34.7 21.1L39.3 22.9 24.9 56.3 22.1 55.1z" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
       <path d="M33.4 20.4l7.4 3" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" />
       <path d="M23.2 56.6l-1.4 3.3" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" />
-      <path d="M31.6 13.5L28.7 13.0M32.6 10.8L30.0 9.3M34.5 8.5L32.6 6.2M37.1 7.0L36.1 4.2M40.0 6.5L40.0 3.5M42.9 7.0L43.9 4.2M45.5 8.5L47.4 6.2M47.4 10.8L50.0 9.3M48.4 13.5L51.3 13.0" {...TRAIT} strokeWidth={2} />
-      <circle cx="40" cy="15" r="7.5" fill="#efeadc" stroke="currentColor" strokeWidth="2.4" />
-      <circle cx="37.6" cy="14" r="1" fill="currentColor" />
-      <circle cx="42.4" cy="14" r="1" fill="currentColor" />
-      <path d="M38.6 17.2h2.8l-1.4 1.6z" fill="currentColor" />
+      <ellipse cx="39.4" cy="15.6" rx="5.6" ry="6.8" transform="rotate(22.5 39.6 15)" fill="#d6d0c0" stroke="currentColor" strokeWidth="2" />
+      <path d="M36.5 15c.2-1.9 1.1-3.3 2.5-4.1" stroke="#fbf8f0" strokeWidth="1.6" fill="none" strokeLinecap="round" />
     </>
   ),
 };

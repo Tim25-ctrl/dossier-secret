@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { INDICES_PAR_ID, affaireDeCarte, libelleCategorie } from '../../shared/data/catalogue';
 import { nomCourt, nomElement } from '../../shared/data/catalogue';
@@ -153,19 +153,68 @@ export function Modale({
 }
 
 /** Bulle d'aide accessible au clavier, à la souris et au toucher. */
+/**
+ * Bulle d'aide « ? ». Elle est placée par rapport au bouton puis ramenée dans l'écran
+ * (au-dessus du bouton, ou en dessous s'il n'y a pas la place) : sur téléphone, un bouton
+ * collé au bord ne doit pas faire déborder le texte hors de l'écran.
+ */
 export function Aide({ children, libelle = 'Aide' }: { children: ReactNode; libelle?: string }) {
   const [ouvert, setOuvert] = useState(false);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const bouton = useRef<HTMLButtonElement>(null);
+  const bulle = useRef<HTMLSpanElement>(null);
   const id = useId();
+  useLayoutEffect(() => {
+    if (!ouvert) {
+      setPosition(null);
+      return;
+    }
+    const placer = () => {
+      const b = bouton.current?.getBoundingClientRect();
+      const el = bulle.current;
+      if (!b || !el) return;
+      const marge = 12;
+      const largeur = el.offsetWidth;
+      const hauteur = el.offsetHeight;
+      const left = Math.max(marge, Math.min(b.left + b.width / 2 - largeur / 2, window.innerWidth - marge - largeur));
+      const dessus = b.top - 8 - hauteur;
+      const top = dessus >= marge ? dessus : Math.min(b.bottom + 8, window.innerHeight - marge - hauteur);
+      setPosition({ left, top });
+    };
+    placer();
+    window.addEventListener('resize', placer);
+    window.addEventListener('scroll', placer, true);
+    return () => {
+      window.removeEventListener('resize', placer);
+      window.removeEventListener('scroll', placer, true);
+    };
+  }, [ouvert]);
   return (
     <span className="aide" onMouseEnter={() => setOuvert(true)} onMouseLeave={() => setOuvert(false)}>
-      <button type="button" className="aide-bouton" aria-label={libelle} aria-describedby={ouvert ? id : undefined} onClick={() => setOuvert(!ouvert)} onBlur={() => setOuvert(false)}>
+      <button
+        ref={bouton}
+        type="button"
+        className="aide-bouton"
+        aria-label={libelle}
+        aria-describedby={ouvert ? id : undefined}
+        onClick={() => setOuvert(!ouvert)}
+        onBlur={() => setOuvert(false)}
+      >
         ?
       </button>
-      {ouvert && (
-        <span role="tooltip" id={id} className="aide-bulle">
-          {children}
-        </span>
-      )}
+      {ouvert &&
+        createPortal(
+          <span
+            ref={bulle}
+            role="tooltip"
+            id={id}
+            className="aide-bulle"
+            style={position ? { left: position.left, top: position.top } : { left: 0, top: 0, visibility: 'hidden' }}
+          >
+            {children}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

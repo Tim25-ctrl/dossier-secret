@@ -81,7 +81,7 @@ export interface EvenementsClient {
   'salon:creer': (p: { nom: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
   /** Partie seul contre des bots, lancée immédiatement. */
   'salon:solo': (
-    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice; affaire: AffaireId },
+    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice; affaire: AffaireId; historiqueCartes?: HistoriqueCartes },
     ack: (r: Reponse<{ session: Session }>) => void,
   ) => void;
   /** Pendant une partie, « rejoindre » avec le pseudonyme d'un joueur absent demande sa place (réponse `attente`). */

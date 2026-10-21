@@ -361,8 +361,8 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     socket.on(
       'salon:solo',
       gerer('salon:solo', (p: unknown) => {
-        const { nom, bots, dureeTourS, modeComplice, affaire } = schemaSolo.parse(p);
-        const { salon, joueur, jeton } = gestionnaire.creerSolo(nom, bots, { dureeTourS, modeComplice, affaire });
+        const { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes } = schemaSolo.parse(p);
+        const { salon, joueur, jeton } = gestionnaire.creerSolo(nom, bots, { dureeTourS, modeComplice, affaire, historiqueCartes: historiqueCartes ?? 'visibles' });
         attacher(socket, salon.code, joueur.id);
         log(`Salon ${salon.code} : partie seul contre ${bots} bots.`);
         diffuser(salon.code);

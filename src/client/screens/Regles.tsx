@@ -6,7 +6,7 @@ import { Modale } from '../components/Commun';
 import { Dossier } from '../components/jeu/Dossier';
 
 export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: AffaireId }) {
-  const infos = AFFAIRES[affaire];
+  // Les exemples d'indices sont tirés de l'affaire jouée (ou du manoir depuis l'accueil).
   const e = elementsDe(affaire);
   // Exemple tiré d'un vrai témoignage partiel de l'affaire (quatre règles « pas X avec Y » résumées en une phrase).
   const partiel = indicesDe(affaire).find((c) => reglesEffectives(c).length === 4);
@@ -14,14 +14,9 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
   const exemplePartiel = phrase.charAt(0).toLowerCase() + phrase.slice(1);
   return (
     <div className="regles">
-      <h3>{infos.titre}</h3>
-      {infos.resume.map((p) => (
-        <p key={p}>{p}</p>
-      ))}
-
       <h3>But du jeu</h3>
       <p>
-        Découvrir <strong>qui</strong> a tué {infos.victimeCourt}, <strong>où</strong> et <strong>avec quelle arme</strong>. Six suspects, six lieux et six armes : une seule
+        Découvrir <strong>qui</strong> a commis le meurtre, <strong>où</strong> et <strong>avec quelle arme</strong>. Six suspects, six lieux et six armes : une seule
         combinaison est la bonne. Le meurtrier est un personnage de l'histoire — aucun joueur ne l'incarne.
       </p>
 
@@ -114,7 +109,7 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
       </ul>
       <p>Répondre à une interrogation ne coûte aucun point d'action.</p>
       <p>
-        <strong>Option « Cartes montrées anonymes » (difficile).</strong> Choisie par l'hôte dans le salon d'attente : vous voyez la carte au moment où on vous la
+        <strong>Option « Cartes vues : à retenir de mémoire » (difficile).</strong> Choisie par l'hôte dans le salon d'attente : vous voyez la carte au moment où on vous la
         montre et jusqu'à la fin de votre tour, puis l'historique et le carnet indiquent seulement « une carte ». À vous de la noter !
       </p>
 
@@ -193,20 +188,20 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
         <strong>Témoignages partiels.</strong> Certaines traces désignent deux coupables possibles pour un lieu ou une arme : « {exemplePartiel} ». Seules, elles ne tranchent pas ; croisées avec une carte, elles peuvent tout changer.
       </p>
       <p>
-        <strong>{infos.journal.libelle}.</strong> {infos.journal.presentation}
+        <strong>Le carnet de la victime.</strong> Des pages de son journal intime, datées de sa dernière semaine, sont glissées dans les dossiers. Chacune
+        raconte une dispute avec un proche… et écarte une combinaison. À la fin de la partie, toute sa dernière semaine est révélée.
       </p>
     </div>
   );
 }
 
 /**
- * Règles et dossier de l'affaire. En partie, `affaire` est celle jouée ; depuis l'accueil
- * (sans affaire), le joueur choisit l'histoire à consulter.
+ * Règles du jeu (communes à toutes les histoires) et onglet « Les affaires » : histoire et fiches
+ * de chaque affaire. `affaire` est celle affichée d'abord (celle jouée en partie).
  */
-export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: imposee }: { onFermer: () => void; section?: 'regles' | 'dossier'; affaire?: AffaireId }) {
+export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: initialeAffaire }: { onFermer: () => void; section?: 'regles' | 'dossier'; affaire?: AffaireId }) {
   const [section, setSection] = useState<'regles' | 'dossier'>(initiale);
-  const [choisie, setChoisie] = useState<AffaireId>(imposee ?? AFFAIRE_PAR_DEFAUT);
-  const affaire = imposee ?? choisie;
+  const [affaire, setAffaire] = useState<AffaireId>(initialeAffaire ?? AFFAIRE_PAR_DEFAUT);
   return (
     <Modale titre="Règles du jeu" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Compris</button>}>
       <div className="ligne" role="tablist" aria-label="Sections des règles" style={{ marginBottom: 12 }}>
@@ -214,25 +209,22 @@ export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: 
           Règles
         </button>
         <button role="tab" aria-selected={section === 'dossier'} className={`btn btn-petit ${section === 'dossier' ? 'btn-or' : ''}`} onClick={() => setSection('dossier')}>
-          Le dossier de l'affaire
+          Les affaires
         </button>
       </div>
-      {!imposee && (
-        <div className="ligne choix-affaire-regles" role="group" aria-label="Histoire" style={{ marginBottom: 12 }}>
-          <span className="petit muet">Histoire :</span>
-          {AFFAIRES_IDS.map((a) => (
-            <button key={a} className={`btn btn-petit ${a === choisie ? 'btn-or' : 'btn-discret'}`} aria-pressed={a === choisie} onClick={() => setChoisie(a)}>
-              {AFFAIRES[a].court}
-            </button>
-          ))}
-        </div>
-      )}
       {section === 'regles' ? (
-        <ContenuRegles affaire={affaire} />
+        <ContenuRegles affaire={initialeAffaire} />
       ) : (
         <>
+          <div className="ligne choix-affaire-regles" role="group" aria-label="Affaire" style={{ marginBottom: 12 }}>
+            {AFFAIRES_IDS.map((a) => (
+              <button key={a} className={`btn btn-petit ${a === affaire ? 'btn-or' : 'btn-discret'}`} aria-pressed={a === affaire} onClick={() => setAffaire(a)}>
+                {AFFAIRES[a].court}
+              </button>
+            ))}
+          </div>
           <p className="muet petit">L'histoire de l'affaire, puis les fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
-          <Dossier affaire={affaire} />
+          <Dossier key={affaire} affaire={affaire} />
         </>
       )}
     </Modale>

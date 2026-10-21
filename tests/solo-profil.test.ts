@@ -5,12 +5,14 @@ import type { VueJoueur } from '../src/shared/types';
 describe('Partie seul contre des bots', () => {
   it('crée le salon, ajoute les bots et lance la partie avec les réglages choisis', () => {
     const g = new GestionnaireSalons();
-    const { salon, joueur } = g.creerSolo('Moi', 3, { dureeTourS: null, modeComplice: 'classique' });
+    const { salon, joueur } = g.creerSolo('Moi', 3, { dureeTourS: null, modeComplice: 'classique', historiqueCartes: 'anonymes', affaire: 'train' });
     expect(salon.statut).toBe('partie');
     expect(salon.joueurs.filter((j) => j.bot)).toHaveLength(3);
     expect(salon.hote).toBe(joueur.id);
     expect(salon.partie!.config.modeComplice).toBe('classique');
     expect(salon.partie!.config.delaiTourMs).toBeNull();
+    expect(salon.partie!.config.historiqueCartes).toBe('anonymes');
+    expect(salon.partie!.config.affaire).toBe('train');
   });
 
   it('refuse un nombre de bots hors limites sans laisser de salon derrière', () => {

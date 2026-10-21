@@ -395,6 +395,7 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [bots, setBots] = useState(3);
   const [duree, setDuree] = useState<number | null>(null);
   const [mode, setMode] = useState<'ruse' | 'classique'>('ruse');
+  const [cartes, setCartes] = useState<'visibles' | 'anonymes'>('visibles');
   const [affaire, setAffaire] = useState<AffaireId>(AFFAIRE_PAR_DEFAUT);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -404,7 +405,7 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     setEnvoi(true);
     setErreur(null);
     majPrefs({ pseudo: pseudo.trim() });
-    const r = await connexion.solo(pseudo, bots, duree, mode, affaire);
+    const r = await connexion.solo(pseudo, bots, duree, mode, affaire, cartes);
     setEnvoi(false);
     if (!r.ok) setErreur(r.erreur);
   };
@@ -450,6 +451,13 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           <select id="mode-solo" value={mode} onChange={(e) => setMode(e.target.value as 'ruse' | 'classique')}>
             <option value="ruse">Rusé (conseillé)</option>
             <option value="classique">Classique</option>
+          </select>
+        </div>
+        <div className="champ">
+          <label htmlFor="cartes-solo">Cartes vues pendant la partie</label>
+          <select id="cartes-solo" value={cartes} onChange={(e) => setCartes(e.target.value as 'visibles' | 'anonymes')}>
+            <option value="visibles">Notées dans le carnet (conseillé)</option>
+            <option value="anonymes">À retenir de mémoire (difficile)</option>
           </select>
         </div>
         {erreur && (

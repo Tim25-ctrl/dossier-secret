@@ -191,23 +191,23 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
                 </Aide>
               </div>
               <div className="reglage">
-                <label htmlFor="historique-cartes">Cartes montrées</label>
+                <label htmlFor="historique-cartes">Cartes vues pendant la partie</label>
                 {estHote ? (
                   <select
                     id="historique-cartes"
                     value={salon.reglages.historiqueCartes ?? 'visibles'}
                     onChange={(e) => void agir(() => connexion.reglerHistoriqueCartes(e.target.value as 'visibles' | 'anonymes'))}
                   >
-                    <option value="visibles">Rappelées (conseillé)</option>
-                    <option value="anonymes">Anonymes (difficile)</option>
+                    <option value="visibles">Notées dans le carnet (conseillé)</option>
+                    <option value="anonymes">À retenir de mémoire (difficile)</option>
                   </select>
                 ) : (
-                  <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'Anonymes (difficile)' : 'Rappelées'}</strong>
+                  <strong id="historique-cartes">{salon.reglages.historiqueCartes === 'anonymes' ? 'À retenir de mémoire (difficile)' : 'Notées dans le carnet'}</strong>
                 )}
-                <Aide libelle="Aide sur les cartes montrées">
+                <Aide libelle="Aide sur les cartes vues">
                   {salon.reglages.historiqueCartes === 'anonymes'
-                    ? 'Anonymes : vous voyez la carte au moment où on vous la montre et jusqu’à la fin de votre tour ; ensuite, l’historique et le carnet indiquent seulement « une carte ». À retenir de mémoire !'
-                    : 'Rappelées : les cartes que vous montrez et que l’on vous montre restent dans l’historique et le carnet (visibles par vous seul).'}
+                    ? 'À retenir de mémoire : vous voyez la carte au moment où on vous la montre et jusqu’à la fin de votre tour ; ensuite, l’historique et le carnet indiquent seulement « une carte ». À retenir de mémoire !'
+                    : 'Notées dans le carnet : les cartes que vous montrez et que l’on vous montre restent dans l’historique et le carnet (visibles par vous seul).'}
                 </Aide>
               </div>
             </div>

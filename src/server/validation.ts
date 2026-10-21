@@ -40,6 +40,7 @@ export const schemaSolo = z
     dureeTourS: z.number().int().min(30).max(3600).nullable(),
     modeComplice: z.enum(['classique', 'ruse']),
     affaire: z.enum(AFFAIRES_IDS as [AffaireId, ...AffaireId[]]),
+    historiqueCartes: z.enum(['visibles', 'anonymes']).optional(),
   })
   .strict();
 export const schemaRejoindre = z.object({ code: z.string().max(20), nom: z.string().max(60) });

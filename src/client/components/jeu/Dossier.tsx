@@ -145,7 +145,7 @@ export function ModaleHistoire({ affaire, onFermer }: { affaire: AffaireId; onFe
     >
       <HistoireAffaire affaire={affaire} />
       <p className="petit muet" style={{ marginBottom: 0 }}>
-        Votre rôle et vos cartes sont dans le panneau privé. Vous retrouverez cette histoire à tout moment dans le menu ☰, « Le dossier de l'affaire ».
+        Votre rôle et vos cartes sont dans le panneau privé. Vous retrouverez cette histoire à tout moment dans le menu ☰, « Les affaires ».
       </p>
     </Modale>
   );

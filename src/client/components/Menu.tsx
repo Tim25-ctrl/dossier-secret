@@ -67,7 +67,7 @@ export function MenuPrincipal({ etat, prefs, majPrefs }: { etat: EtatClient; pre
               📖 Règles du jeu
             </button>
             <button type="button" role="menuitem" className="menu-item" onClick={choisir(() => setFenetre('dossier'))}>
-              🗂️ Le dossier de l'affaire
+              🗂️ Les affaires
             </button>
             <button type="button" role="menuitem" className="menu-item" onClick={choisir(() => setFenetre('parametres'))}>
               ⚙️ Paramètres

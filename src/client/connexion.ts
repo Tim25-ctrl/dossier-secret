@@ -321,8 +321,15 @@ class Connexion {
     return r;
   }
 
-  async solo(nom: string, bots: number, dureeTourS: number | null, modeComplice: 'classique' | 'ruse', affaire: AffaireId) {
-    const r = await this.envoyer<{ session: Session }>('salon:solo', { nom, bots, dureeTourS, modeComplice, affaire });
+  async solo(
+    nom: string,
+    bots: number,
+    dureeTourS: number | null,
+    modeComplice: 'classique' | 'ruse',
+    affaire: AffaireId,
+    historiqueCartes: 'visibles' | 'anonymes' = 'visibles',
+  ) {
+    const r = await this.envoyer<{ session: Session }>('salon:solo', { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes });
     if (r.ok) this.memoriser(r.session);
     return r;
   }

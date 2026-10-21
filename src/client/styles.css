@@ -2777,19 +2777,3 @@ button.carte:hover:not(:disabled) {
 .ambiance {
   transition: opacity 6s ease;
 }
-.heure-nuit {
-  text-transform: none;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-.heure-nuit::before {
-  content: '· ';
-}
-@media (max-width: 600px) {
-  .heure-nuit {
-    display: block;
-  }
-  .heure-nuit::before {
-    content: none;
-  }
-}

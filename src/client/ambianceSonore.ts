@@ -9,7 +9,7 @@
 // RÈGLE (comme pour les bruitages) : rien ne réagit à une information propre au complice. La
 // tension de la musique ne dépend que de la manche, que tout le monde voit.
 
-import { contexteAudio, bruitDe } from './sons';
+import { contexteAudio, bruitDe, type CouleurBruit } from './sons';
 
 export type AffaireSonore = 'manoir' | 'train';
 
@@ -81,7 +81,7 @@ function synchroniser() {
   // Volumes volontairement bas : l'ambiance reste derrière les bruitages et la lecture.
   session.maitre.gain.setTargetAtTime(visible ? reglages.volume * 1.6 : 0, t, 0.4);
   session.ambiance.gain.setTargetAtTime(reglages.ambiance ? 1 : 0, t, 0.4);
-  session.musique.gain.setTargetAtTime(reglages.musique ? 0.8 : 0, t, 0.4);
+  session.musique.gain.setTargetAtTime(reglages.musique ? 1 : 0, t, 0.4);
   session.intemperies.gain.setTargetAtTime(1 - 0.7 * aubeVoulue, t, 3);
   session.tension = tensionVoulue;
 }
@@ -190,9 +190,15 @@ function repeter(s: Session, min: number, max: number, fn: () => void, premier =
 }
 
 /** Bruit continu filtré (pluie, vent, neige) : retourne le gain et le dernier filtre, pour les moduler. */
-function bruitContinu(s: Session, sortie: AudioNode, filtres: { type: BiquadFilterType; freq: number; q?: number }[], gain: number) {
+function bruitContinu(
+  s: Session,
+  sortie: AudioNode,
+  filtres: { type: BiquadFilterType; freq: number; q?: number }[],
+  gain: number,
+  couleur: CouleurBruit = 'rose',
+) {
   const src = s.c.createBufferSource();
-  src.buffer = bruitDe(s.c, 3);
+  src.buffer = bruitDe(s.c, 4, couleur);
   src.loop = true;
   let noeud: AudioNode = src;
   const fs = filtres.map((f) => {
@@ -215,16 +221,18 @@ function bruitContinu(s: Session, sortie: AudioNode, filtres: { type: BiquadFilt
 /** Rafales : le vent forcit et faiblit au hasard. */
 function vent(s: Session, q: number, gainMin: number, gainMax: number, freqMin: number, freqMax: number) {
   const v = bruitContinu(s, s.ambiance, [{ type: 'bandpass', freq: (freqMin + freqMax) / 2, q }], gainMin);
+  // Une rafale sur deux environ : le vent monte nettement, puis retombe.
   repeter(
     s,
     2500,
-    7000,
+    6000,
     () => {
       const t = s.c.currentTime;
-      v.g.gain.setTargetAtTime(alea(gainMin, gainMax), t, alea(0.8, 2.2));
-      v.filtre.frequency.setTargetAtTime(alea(freqMin, freqMax), t, alea(1, 2.5));
+      const rafale = Math.random() < 0.45;
+      v.g.gain.setTargetAtTime(rafale ? alea(gainMax * 0.7, gainMax) : alea(gainMin, gainMin * 2), t, rafale ? alea(0.6, 1.2) : alea(1.5, 2.5));
+      v.filtre.frequency.setTargetAtTime(rafale ? alea((freqMin + freqMax) / 2, freqMax) : alea(freqMin, (freqMin + freqMax) / 2), t, alea(0.8, 1.8));
     },
-    200,
+    1500,
   );
 }
 
@@ -258,10 +266,13 @@ function cloche(s: Session, o: { base: number; debut: number; duree: number; gai
 }
 
 /** Souffle de bruit ponctuel (tonnerre, vapeur). */
-function bouffee(s: Session, o: { filtre: BiquadFilterType; freq: number; q?: number; gain: number; attaque: number; duree: number; reverb?: boolean }) {
-  const t = s.c.currentTime;
+function bouffee(
+  s: Session,
+  o: { filtre: BiquadFilterType; freq: number; q?: number; gain: number; attaque: number; duree: number; reverb?: boolean; couleur?: CouleurBruit; debut?: number },
+) {
+  const t = s.c.currentTime + (o.debut ?? 0);
   const src = s.c.createBufferSource();
-  src.buffer = bruitDe(s.c, 3);
+  src.buffer = bruitDe(s.c, 4, o.couleur ?? 'rose');
   const f = s.c.createBiquadFilter();
   f.type = o.filtre;
   f.frequency.value = o.freq;
@@ -275,40 +286,25 @@ function bouffee(s: Session, o: { filtre: BiquadFilterType; freq: number; q?: nu
 }
 
 function decorManoir(s: Session) {
-  // Pluie : chuintement aigu + grondement sur le toit.
-  bruitContinu(s, s.intemperies, [{ type: 'highpass', freq: 1500 }, { type: 'lowpass', freq: 6500 }], 0.07);
-  bruitContinu(s, s.intemperies, [{ type: 'lowpass', freq: 420 }], 0.05);
-  // Gouttes sur la vitre.
-  repeter(s, 90, 420, () => {
-    const t = s.c.currentTime;
-    const osc = s.c.createOscillator();
-    const g = s.c.createGain();
-    osc.frequency.setValueAtTime(alea(2200, 4200), t);
-    osc.frequency.exponentialRampToValueAtTime(alea(900, 1600), t + 0.03);
-    enveloppe(g, t, alea(0.004, 0.012), 0.002, 0.05);
-    osc.connect(g).connect(s.intemperies);
-    osc.start(t);
-    osc.stop(t + 0.08);
-  });
-  vent(s, 0.9, 0.01, 0.07, 280, 750);
-  // Tonnerre lointain, de temps en temps.
-  repeter(
-    s,
-    40_000,
-    95_000,
-    () => {
-      bouffee(s, { filtre: 'lowpass', freq: 160, q: 0.5, gain: 0.32, attaque: 0.4, duree: alea(4, 7), reverb: true });
-      bouffee(s, { filtre: 'lowpass', freq: 90, q: 0.5, gain: 0.25, attaque: 1.2, duree: alea(5, 8) });
-    },
-    alea(15_000, 30_000),
-  );
+  // Pluie : un souffle doux (bruit rose), sans aigus qui grésillent, et l'averse sur le toit.
+  bruitContinu(s, s.intemperies, [{ type: 'highpass', freq: 350 }, { type: 'lowpass', freq: 2400 }], 0.1);
+  bruitContinu(s, s.intemperies, [{ type: 'lowpass', freq: 700 }], 0.07, 'brun');
+  // Rafales de vent.
+  vent(s, 1.2, 0.03, 0.9, 300, 900);
+  // Tonnerre : un craquement parfois, puis un long grondement qui roule.
+  const tonnerre = () => {
+    if (Math.random() < 0.5) bouffee(s, { filtre: 'highpass', freq: 900, gain: 0.18, attaque: 0.02, duree: 0.7, reverb: true });
+    bouffee(s, { filtre: 'lowpass', freq: 650, gain: 0.85, attaque: 0.25, duree: alea(4, 6), reverb: true, couleur: 'brun', debut: 0.1 });
+    bouffee(s, { filtre: 'lowpass', freq: 450, gain: 0.6, attaque: 0.6, duree: alea(4, 6), couleur: 'brun', debut: alea(1, 2) });
+  };
+  repeter(s, 30_000, 70_000, tonnerre, alea(8_000, 14_000));
 }
 
 function decorTrain(s: Session) {
   // Neige soufflée contre les vitres, très douce.
-  bruitContinu(s, s.intemperies, [{ type: 'highpass', freq: 3500 }], 0.025);
+  bruitContinu(s, s.intemperies, [{ type: 'highpass', freq: 1800 }, { type: 'lowpass', freq: 5000 }], 0.035);
   // Vent de montagne : plus sifflant (filtre étroit).
-  vent(s, 4, 0.015, 0.09, 350, 1100);
+  vent(s, 3, 0.04, 1, 400, 1200);
   // Chaudière de la locomotive, maintenue en chauffe : un ronronnement grave.
   for (const [f, gain] of [
     [47, 0.035],
@@ -327,7 +323,7 @@ function decorTrain(s: Session) {
     s,
     22_000,
     55_000,
-    () => bouffee(s, { filtre: 'highpass', freq: 2600, gain: 0.06, attaque: 0.35, duree: alea(1.8, 3.2) }),
+    () => bouffee(s, { filtre: 'highpass', freq: 1800, gain: 0.22, attaque: 0.35, duree: alea(1.8, 3.2) }),
     alea(6_000, 15_000),
   );
   // Craquements du métal qui refroidit.
@@ -348,7 +344,7 @@ function decorTrain(s: Session) {
       f.frequency.value = alea(450, 900);
       f.Q.value = 6;
       const g = s.c.createGain();
-      enveloppe(g, t, 0.05, 0.05, duree);
+      enveloppe(g, t, 0.1, 0.05, duree);
       osc.connect(f).connect(g);
       g.connect(s.ambiance);
       g.connect(s.reverb);
@@ -364,11 +360,12 @@ function decorTrain(s: Session) {
 // ---------------------------------------------------------------------------
 
 // Ré mineur : graves pour le violoncelle, médiums pour le piano.
-const VIOLONCELLE = [73.42, 87.31, 110, 130.81, 98];
-const PIANO = [293.66, 349.23, 440, 523.25, 587.33, 349.23, 392];
+// (Assez aiguës pour être entendues sur les haut-parleurs d'un téléphone.)
+const VIOLONCELLE = [146.83, 174.61, 220, 196, 130.81];
+const PIANO = [293.66, 349.23, 440, 523.25, 587.33, 698.46, 392];
 const TENSION = [311.13, 277.18, 415.3]; // mi bémol, do dièse, sol dièse : notes qui grincent
 
-function piano(s: Session, freq: number, debut = 0, gain = 0.05) {
+function piano(s: Session, freq: number, debut = 0, gain = 0.24) {
   const t = s.c.currentTime + debut;
   for (const [rapport, part, type] of [
     [1, 1, 'triangle'],
@@ -388,7 +385,7 @@ function piano(s: Session, freq: number, debut = 0, gain = 0.05) {
   }
 }
 
-function violoncelle(s: Session, freq: number, duree: number, gain = 0.035) {
+function violoncelle(s: Session, freq: number, duree: number, gain = 0.15) {
   const t = s.c.currentTime;
   const osc = s.c.createOscillator();
   osc.type = 'sawtooth';
@@ -400,7 +397,7 @@ function violoncelle(s: Session, freq: number, duree: number, gain = 0.035) {
   vibrato.connect(profondeur).connect(osc.frequency);
   const f = s.c.createBiquadFilter();
   f.type = 'lowpass';
-  f.frequency.value = 650;
+  f.frequency.value = 1600;
   const g = s.c.createGain();
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(gain, t + 1.4);
@@ -437,9 +434,10 @@ function lancerMusique(s: Session) {
     if (n % 3 === 1) violoncelle(s, VIOLONCELLE[Math.floor(Math.random() * VIOLONCELLE.length)], alea(7, 10));
     const notes = s.tension && Math.random() < 0.5 ? TENSION : PIANO;
     piano(s, notes[Math.floor(Math.random() * notes.length)]);
-    if (Math.random() < 0.4) piano(s, PIANO[Math.floor(Math.random() * PIANO.length)], alea(0.6, 1.4), 0.035);
+    if (Math.random() < 0.4) piano(s, PIANO[Math.floor(Math.random() * PIANO.length)], alea(0.6, 1.4), 0.16);
   };
-  // Rythme lent, plus serré quand la tension monte.
+  // Rythme lent, plus serré quand la tension monte. La première phrase vient vite.
+  let premiere = true;
   const suite = () => {
     const id = window.setTimeout(
       () => {
@@ -448,7 +446,7 @@ function lancerMusique(s: Session) {
         phrase();
         suite();
       },
-      s.tension ? alea(2800, 4500) : alea(5500, 9500),
+      premiere ? ((premiere = false), 1500) : s.tension ? alea(2800, 4500) : alea(5000, 8500),
     );
     s.minuteurs.add(id);
   };

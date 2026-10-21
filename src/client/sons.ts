@@ -64,15 +64,42 @@ function bruit(c: AudioContext): AudioBuffer {
   return bruitBlanc;
 }
 
-const bruitsLongs = new Map<number, AudioBuffer>();
-/** Bruit blanc de quelques secondes (bouclé par l'ambiance sans répétition audible). */
-export function bruitDe(c: AudioContext, secondes: number): AudioBuffer {
-  let b = bruitsLongs.get(secondes);
+export type CouleurBruit = 'blanc' | 'rose' | 'brun';
+const bruitsLongs = new Map<string, AudioBuffer>();
+/**
+ * Bruit de quelques secondes, bouclé par l'ambiance sans répétition audible. Blanc : sifflant ;
+ * rose : plus doux, comme la pluie ou le vent ; brun : sourd, comme un grondement.
+ */
+export function bruitDe(c: AudioContext, secondes: number, couleur: CouleurBruit = 'blanc'): AudioBuffer {
+  const cle = `${couleur}|${secondes}`;
+  let b = bruitsLongs.get(cle);
   if (!b) {
     b = c.createBuffer(1, Math.floor(c.sampleRate * secondes), c.sampleRate);
     const d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    bruitsLongs.set(secondes, b);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, brun = 0;
+    for (let i = 0; i < d.length; i++) {
+      const blanc = Math.random() * 2 - 1;
+      if (couleur === 'rose') {
+        // Filtre de Paul Kellet : énergie égale par octave.
+        b0 = 0.99886 * b0 + blanc * 0.0555179;
+        b1 = 0.99332 * b1 + blanc * 0.0750759;
+        b2 = 0.969 * b2 + blanc * 0.153852;
+        b3 = 0.8665 * b3 + blanc * 0.3104856;
+        b4 = 0.55 * b4 + blanc * 0.5329522;
+        b5 = -0.7616 * b5 - blanc * 0.016898;
+        d[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + blanc * 0.5362;
+        b6 = blanc * 0.115926;
+      } else if (couleur === 'brun') {
+        brun = (brun + 0.02 * blanc) / 1.02;
+        d[i] = brun;
+      } else d[i] = blanc;
+    }
+    // Même niveau moyen pour les trois couleurs.
+    let somme = 0;
+    for (let i = 0; i < d.length; i++) somme += d[i] * d[i];
+    const facteur = 0.3 / Math.sqrt(somme / d.length || 1);
+    for (let i = 0; i < d.length; i++) d[i] *= facteur;
+    bruitsLongs.set(cle, b);
   }
   return b;
 }

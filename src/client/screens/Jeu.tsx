@@ -17,7 +17,7 @@ import type { Preferences } from '../preferences';
 import { MenuPrincipal } from '../components/Menu';
 import { ConseilsEnPartie } from '../components/jeu/Conseils';
 import { Ambiance } from '../components/Ambiance';
-import { heureDeManche, phaseNuit, useAmbianceSonore } from '../nuit';
+import { phaseNuit, useAmbianceSonore } from '../nuit';
 import { ModaleDemandesPlace } from './Reprise';
 
 type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
@@ -76,7 +76,7 @@ export function Jeu({
 
   const erreur = (e: string) => afficher(e, true);
 
-  // La nuit qui avance : heure affichée, ciel qui s'assombrit puis s'éclaire, ambiance sonore.
+  // La nuit qui avance : ciel qui s'assombrit puis s'éclaire, ambiance sonore (l'horloge sonne les heures).
   const nuit = phaseNuit(vue.manche, vue.regles.manchesMax);
   useAmbianceSonore(vue.affaire, vue.manche, vue.regles.manchesMax, vue.etape === 'terminee');
 
@@ -138,9 +138,7 @@ export function Jeu({
         </span>
         <div className="indicateurs">
         <div className="indicateur">
-          <small>
-            Manche <span className="heure-nuit">{heureDeManche(vue.affaire, vue.manche)}</span>
-          </small>
+          <small>Manche</small>
           <strong>
             {vue.manche} / {vue.regles.manchesMax}
           </strong>

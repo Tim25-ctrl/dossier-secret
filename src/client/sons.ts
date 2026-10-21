@@ -22,15 +22,34 @@ export type Son =
   | 'verdictJuste'
   | 'verdictFaux';
 
+/** Sortes de sons réglables séparément (Paramètres → réglages avancés). */
+export type CanalSon = 'bruitages' | 'tictac' | 'messages' | 'ambiance' | 'horloge' | 'musique';
+export interface ReglageCanal {
+  actif: boolean;
+  /** De 0 à 1. */
+  volume: number;
+}
+
 let ctx: AudioContext | null = null;
 let actif = true;
-let volume = 0.6;
+let general = 0.8;
+let canaux: Partial<Record<CanalSon, ReglageCanal>> = {};
 let bruitBlanc: AudioBuffer | null = null;
 
-export function reglerSons(sonActif: boolean, vol: number) {
+export function reglerSons(sonActif: boolean, volumeGeneral: number, reglages: Record<CanalSon, ReglageCanal>) {
   actif = sonActif;
-  volume = Math.min(1, Math.max(0, vol));
+  general = Math.min(1, Math.max(0, volumeGeneral));
+  canaux = reglages;
 }
+
+/** Volume effectif d'une sorte de son (0 si coupée). */
+export function volumeCanal(canal: CanalSon): number {
+  const r = canaux[canal] ?? { actif: true, volume: 0.75 };
+  return actif && r.actif ? general * Math.min(1, Math.max(0, r.volume)) : 0;
+}
+
+/** Sorte de chaque bruitage (les autres sont des « bruitages du jeu »). */
+const CANAL_DE: Partial<Record<Son, CanalSon>> = { tic: 'tictac', tac: 'tictac', message: 'messages' };
 
 /** Contexte audio partagé (bruitages, ambiance, musique), créé à la demande. */
 export function contexteAudio(): AudioContext | null {
@@ -44,7 +63,7 @@ export function contexteAudio(): AudioContext | null {
 }
 
 function contexte(): AudioContext | null {
-  if (!actif || volume <= 0) return null;
+  if (!actif) return null;
   return contexteAudio();
 }
 
@@ -269,6 +288,8 @@ const RECETTES: Record<Son, (c: AudioContext, s: AudioNode) => void> = {
 
 /** Joue un bruitage (sans effet si le son est coupé ou indisponible). */
 export function jouer(son: Son) {
+  const volume = volumeCanal(CANAL_DE[son] ?? 'bruitages');
+  if (volume <= 0) return;
   const c = contexte();
   if (!c) return;
   try {

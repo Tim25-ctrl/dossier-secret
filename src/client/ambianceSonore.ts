@@ -9,17 +9,20 @@
 // RÈGLE (comme pour les bruitages) : rien ne réagit à une information propre au complice. La
 // tension de la musique ne dépend que de la manche, que tout le monde voit.
 
-import { contexteAudio, bruitDe, type CouleurBruit } from './sons';
+import { contexteAudio, bruitDe, type CouleurBruit, type ReglageCanal } from './sons';
 
 export type AffaireSonore = 'manoir' | 'train';
 
 interface Reglages {
   /** Interrupteur général des sons (réglage « Sons »). */
   sons: boolean;
-  ambiance: boolean;
-  musique: boolean;
-  /** Volume commun de l'ambiance et de la musique, de 0 à 1. */
-  volume: number;
+  /** Volume général, de 0 à 1. */
+  general: number;
+  /** Décor sonore (pluie, vent, tonnerre ; vent, vapeur, métal). */
+  ambiance: ReglageCanal;
+  /** Horloge du manoir, cloche du train, à chaque manche. */
+  horloge: ReglageCanal;
+  musique: ReglageCanal;
 }
 
 interface Session {
@@ -27,7 +30,11 @@ interface Session {
   c: AudioContext;
   maitre: GainNode;
   ambiance: GainNode;
+  horloge: GainNode;
   musique: GainNode;
+  /** Écho de l'ambiance et de la musique : suit leur volume (rien quand elles sont coupées). */
+  echoAmbiance: GainNode;
+  echoMusique: GainNode;
   /** Pluie (manoir) ou neige soufflée (train) : faiblit à l'aube. */
   intemperies: GainNode;
   reverb: ConvolverNode;
@@ -36,7 +43,14 @@ interface Session {
   tension: boolean;
 }
 
-let reglages: Reglages = { sons: true, ambiance: true, musique: true, volume: 0.5 };
+let reglages: Reglages = {
+  sons: true,
+  general: 0.8,
+  ambiance: { actif: true, volume: 0.5 },
+  horloge: { actif: true, volume: 0.5 },
+  musique: { actif: true, volume: 0.5 },
+};
+const niveau = (r: ReglageCanal) => (r.actif ? Math.min(1, Math.max(0, r.volume)) : 0);
 let voulue: AffaireSonore | null = null;
 let session: Session | null = null;
 let tensionVoulue = false;
@@ -72,7 +86,7 @@ export function arreterAmbiance() {
 }
 
 function actifs() {
-  return reglages.sons && reglages.volume > 0 && (reglages.ambiance || reglages.musique);
+  return reglages.sons && reglages.general > 0 && (niveau(reglages.ambiance) > 0 || niveau(reglages.horloge) > 0 || niveau(reglages.musique) > 0);
 }
 
 function synchroniser() {
@@ -82,9 +96,12 @@ function synchroniser() {
   const t = session.c.currentTime;
   const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
   // Volumes volontairement bas : l'ambiance reste derrière les bruitages et la lecture.
-  session.maitre.gain.setTargetAtTime(visible ? reglages.volume * 1.6 * (assourdie ? 0.1 : 1) : 0, t, assourdie ? 0.5 : 1.2);
-  session.ambiance.gain.setTargetAtTime(reglages.ambiance ? 1 : 0, t, 0.4);
-  session.musique.gain.setTargetAtTime(reglages.musique ? 1 : 0, t, 0.4);
+  session.maitre.gain.setTargetAtTime(visible ? reglages.general * 1.6 * (assourdie ? 0.1 : 1) : 0, t, assourdie ? 0.5 : 1.2);
+  session.ambiance.gain.setTargetAtTime(niveau(reglages.ambiance), t, 0.3);
+  session.horloge.gain.setTargetAtTime(niveau(reglages.horloge), t, 0.3);
+  session.musique.gain.setTargetAtTime(niveau(reglages.musique), t, 0.3);
+  session.echoAmbiance.gain.setTargetAtTime(niveau(reglages.ambiance), t, 0.3);
+  session.echoMusique.gain.setTargetAtTime(niveau(reglages.musique), t, 0.3);
   session.intemperies.gain.setTargetAtTime(1 - 0.7 * aubeVoulue, t, 3);
   session.tension = tensionVoulue;
 }
@@ -131,7 +148,7 @@ export function definirAube(aube: number) {
 /** Nouvelle manche : l'horloge du manoir sonne (3 coups à l'heure pile, 1 à la demie) ou la cloche du valet. */
 export function sonnerManche(heurePile: boolean) {
   const s = session;
-  if (!s || !reglages.ambiance) return;
+  if (!s || !niveau(reglages.horloge)) return;
   if (s.affaire === 'manoir') {
     const coups = heurePile ? 3 : 1;
     for (let i = 0; i < coups; i++) cloche(s, { base: 196, debut: i * 2.2, duree: 5, gain: 0.22 });
@@ -164,6 +181,7 @@ function demarrer(affaire: AffaireSonore): Session | null {
     maitre.gain.value = 0;
     maitre.connect(c.destination);
     const ambiance = c.createGain();
+    const horloge = c.createGain();
     const musique = c.createGain();
     const intemperies = c.createGain();
     const reverb = reverberation(c, 2.8);
@@ -171,9 +189,15 @@ function demarrer(affaire: AffaireSonore): Session | null {
     retour.gain.value = 0.35;
     reverb.connect(retour).connect(maitre);
     ambiance.connect(maitre);
+    horloge.connect(maitre);
     musique.connect(maitre);
+    horloge.connect(reverb);
+    const echoAmbiance = c.createGain();
+    const echoMusique = c.createGain();
+    echoAmbiance.connect(reverb);
+    echoMusique.connect(reverb);
     intemperies.connect(ambiance);
-    const s: Session = { affaire, c, maitre, ambiance, musique, intemperies, reverb, sources: [], minuteurs: new Set(), tension: tensionVoulue };
+    const s: Session = { affaire, c, maitre, ambiance, horloge, musique, echoAmbiance, echoMusique, intemperies, reverb, sources: [], minuteurs: new Set(), tension: tensionVoulue };
     if (affaire === 'manoir') decorManoir(s);
     else decorTrain(s);
     lancerMusique(s);
@@ -267,8 +291,7 @@ function cloche(s: Session, o: { base: number; debut: number; duree: number; gai
     osc.frequency.value = o.base * rapport;
     enveloppe(g, t, o.gain * part, 0.006, o.duree * (1.2 - rapport * 0.15));
     osc.connect(g);
-    g.connect(s.ambiance);
-    g.connect(s.reverb);
+    g.connect(s.horloge);
     osc.start(t);
     osc.stop(t + o.duree + 0.1);
   }
@@ -289,7 +312,7 @@ function bouffee(
   const g = s.c.createGain();
   enveloppe(g, t, o.gain, o.attaque, o.duree);
   src.connect(f).connect(g).connect(s.ambiance);
-  if (o.reverb) g.connect(s.reverb);
+  if (o.reverb) g.connect(s.echoAmbiance);
   src.start(t, Math.random());
   src.stop(t + o.duree + 0.1);
 }
@@ -356,7 +379,7 @@ function decorTrain(s: Session) {
       enveloppe(g, t, 0.1, 0.05, duree);
       osc.connect(f).connect(g);
       g.connect(s.ambiance);
-      g.connect(s.reverb);
+      g.connect(s.echoAmbiance);
       osc.start(t);
       osc.stop(t + duree + 0.1);
     },
@@ -388,7 +411,7 @@ function piano(s: Session, freq: number, debut = 0, gain = 0.24) {
     enveloppe(g, t, gain * part, 0.01, 4.5 / rapport);
     osc.connect(g);
     g.connect(s.musique);
-    g.connect(s.reverb);
+    g.connect(s.echoMusique);
     osc.start(t);
     osc.stop(t + 4.6);
   }
@@ -414,7 +437,7 @@ function violoncelle(s: Session, freq: number, duree: number, gain = 0.15) {
   g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
   osc.connect(f).connect(g);
   g.connect(s.musique);
-  g.connect(s.reverb);
+  g.connect(s.echoMusique);
   osc.start(t);
   vibrato.start(t);
   osc.stop(t + duree + 0.1);

@@ -1,25 +1,24 @@
 // Préférences locales du joueur (stockées dans ce navigateur uniquement).
 import { useState } from 'react';
 import { reglerAmbiance } from './ambianceSonore';
-import { reglerSons, reglerVibrations } from './sons';
+import { reglerStyleHistorique } from './components/jeu/Roman';
+import { reglerSons, reglerVibrations, type CanalSon, type ReglageCanal } from './sons';
 
 export interface Preferences {
   taille: 'normal' | 'grand';
   animations: 'normales' | 'reduites';
   pseudo: string;
   tutorielVu: boolean;
-  /** Bruitages activés. */
+  /** Interrupteur général de tous les sons. */
   son: boolean;
-  /** Volume des bruitages, de 0 à 1. */
-  volume: number;
-  /** Ambiance sonore de la partie (pluie, vent, horloge…). */
-  ambiance: boolean;
-  /** Musique pendant la partie. */
-  musique: boolean;
-  /** Volume commun de l'ambiance et de la musique, de 0 à 1. */
-  volumeAmbiance: number;
+  /** Volume général, de 0 à 1 (multiplie celui de chaque sorte de son). */
+  volumeGeneral: number;
+  /** Chaque sorte de son : activée ou non, et son volume (réglages avancés). */
+  canaux: Record<CanalSon, ReglageCanal>;
   /** Vibrations du téléphone (mon tour, interrogation). */
   vibrations: boolean;
+  /** Style de l'historique de la partie. */
+  historique: 'roman' | 'simple';
   /** Conseils pendant les premières parties. */
   conseils: boolean;
   /** Conseils déjà lus (« Compris »). */
@@ -29,11 +28,58 @@ export interface Preferences {
 }
 
 const CLE = 'dossier-secret:preferences';
-const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false, son: true, volume: 0.6, ambiance: true, musique: true, volumeAmbiance: 0.4, vibrations: true, conseils: true, conseilsVus: [], guidesTermines: [] };
+export const CANAUX_PAR_DEFAUT: Record<CanalSon, ReglageCanal> = {
+  bruitages: { actif: true, volume: 0.75 },
+  tictac: { actif: true, volume: 0.75 },
+  messages: { actif: true, volume: 0.75 },
+  ambiance: { actif: true, volume: 0.5 },
+  horloge: { actif: true, volume: 0.5 },
+  musique: { actif: true, volume: 0.5 },
+};
+const DEFAUT: Preferences = {
+  taille: 'normal',
+  animations: 'normales',
+  pseudo: '',
+  tutorielVu: false,
+  son: true,
+  volumeGeneral: 0.8,
+  canaux: CANAUX_PAR_DEFAUT,
+  vibrations: true,
+  historique: 'roman',
+  conseils: true,
+  conseilsVus: [],
+  guidesTermines: [],
+};
 
-function lire(): Preferences {
+const borne = (x: number) => Math.min(1, Math.max(0, x));
+
+/** Préférences enregistrées par une version plus ancienne (un seul volume de bruitages, un pour l'ambiance). */
+interface Anciennes {
+  volume?: number;
+  ambiance?: boolean;
+  musique?: boolean;
+  volumeAmbiance?: number;
+}
+
+export function lire(): Preferences {
   try {
-    return { ...DEFAUT, ...(JSON.parse(localStorage.getItem(CLE) ?? '{}') as Partial<Preferences>) };
+    const brut = JSON.parse(localStorage.getItem(CLE) ?? '{}') as Partial<Preferences> & Anciennes;
+    const { volume, ambiance, musique, volumeAmbiance, ...reste } = brut;
+    const p: Preferences = { ...DEFAUT, ...reste };
+    if (brut.canaux) p.canaux = { ...CANAUX_PAR_DEFAUT, ...brut.canaux };
+    else if (volume !== undefined || ambiance !== undefined || musique !== undefined || volumeAmbiance !== undefined) {
+      // Reprise des anciens réglages : mêmes volumes qu'avant, sous un volume général de 80 %.
+      const g = DEFAUT.volumeGeneral;
+      const amb = borne((volumeAmbiance ?? 0.4) / g);
+      p.canaux = {
+        ...CANAUX_PAR_DEFAUT,
+        bruitages: { actif: true, volume: borne((volume ?? 0.6) / g) },
+        ambiance: { actif: ambiance ?? true, volume: amb },
+        horloge: { actif: ambiance ?? true, volume: amb },
+        musique: { actif: musique ?? true, volume: amb },
+      };
+    }
+    return p;
   } catch {
     return DEFAUT;
   }
@@ -42,9 +88,10 @@ function lire(): Preferences {
 export function appliquer(p: Preferences) {
   document.documentElement.dataset.taille = p.taille;
   document.documentElement.dataset.animations = p.animations;
-  reglerSons(p.son, p.volume);
-  reglerAmbiance({ sons: p.son, ambiance: p.ambiance, musique: p.musique, volume: p.volumeAmbiance });
+  reglerSons(p.son, p.volumeGeneral, p.canaux);
+  reglerAmbiance({ sons: p.son, general: p.volumeGeneral, ambiance: p.canaux.ambiance, horloge: p.canaux.horloge, musique: p.canaux.musique });
   reglerVibrations(p.vibrations);
+  reglerStyleHistorique(p.historique);
 }
 
 export function usePreferences() {

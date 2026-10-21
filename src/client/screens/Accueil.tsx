@@ -1,10 +1,10 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { jouer, vibrationsPossibles } from '../sons';
 import { AFFAIRES } from '../../shared/data/catalogue';
 import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
 import { grade, lireProfil } from '../profil';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
+import { ModaleParametres } from '../components/Parametres';
 import { ModaleCompte } from '../components/Compte';
 import { libelleDuree } from './Lobby';
 import { Modale } from '../components/Commun';
@@ -527,121 +527,5 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   );
 }
 
-export function ModaleParametres({
-  prefs,
-  majPrefs,
-  onFermer,
-  onGuide,
-}: {
-  prefs: Preferences;
-  majPrefs: (p: Partial<Preferences>) => void;
-  onFermer: () => void;
-  /** Depuis l'accueil seulement : relancer une partie guidée. */
-  onGuide?: () => void;
-}) {
-  return (
-    <Modale titre="Paramètres" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
-      <div className="champ">
-        <label htmlFor="taille">Taille du texte</label>
-        <select id="taille" value={prefs.taille} onChange={(e) => majPrefs({ taille: e.target.value as Preferences['taille'] })}>
-          <option value="normal">Normale</option>
-          <option value="grand">Grande</option>
-        </select>
-      </div>
-      <div className="champ">
-        <label htmlFor="animations">Animations</label>
-        <select id="animations" value={prefs.animations} onChange={(e) => majPrefs({ animations: e.target.value as Preferences['animations'] })}>
-          <option value="normales">Normales</option>
-          <option value="reduites">Réduites</option>
-        </select>
-      </div>
-      <div className="champ">
-        <label htmlFor="son">Sons</label>
-        <select id="son" value={prefs.son ? 'oui' : 'non'} onChange={(e) => majPrefs({ son: e.target.value === 'oui' })}>
-          <option value="oui">Activés</option>
-          <option value="non">Coupés</option>
-        </select>
-      </div>
-      {prefs.son && (
-        <div className="champ">
-          <label htmlFor="volume">Volume : {Math.round(prefs.volume * 100)} %</label>
-          <input
-            id="volume"
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={prefs.volume}
-            onChange={(e) => majPrefs({ volume: Number(e.target.value) })}
-            onPointerUp={() => jouer('tour')}
-            onKeyUp={() => jouer('tour')}
-          />
-        </div>
-      )}
-      {prefs.son && (
-        <>
-          <div className="champ">
-            <label htmlFor="ambiance">Ambiance sonore en partie</label>
-            <select id="ambiance" value={prefs.ambiance ? 'oui' : 'non'} onChange={(e) => majPrefs({ ambiance: e.target.value === 'oui' })}>
-              <option value="oui">Activée (pluie, vent, horloge…)</option>
-              <option value="non">Coupée</option>
-            </select>
-          </div>
-          <div className="champ">
-            <label htmlFor="musique">Musique en partie</label>
-            <select id="musique" value={prefs.musique ? 'oui' : 'non'} onChange={(e) => majPrefs({ musique: e.target.value === 'oui' })}>
-              <option value="oui">Activée</option>
-              <option value="non">Coupée</option>
-            </select>
-          </div>
-          {(prefs.ambiance || prefs.musique) && (
-            <div className="champ">
-              <label htmlFor="volume-ambiance">Volume de l'ambiance et de la musique : {Math.round(prefs.volumeAmbiance * 100)} %</label>
-              <input
-                id="volume-ambiance"
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={prefs.volumeAmbiance}
-                onChange={(e) => majPrefs({ volumeAmbiance: Number(e.target.value) })}
-              />
-            </div>
-          )}
-        </>
-      )}
-      <div className="champ">
-        <label htmlFor="vibrations">Vibrations (votre tour, interrogation)</label>
-        <select id="vibrations" value={prefs.vibrations ? 'oui' : 'non'} disabled={!vibrationsPossibles()} onChange={(e) => majPrefs({ vibrations: e.target.value === 'oui' })}>
-          <option value="oui">Activées</option>
-          <option value="non">Coupées</option>
-        </select>
-        {!vibrationsPossibles() && (
-          <p className="petit muet" style={{ margin: '6px 0 0' }}>
-            Cet appareil ne permet pas aux sites de vibrer (c'est le cas des iPhone).
-          </p>
-        )}
-      </div>
-      <div className="champ">
-        <label htmlFor="conseils">Conseils en partie</label>
-        <select id="conseils" value={prefs.conseils ? 'oui' : 'non'} onChange={(e) => majPrefs({ conseils: e.target.value === 'oui' })}>
-          <option value="oui">Affichés</option>
-          <option value="non">Masqués</option>
-        </select>
-      </div>
-      {prefs.conseils && prefs.conseilsVus.length > 0 && (
-        <button className="btn btn-discret btn-petit" onClick={() => majPrefs({ conseilsVus: [] })}>
-          Réafficher tous les conseils déjà lus
-        </button>
-      )}
-      {onGuide && (
-        <div className="champ" style={{ marginTop: 14 }}>
-          <button className="btn btn-petit" onClick={onGuide}>
-            🎓 Refaire une partie guidée
-          </button>
-        </div>
-      )}
-    </Modale>
-  );
-}
-
+// Les paramètres sont dans components/Parametres.tsx (ré-exportés pour les imports existants).
+export { ModaleParametres };

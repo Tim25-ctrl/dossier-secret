@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { EtatClient } from '../../shared/protocole';
 import { connexion, useConnexion } from '../connexion';
 import type { Preferences } from '../preferences';
-import { ModaleParametres } from '../screens/Accueil';
+import { ModaleParametres } from './Parametres';
 import { ModaleRegles } from '../screens/Regles';
 import { Modale } from './Commun';
 import { EnregistrerPartie } from './Emplacements';

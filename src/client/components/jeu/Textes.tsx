@@ -4,6 +4,7 @@ import { INDICES_PAR_ID, libelleCategorie } from '../../../shared/data/catalogue
 import { nomElement } from '../../../shared/data/catalogue';
 import { AFFAIRE_PAR_DEFAUT, type AffaireId, type EntreePrivee, type EvenementPublic } from '../../../shared/types';
 import { Carte, TripletVue } from '../Commun';
+import { styleHistorique, texteRoman } from './Roman';
 
 export type Noms = (id: string) => string;
 
@@ -19,6 +20,11 @@ export function texteEvenement(
   moi: string,
   affaire: AffaireId = AFFAIRE_PAR_DEFAUT,
 ): { contenu: ReactNode; classe?: string } | null {
+  // Historique façon roman (réglage par défaut) : les événements qui ont une version roman l'utilisent.
+  if (styleHistorique() === 'roman') {
+    const roman = texteRoman(ev, nom, moi, affaire);
+    if (roman) return roman;
+  }
   const qui = (id: string) => (id === moi ? 'Vous' : nom(id));
   switch (ev.type) {
     case 'debut_partie':

@@ -16,7 +16,8 @@ import { intensiteMeteo } from './meteo';
 import { lancerMusique } from './musique';
 import { contexteAudio, bruitDe, type CouleurBruit, type ReglageCanal } from './sons';
 
-export type AffaireSonore = 'manoir' | 'train' | 'paquebot';
+/** « menu » : accueil et salon d'attente (musique seule, sans décor sonore). */
+export type AffaireSonore = 'manoir' | 'train' | 'paquebot' | 'menu';
 
 interface Reglages {
   /** Interrupteur général des sons (réglage « Sons »). */
@@ -81,8 +82,9 @@ export function demarrerAmbiance(affaire: AffaireSonore) {
   synchroniser();
 }
 
-/** En quittant la partie. */
-export function arreterAmbiance() {
+/** En quittant la partie (ou l'accueil : `seulement` évite de couper la musique d'un autre écran). */
+export function arreterAmbiance(seulement?: AffaireSonore) {
+  if (seulement && voulue !== seulement) return;
   voulue = null;
   assourdie = false;
   tensionVoulue = false;
@@ -220,7 +222,7 @@ function demarrer(affaire: AffaireSonore): Session | null {
     repeter(s, 1000, 1000, () => s.intemperies.gain.setTargetAtTime(niveauIntemperies(), s.c.currentTime, 1.5), 1000);
     if (affaire === 'manoir') decorManoir(s);
     else if (affaire === 'paquebot') decorPaquebot(s);
-    else decorTrain(s);
+    else if (affaire === 'train') decorTrain(s);
     lancerMusique(
       { c, sortie: musique, echo: echoMusique, vivante: () => session === s, tension: () => s.tension, minuteurs: s.minuteurs },
       affaire,

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { arreterAmbiance, demarrerAmbiance } from '../ambianceSonore';
 import { useSonMessages } from '../components/jeu/useSons';
 import { DUREES_TOUR, type EtatClient } from '../../shared/protocole';
 import { Chat } from '../components/Chat';
@@ -19,6 +20,11 @@ export function libelleDuree(s: number | null): string {
 }
 
 export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
+  // Thème de Nuit Blanche à l'accueil et dans le salon d'attente (il démarre au premier geste).
+  useEffect(() => {
+    demarrerAmbiance('menu');
+    return () => arreterAmbiance('menu');
+  }, []);
   const { salon, moi } = etat;
   const estHote = salon.hote === moi;
   const { afficher, vue: notification } = useNotification();

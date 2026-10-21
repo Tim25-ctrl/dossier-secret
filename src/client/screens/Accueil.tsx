@@ -1,4 +1,5 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { arreterAmbiance, demarrerAmbiance } from '../ambianceSonore';
 import { AFFAIRES, nomChoixAffaire } from '../../shared/data/catalogue';
 import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, CHOIX_AFFAIRES, elementsDe, type AffaireId, type ChoixAffaire } from '../../shared/types';
 import { grade, lireProfil } from '../profil';
@@ -27,21 +28,36 @@ function CielEtoile() {
     };
     return { x: h(1) * 100, y: Math.pow(h(2), 1.4) * 100, r: 0.5 + h(3) * 1.2, o: 0.35 + h(4) * 0.55, scintille: h(5) < 0.3, delai: h(6) * 6 };
   });
+  // Quelques grandes étoiles à quatre branches, qui scintillent l'une après l'autre.
+  const etincelles = [
+    [12, 18, 0],
+    [86, 12, 1.3],
+    [24, 58, 2.6],
+    [74, 46, 3.9],
+    [93, 70, 5.1],
+    [6, 80, 6.4],
+  ];
   return (
-    <svg className="ciel-etoile" aria-hidden="true">
-      {etoiles.map((e, i) => (
-        <circle
-          key={i}
-          cx={`${e.x}%`}
-          cy={`${e.y}%`}
-          r={e.r}
-          fill="#f6ecd4"
-          opacity={e.o}
-          className={e.scintille ? 'scintille' : undefined}
-          style={e.scintille ? { animationDelay: `${e.delai}s` } : undefined}
-        />
+    <div className="ciel" aria-hidden="true">
+      <svg className="ciel-etoile">
+        {etoiles.map((e, i) => (
+          <circle
+            key={i}
+            cx={`${e.x}%`}
+            cy={`${e.y}%`}
+            r={e.r}
+            fill="#fff6dc"
+            opacity={e.o}
+            className={e.scintille ? 'scintille' : undefined}
+            style={e.scintille ? { animationDelay: `${e.delai}s` } : undefined}
+          />
+        ))}
+      </svg>
+      {etincelles.map(([x, y, d], i) => (
+        <span key={i} className="etincelle" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${d}s` }} />
       ))}
-    </svg>
+      <span className="etoile-filante" />
+    </div>
   );
 }
 
@@ -55,6 +71,11 @@ function texteResume(r: ResumePartie | null, code: string): string {
 }
 
 export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
+  // Thème de Nuit Blanche à l'accueil et dans le salon d'attente (il démarre au premier geste).
+  useEffect(() => {
+    demarrerAmbiance('menu');
+    return () => arreterAmbiance('menu');
+  }, []);
   const codeUrl = new URLSearchParams(location.search).get('salon') ?? '';
   const [mode, setMode] = useState<Mode>(codeUrl ? 'rejoindre' : 'menu');
   const [pseudo, setPseudo] = useState(prefs.pseudo);

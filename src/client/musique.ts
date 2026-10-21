@@ -6,6 +6,8 @@
 //   pincée, balais sur la caisse claire).
 // - Paquebot : l'orchestre du bord, un tango lent et une valse de bal (accordéon, piano,
 //   contrebasse).
+// - Accueil et salon d'attente : le thème de Nuit Blanche, un nocturne en la mineur (piano,
+//   violoncelle).
 // - Deux dernières manches : un morceau tendu (cordes pincées qui pressent le pas, battement de
 //   cœur). Il ne dépend que de la manche, que tout le monde voit.
 //
@@ -13,7 +15,7 @@
 // (nuances, ordre des morceaux). La musique reste discrète, en fond, et plutôt grave : les aigus
 // sont adoucis et moins forts.
 
-export type AffaireMusique = 'manoir' | 'train' | 'paquebot';
+export type AffaireMusique = 'manoir' | 'train' | 'paquebot' | 'menu';
 export type Instrument = 'piano' | 'violoncelle' | 'accordeon' | 'pizz' | 'brosse' | 'coeur';
 
 /** Une note : départ et durée en secondes (depuis le début de sa section), force de 0 à 1. */
@@ -139,6 +141,15 @@ const ACCORDS_TRAIN: Record<string, Accord> = {
   Fmaj7: acc('F2', 'E3 A3 C4'),
   Am7: acc('A2', 'G3 C4 E4'),
   D7: acc('D3', 'F#3 C4 E4'),
+};
+
+const ACCORDS_MENU: Record<string, Accord> = {
+  Am: acc('A2', 'E3 A3 C4'),
+  F: acc('F2', 'F3 A3 C4'),
+  C: acc('C3', 'E3 G3 C4'),
+  G: acc('G2', 'G3 B3 D4'),
+  Dm: acc('D3', 'F3 A3 D4'),
+  E: acc('E2', 'E3 G#3 B3'),
 };
 
 const CODA_TRAIN = { accords: 'Dm7:4 Dm7:4', melodie: '-:1 A4:0.5 C5:0.5 D5:2 | -:4' };
@@ -306,6 +317,34 @@ export const MORCEAUX: Record<AffaireMusique | 'tension', Morceau[]> = {
         { section: 'B', melodie: 'piano', accomp: 'valse' },
         { section: 'A', melodie: 'accordeon', accomp: 'arpege' },
         { section: 'coda', melodie: 'accordeon', accomp: 'tenu' },
+      ],
+    },
+  ],
+  menu: [
+    {
+      nom: 'Thème de Nuit Blanche',
+      tempo: 58,
+      temps: 4,
+      transposition: -12,
+      accords: ACCORDS_MENU,
+      sections: {
+        intro: { accords: 'Am:4 F:4', melodie: '-:8' },
+        A: {
+          accords: 'Am:4 F:4 C:4 G:4 Am:4 F:4 Dm:4 E:4',
+          melodie: 'E5:2 D5:1 C5:1 | C5:3 A4:1 | G4:2 E5:2 | D5:4 | C5:2 B4:1 A4:1 | A4:2 F4:1 A4:1 | D5:2 C5:1 A4:1 | B4:4',
+        },
+        B: {
+          accords: 'F:4 G:4 C:4 Am:4 Dm:4 G:4 E:4 E:4',
+          melodie: 'A4:1 C5:1 F5:2 | E5:2 D5:2 | C5:1 D5:1 E5:2 | A4:4 | F4:1 A4:1 D5:2 | D5:1 C5:1 B4:2 | G#4:2 B4:2 | E4:4',
+        },
+        coda: { accords: 'Am:4 Am:4', melodie: 'A4:4 | -:4' },
+      },
+      forme: [
+        { section: 'intro', accomp: 'arpege' },
+        { section: 'A', melodie: 'piano', accomp: 'arpege' },
+        { section: 'B', melodie: 'violoncelle', accomp: 'arpege' },
+        { section: 'A', melodie: 'piano', accomp: 'arpege', celloBasse: true },
+        { section: 'coda', melodie: 'piano', accomp: 'tenu' },
       ],
     },
   ],

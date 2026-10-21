@@ -511,7 +511,7 @@ export function Sceau({ taille = 96 }: { taille?: number }) {
       {/* Pupille : croissant de lune */}
       <path d="M56.99 47.15A14 14 0 1 0 72.18 65.72A12 12 0 1 1 56.99 47.15Z" fill="#e2c486" />
       {/* Étoile */}
-      <path d="M70.5 48.5l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#f6ecd4" />
+      <path className="oeil-etoile" d="M70.5 48.5l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#f6ecd4" />
     </svg>
   );
 }

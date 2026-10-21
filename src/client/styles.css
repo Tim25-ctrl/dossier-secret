@@ -3596,15 +3596,133 @@ button.carte:hover:not(:disabled) {
 }
 
 /* ---------- Accueil « Nuit Blanche » : ciel étoilé, œil qui veille, grands boutons ---------- */
-.ciel-etoile {
+.ciel {
   position: absolute;
   inset: 0 0 auto 0;
-  width: 100%;
-  height: 380px;
+  height: 400px;
+  overflow: hidden;
   pointer-events: none;
   z-index: 0;
-  -webkit-mask-image: linear-gradient(#000 55%, transparent);
-  mask-image: linear-gradient(#000 55%, transparent);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
+  mask-image: linear-gradient(#000 60%, transparent);
+}
+.ciel-etoile {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Les étoiles brillent : un petit halo autour de chacune. */
+.ciel-etoile circle {
+  filter: drop-shadow(0 0 2px rgba(255, 238, 190, 0.9));
+}
+/* Grandes étoiles à quatre branches. */
+.etincelle {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  filter: drop-shadow(0 0 3px rgba(255, 240, 200, 0.95)) drop-shadow(0 0 8px rgba(255, 220, 150, 0.6));
+  opacity: 0.35;
+  transform: scale(0.6);
+  animation: etincelle 7.5s ease-in-out infinite;
+}
+@keyframes etincelle {
+  0%,
+  70%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.55) rotate(0deg);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1.25) rotate(20deg);
+  }
+  90% {
+    opacity: 0.55;
+    transform: scale(0.8) rotate(35deg);
+  }
+}
+.etincelle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff6dc;
+  clip-path: polygon(50% 0, 56% 44%, 100% 50%, 56% 56%, 50% 100%, 44% 56%, 0 50%, 44% 44%);
+}
+/* De temps en temps, une étoile filante traverse le ciel. */
+.etoile-filante {
+  position: absolute;
+  top: 12%;
+  left: 70%;
+  width: 120px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 246, 220, 0), rgba(255, 246, 220, 0.95));
+  filter: drop-shadow(0 0 4px rgba(255, 236, 190, 0.9));
+  opacity: 0;
+  transform: rotate(155deg);
+  animation: etoile-filante 14s ease-in 3s infinite;
+}
+@keyframes etoile-filante {
+  0% {
+    opacity: 0;
+    transform: rotate(155deg) translateX(0);
+  }
+  2% {
+    opacity: 1;
+  }
+  9% {
+    opacity: 0;
+    transform: rotate(155deg) translateX(-360px);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(155deg) translateX(-360px);
+  }
+}
+/* L'œil de l'accueil brille davantage, et sa petite étoile scintille. */
+.accueil .logo .sceau {
+  animation: lueur-oeil 4.5s ease-in-out infinite;
+}
+@keyframes lueur-oeil {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(226, 196, 134, 0.35)) drop-shadow(0 0 22px rgba(160, 180, 255, 0.12));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(226, 196, 134, 0.7)) drop-shadow(0 0 36px rgba(160, 180, 255, 0.25));
+  }
+}
+.sceau .oeil-etoile {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: oeil-etoile 3.2s ease-in-out infinite;
+}
+@keyframes oeil-etoile {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.35) rotate(45deg);
+    opacity: 1;
+  }
+}
+:root[data-animations='reduites'] .etincelle,
+:root[data-animations='reduites'] .etoile-filante,
+:root[data-animations='reduites'] .sceau .oeil-etoile,
+:root[data-animations='reduites'] .accueil .logo .sceau {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .etincelle,
+  .etoile-filante,
+  .sceau .oeil-etoile,
+  .accueil .logo .sceau {
+    animation: none;
+  }
 }
 .ciel-etoile .scintille {
   animation: scintille 4s ease-in-out infinite;

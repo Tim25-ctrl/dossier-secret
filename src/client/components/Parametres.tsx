@@ -71,7 +71,7 @@ const CANAUX: { id: CanalSon; titre: string; aide: string; essai?: Son }[] = [
   { id: 'messages', titre: 'Messages', aide: 'Nouveau message dans la discussion.', essai: 'message' },
   { id: 'ambiance', titre: 'Ambiance', aide: 'Pluie, vent et tonnerre au manoir ; vent, vapeur et métal dans le train ; houle, coque et corne de brume sur le paquebot.' },
   { id: 'horloge', titre: 'Horloge, cloche et corne de brume', aide: 'Elles sonnent à chaque nouvelle manche.' },
-  { id: 'musique', titre: 'Musique', aide: 'Manoir : piano et violoncelle. Train : piano et contrebasse, façon années 30. Paquebot : tango et valse à l’accordéon.' },
+  { id: 'musique', titre: 'Musique', aide: 'Accueil : le thème de Nuit Blanche. Manoir : piano et violoncelle. Train : piano et contrebasse, façon années 30. Paquebot : tango et valse à l’accordéon.' },
 ];
 
 export function ModaleParametres({
@@ -162,7 +162,7 @@ export function ModaleParametres({
                     </li>
                   );
                 })}
-                <li className="petit muet param-note">L'ambiance, l'horloge et la musique s'entendent pendant une partie.</li>
+                <li className="petit muet param-note">L'ambiance et l'horloge s'entendent pendant une partie ; la musique aussi à l'accueil.</li>
               </ul>
             )}
           </>

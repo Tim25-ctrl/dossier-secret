@@ -84,7 +84,7 @@ export function MenuPrincipal({ etat, prefs, majPrefs }: { etat: EtatClient; pre
           </div>
         )}
       </div>
-      {(fenetre === 'regles' || fenetre === 'dossier') && <ModaleRegles section={fenetre} affaire={etat.partie?.affaire ?? etat.salon.reglages.affaire} onFermer={() => setFenetre(null)} />}
+      {(fenetre === 'regles' || fenetre === 'dossier') && <ModaleRegles section={fenetre} affaire={etat.partie?.affaire ?? (etat.salon.reglages.affaire === 'aleatoire' ? undefined : etat.salon.reglages.affaire)} onFermer={() => setFenetre(null)} />}
       {fenetre === 'parametres' && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setFenetre(null)} />}
       {fenetre === 'sauvegarde' && <ModaleSauvegarde etat={etat} onFermer={() => setFenetre(null)} />}
       {quitter.confirmation}

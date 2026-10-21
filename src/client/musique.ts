@@ -4,6 +4,8 @@
 // - Manoir : nocturnes en ré mineur à trois temps, comme une valse lente (piano et violoncelle).
 // - Train : ballades feutrées façon années 30, comme au wagon-restaurant (piano, contrebasse
 //   pincée, balais sur la caisse claire).
+// - Paquebot : l'orchestre du bord, un tango lent et une valse de bal (accordéon, piano,
+//   contrebasse).
 // - Deux dernières manches : un morceau tendu (cordes pincées qui pressent le pas, battement de
 //   cœur). Il ne dépend que de la manche, que tout le monde voit.
 //
@@ -11,8 +13,8 @@
 // (nuances, ordre des morceaux). La musique reste discrète, en fond, et plutôt grave : les aigus
 // sont adoucis et moins forts.
 
-export type AffaireMusique = 'manoir' | 'train';
-export type Instrument = 'piano' | 'violoncelle' | 'pizz' | 'brosse' | 'coeur';
+export type AffaireMusique = 'manoir' | 'train' | 'paquebot';
+export type Instrument = 'piano' | 'violoncelle' | 'accordeon' | 'pizz' | 'brosse' | 'coeur';
 
 /** Une note : départ et durée en secondes (depuis le début de sa section), force de 0 à 1. */
 export interface Note {
@@ -82,12 +84,12 @@ function lire(partition: string): { nom: string | null; pos: number; duree: numb
     });
 }
 
-type Accompagnement = 'valse' | 'arpege' | 'tenu' | 'comp' | 'ostinato';
+type Accompagnement = 'valse' | 'arpege' | 'tenu' | 'comp' | 'ostinato' | 'tango';
 
 interface Partie {
   section: string;
   /** Qui joue la mélodie (aucune : accompagnement seul). */
-  melodie?: 'piano' | 'violoncelle';
+  melodie?: 'piano' | 'violoncelle' | 'accordeon';
   /** Transposition de la mélodie, en octaves. */
   octave?: number;
   accomp: Accompagnement;
@@ -251,6 +253,62 @@ export const MORCEAUX: Record<AffaireMusique | 'tension', Morceau[]> = {
       ],
     },
   ],
+  paquebot: [
+    {
+      nom: 'Tango du brouillard',
+      tempo: 64,
+      temps: 4,
+      transposition: -7,
+      accords: ACCORDS_MANOIR,
+      sections: {
+        intro: { accords: 'Dm:4 A7:4', melodie: '-:8' },
+        A: {
+          accords: 'Dm:4 Dm:4 A7:4 A7:4 A7:4 A7:4 Dm:4 Dm:4',
+          melodie:
+            'A4:1.5 A4:0.5 A4:1 Bb4:0.5 A4:0.5 | G4:0.5 F4:0.5 E4:0.5 F4:0.5 D4:2 | E4:1.5 E4:0.5 E4:1 F4:0.5 E4:0.5 | D4:0.5 C#4:0.5 B3:0.5 C#4:0.5 A3:2 | C#4:1.5 E4:0.5 G4:1 Bb4:0.5 A4:0.5 | G4:0.5 F4:0.5 E4:0.5 D4:0.5 C#4:2 | D4:1.5 F4:0.5 A4:1 D5:1 | D5:2 -:2',
+        },
+        B: {
+          accords: 'Gm:4 Gm:4 Dm:4 Dm:4 Bb:4 A7:4 Dm:4 A7:4',
+          melodie:
+            'Bb4:1.5 Bb4:0.5 Bb4:1 C5:0.5 Bb4:0.5 | A4:0.5 G4:0.5 F#4:0.5 G4:0.5 D4:2 | A4:1.5 A4:0.5 A4:1 Bb4:0.5 A4:0.5 | G4:0.5 F4:0.5 E4:0.5 F4:0.5 D4:2 | F4:1 Bb4:1 D5:1.5 C5:0.5 | Bb4:1 A4:1 G4:1 E4:1 | F4:1 E4:0.5 D4:0.5 A4:2 | C#4:2 E4:1 -:1',
+        },
+        coda: { accords: 'Dm:4 Dm:4', melodie: 'D4:1.5 A3:0.5 D4:2 | -:4' },
+      },
+      forme: [
+        { section: 'intro', accomp: 'tango' },
+        { section: 'A', melodie: 'accordeon', accomp: 'tango' },
+        { section: 'B', melodie: 'accordeon', accomp: 'tango' },
+        { section: 'A', melodie: 'piano', accomp: 'tango' },
+        { section: 'coda', melodie: 'accordeon', accomp: 'tenu' },
+      ],
+    },
+    {
+      nom: 'Valse de bal',
+      tempo: 76,
+      temps: 3,
+      transposition: -12,
+      accords: ACCORDS_MANOIR,
+      sections: {
+        intro: { accords: 'F:3 C:3', melodie: '-:6' },
+        A: {
+          accords: 'F:3 F:3 C:3 C:3 C:3 C:3 F:3 F:3',
+          melodie: 'A4:1 C5:1 F5:1 | E5:2 D5:1 | C5:3 | -:1 G4:1 Bb4:1 | Bb4:1 D5:1 E5:1 | D5:2 C5:1 | A4:3 | -:1 C5:1 A4:1',
+        },
+        B: {
+          accords: 'Bb:3 Bb:3 F:3 F:3 C:3 C:3 F:3 F:3',
+          melodie: 'D5:1 F5:1 D5:1 | C5:2 Bb4:1 | A4:1 C5:1 A4:1 | G4:2 F4:1 | E4:1 G4:1 C5:1 | Bb4:2 G4:1 | A4:3 | F4:2 -:1',
+        },
+        coda: { accords: 'Bb:3 C:3 F:6', melodie: 'D5:3 | E5:3 | F5:6' },
+      },
+      forme: [
+        { section: 'intro', accomp: 'valse' },
+        { section: 'A', melodie: 'accordeon', accomp: 'valse' },
+        { section: 'B', melodie: 'piano', accomp: 'valse' },
+        { section: 'A', melodie: 'accordeon', accomp: 'arpege' },
+        { section: 'coda', melodie: 'accordeon', accomp: 'tenu' },
+      ],
+    },
+  ],
   tension: [
     {
       nom: 'Tension',
@@ -327,7 +385,7 @@ export function composer(m: Morceau, hasard: () => number = Math.random): Sectio
       const a = sw(pos);
       const z = sw(pos + duree);
       let hauteur = note + tr;
-      if (instr === 'piano' || instr === 'pizz' || instr === 'violoncelle') while (hauteur < PLUS_GRAVE) hauteur += 12;
+      if (instr === 'piano' || instr === 'pizz' || instr === 'violoncelle' || instr === 'accordeon') while (hauteur < PLUS_GRAVE) hauteur += 12;
       notes.push({ t: a * b, instr, midi: hauteur, duree: (z - a) * b, force });
     };
     const accordA = (p: number) => accords.find((a) => p >= a.pos - 1e-9 && p < a.pos + a.duree - 1e-9) ?? accords[accords.length - 1];
@@ -338,7 +396,7 @@ export function composer(m: Morceau, hasard: () => number = Math.random): Sectio
       const octave = partie.octave ?? 0;
       for (const n of mel) {
         if (!n.nom) continue;
-        const instr = partie.melodie === 'piano' ? 'piano' : 'violoncelle';
+        const instr = partie.melodie;
         ajouter(instr, midi(n.nom) + 12 * octave, n.pos, n.duree, n.duree >= 2 ? 0.9 : 0.8);
       }
     }
@@ -393,6 +451,24 @@ export function composer(m: Morceau, hasard: () => number = Math.random): Sectio
         }
         break;
       }
+      case 'tango': {
+        // Tango : accords marqués sur chaque temps, contrebasse sur 1 et 3, et la petite
+        // anticipation (« arrastre ») juste avant le temps fort suivant.
+        for (let p = 0; p < total; p++) {
+          const a = accordA(p);
+          for (const v of a.voix) ajouter('piano', v, p, 0.3, p % 4 === 0 ? 0.3 : 0.2);
+        }
+        for (const a of accords) {
+          for (let k = 0; k < a.duree; k += 4) {
+            ajouter('pizz', a.basse, a.pos + k, 0.9, 0.85);
+            if (a.duree - k >= 4) {
+              ajouter('pizz', a.basse + 7, a.pos + k + 2, 0.9, 0.7);
+              ajouter('pizz', a.basse + 12, a.pos + k + 3.5, 0.4, 0.55);
+            }
+          }
+        }
+        break;
+      }
       case 'ostinato': {
         // Cordes pincées en croches, obstinées ; un accord de piano très doux pour l'harmonie.
         const motif = [0, 0, 7, 0, 12, 0, 7, 0];
@@ -436,6 +512,7 @@ export function composer(m: Morceau, hasard: () => number = Math.random): Sectio
 const MIX: Record<Instrument, { niveau: number; echo: number; pan: number }> = {
   piano: { niveau: 1, echo: 0.8, pan: 0.12 },
   violoncelle: { niveau: 1, echo: 1, pan: -0.25 },
+  accordeon: { niveau: 1, echo: 0.7, pan: 0.15 },
   pizz: { niveau: 1, echo: 0.4, pan: -0.15 },
   brosse: { niveau: 1, echo: 0.3, pan: 0.3 },
   coeur: { niveau: 1, echo: 0, pan: 0 },
@@ -610,6 +687,39 @@ function violoncelle(b: Bus, t: number, n: Note) {
   a.g.connect(b.entrees.violoncelle);
 }
 
+/** Accordéon : anches qui sonnent à l'unisson, l'une un peu plus haute (le « musette »), et le souffle du soufflet. */
+function accordeon(b: Bus, t: number, n: Note) {
+  const c = b.c;
+  const f = frequence(n.midi);
+  const pic = 0.06 * n.force * doux(f);
+  const fin = t + n.duree;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(pic, t + 0.05);
+  g.gain.setTargetAtTime(pic * 0.82, t + 0.05, 0.25);
+  g.gain.setTargetAtTime(0.0001, fin, 0.07);
+  const filtre = c.createBiquadFilter();
+  filtre.type = 'lowpass';
+  filtre.frequency.value = Math.min(2200, f * 6);
+  filtre.Q.value = 0.6;
+  filtre.connect(g).connect(b.entrees.accordeon);
+  for (const [type, desaccord, part] of [
+    ['sawtooth', 0, 0.55],
+    ['square', 0, 0.3],
+    ['sawtooth', 11, 0.4],
+  ] as const) {
+    const osc = c.createOscillator();
+    osc.type = type;
+    osc.frequency.value = f;
+    osc.detune.value = desaccord;
+    const p = c.createGain();
+    p.gain.value = part;
+    osc.connect(p).connect(filtre);
+    osc.start(t);
+    osc.stop(fin + 0.5);
+  }
+}
+
 /** Corde pincée (contrebasse, violoncelle en pizzicato). */
 function pizz(b: Bus, t: number, n: Note) {
   const c = b.c;
@@ -673,7 +783,7 @@ function coeur(b: Bus, t0: number, n: Note) {
   }
 }
 
-const INSTRUMENTS: Record<Instrument, (b: Bus, t: number, n: Note) => void> = { piano, violoncelle, pizz, brosse, coeur };
+const INSTRUMENTS: Record<Instrument, (b: Bus, t: number, n: Note) => void> = { piano, violoncelle, accordeon, pizz, brosse, coeur };
 
 function jouerNote(b: Bus, n: Note, t: number) {
   try {

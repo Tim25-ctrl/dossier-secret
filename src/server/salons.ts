@@ -19,7 +19,7 @@ import {
 import { cryptoRng, type Rng } from '../engine/rng';
 import { vuePour } from '../engine/vue';
 import { ALPHABET_CODE, LONGUEUR_CODE, MESSAGE_MAX, PSEUDO_MAX, type EtatClient, type MessageChat, type ReglagesSalon, type SalonVue } from '../shared/protocole';
-import { AFFAIRE_PAR_DEFAUT, estAffaire, type ActionJeu } from '../shared/types';
+import { AFFAIRE_PAR_DEFAUT, AFFAIRES_IDS, estChoixAffaire, type ActionJeu, type AffaireId, type ChoixAffaire } from '../shared/types';
 
 export class ErreurJeu extends Error {}
 
@@ -146,6 +146,12 @@ export class GestionnaireSalons {
       if (!this.salons.has(code)) return code;
     }
     throw new ErreurJeu('Impossible de créer un salon pour le moment.');
+  }
+
+/** Histoire de la partie qui commence : celle choisie, ou une tirée au sort (« aléatoire »). */
+  private tirerAffaire(choix: ChoixAffaire | undefined): AffaireId {
+    if (choix === 'aleatoire') return AFFAIRES_IDS[this.rng.int(AFFAIRES_IDS.length)];
+    return choix ?? AFFAIRE_PAR_DEFAUT;
   }
 
   private reglagesParDefaut(): ReglagesSalon {
@@ -463,7 +469,7 @@ export class GestionnaireSalons {
     const s = this.salon(code);
     if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut modifier les réglages.");
     if (s.statut !== 'lobby') throw new ErreurJeu('Les réglages ne peuvent plus changer une fois la partie lancée.');
-    if (!estAffaire(valeur)) throw new ErreurJeu('Affaire inconnue.');
+    if (!estChoixAffaire(valeur)) throw new ErreurJeu('Affaire inconnue.');
     s.reglages = { ...s.reglages, affaire: valeur };
     this.toucher(s);
   }
@@ -498,7 +504,7 @@ export class GestionnaireSalons {
         delaiTourMs: s.reglages.dureeTourS === null ? null : s.reglages.dureeTourS * 1000,
         modeComplice: s.reglages.modeComplice ?? 'ruse',
         historiqueCartes: s.reglages.historiqueCartes ?? 'visibles',
-        affaire: s.reglages.affaire ?? AFFAIRE_PAR_DEFAUT,
+        affaire: this.tirerAffaire(s.reglages.affaire),
       },
     });
     s.statut = 'partie';

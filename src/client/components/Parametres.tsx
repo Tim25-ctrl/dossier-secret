@@ -69,9 +69,9 @@ const CANAUX: { id: CanalSon; titre: string; aide: string; essai?: Son }[] = [
   { id: 'bruitages', titre: 'Bruitages du jeu', aide: 'Votre tour, interrogations, cartes, dossiers, accusations…', essai: 'tour' },
   { id: 'tictac', titre: 'Tic-tac', aide: 'Les 10 dernières secondes de votre tour.', essai: 'tic' },
   { id: 'messages', titre: 'Messages', aide: 'Nouveau message dans la discussion.', essai: 'message' },
-  { id: 'ambiance', titre: 'Ambiance', aide: 'Pluie, vent et tonnerre au manoir ; vent, vapeur et métal dans le train.' },
-  { id: 'horloge', titre: 'Horloge et cloche', aide: 'Elles sonnent à chaque nouvelle manche.' },
-  { id: 'musique', titre: 'Musique', aide: 'Manoir : piano et violoncelle. Train : piano et contrebasse, façon années 30.' },
+  { id: 'ambiance', titre: 'Ambiance', aide: 'Pluie, vent et tonnerre au manoir ; vent, vapeur et métal dans le train ; houle, coque et corne de brume sur le paquebot.' },
+  { id: 'horloge', titre: 'Horloge, cloche et corne de brume', aide: 'Elles sonnent à chaque nouvelle manche.' },
+  { id: 'musique', titre: 'Musique', aide: 'Manoir : piano et violoncelle. Train : piano et contrebasse, façon années 30. Paquebot : tango et valse à l’accordéon.' },
 ];
 
 export function ModaleParametres({

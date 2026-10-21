@@ -1,4 +1,4 @@
-// Simulations d'équilibrage : npm run simulate [-- --parties 400] [-- --variante 0]
+// Simulations d'équilibrage : npm run simulate [-- --parties 400] [-- --variante 0] [-- --affaire train]
 //
 // ATTENTION : les bots sont des approximations grossières de joueurs humains
 // (ils ne discutent pas, ne bluffent pas en dehors des pouvoirs, ne soupçonnent
@@ -11,6 +11,8 @@ import { CONFIG_PAR_DEFAUT, REGLES_INITIALES, type ConfigPartie } from '../src/e
 
 const argParties = process.argv.indexOf('--parties');
 const N = argParties > 0 ? Number(process.argv[argParties + 1]) : 300;
+const argAffaire = process.argv.indexOf('--affaire');
+const AFFAIRE: Partial<ConfigPartie> = argAffaire > 0 ? { affaire: process.argv[argAffaire + 1] as ConfigPartie['affaire'] } : {};
 
 interface Stat {
   victoiresEnqueteurs: number;
@@ -25,7 +27,7 @@ interface Stat {
 function campagne(nbJoueurs: number, config: Partial<ConfigPartie>, profil: ProfilBot): Stat {
   const s: Stat = { victoiresEnqueteurs: 0, mancheMoyenne: 0, ruses: 0, demasque: 0, denonciationsFausses: 0, mauvaisesAccusations: 0, refus: 0 };
   for (let seed = 1; seed <= N; seed++) {
-    const { etat, refus } = simulerPartie({ nbJoueurs, seed: seed * 7919 + nbJoueurs, config, profil });
+    const { etat, refus } = simulerPartie({ nbJoueurs, seed: seed * 7919 + nbJoueurs, config: { ...AFFAIRE, ...config }, profil });
     if (etat.resultat?.vainqueur === 'enqueteurs') s.victoiresEnqueteurs++;
     s.mancheMoyenne += etat.manche;
     s.ruses +=

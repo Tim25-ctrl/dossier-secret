@@ -1,6 +1,7 @@
 // Météo de la partie : la pluie (manoir) ou la neige (train) tombe par averses, puis s'arrête un
-// moment. Le son et les gouttes (ou flocons) à l'écran suivent la même courbe, calculée depuis
-// l'heure : tous les joueurs ont donc la même averse au même moment, sans rien échanger.
+// moment ; sur le paquebot, ce sont des bancs de brouillard qui passent. Le son et ce qui tombe
+// (ou flotte) à l'écran suivent la même courbe, calculée depuis l'heure : tous les joueurs ont
+// donc la même averse au même moment, sans rien échanger.
 //
 // Toutes les 4 minutes : une averse de 1 min 40 à 2 min 50 qui arrive et repart en douceur
 // (20 s), puis un temps sec de 30 s à 3 min.

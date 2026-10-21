@@ -15,6 +15,18 @@ describe('Partie seul contre des bots', () => {
     expect(salon.partie!.config.affaire).toBe('train');
   });
 
+  it('« Au hasard » : chaque partie tire une histoire au sort, le choix reste « au hasard »', () => {
+    const g = new GestionnaireSalons();
+    const tirees = new Set<string>();
+    for (let i = 0; i < 30; i++) {
+      const { salon } = g.creerSolo(`Moi${i}`, 2, { affaire: 'aleatoire' });
+      expect(salon.reglages.affaire).toBe('aleatoire');
+      expect(['manoir', 'train', 'paquebot']).toContain(salon.partie!.config.affaire);
+      tirees.add(salon.partie!.config.affaire);
+    }
+    expect(tirees.size).toBe(3);
+  });
+
   it('refuse un nombre de bots hors limites sans laisser de salon derrière', () => {
     const g = new GestionnaireSalons();
     expect(() => g.creerSolo('Moi', 1)).toThrow();

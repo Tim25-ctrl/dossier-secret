@@ -107,6 +107,81 @@ function Portrait({ id }: { id: SuspectId }) {
         <path d="M27 47l5 2 5-2v5l-5-2-5 2z" fill="#8a3b3b" />
       </>
     ),
+    // --- Le paquebot ---
+    helene: (
+      <>
+        {/* Chanteuse des années 20 : carré court ondulé, bandeau doré à plume, rouge à lèvres, sautoir de perles */}
+        <path d="M21 27c-1-11 6-16 11-16s12 5 11 16c-2-5-5-8-11-8s-9 3-11 8z" fill="#1a1410" />
+        <path d="M21 26c0 4 1 7 3 8v-9zM43 26c0 4-1 7-3 8v-9z" fill="#1a1410" />
+        <path d="M21.5 19.5c6-3 15-3 21 0" stroke="#e2c486" strokeWidth="1.6" fill="none" />
+        <path d="M40 18c3-6 6-9 9-10-1 4-4 8-9 10z" fill="#f3ead6" />
+        <path d="M30 32c1.3.8 2.7.8 4 0" stroke="#b03a48" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M24 45c3 9 13 9 16 0" stroke="#f3ead6" strokeWidth="1.6" strokeDasharray="0.5 3" fill="none" strokeLinecap="round" />
+      </>
+    ),
+    legoff: (
+      <>
+        {/* Officier : casquette marine galonnée, barbe courte, épaulettes et boutons dorés */}
+        <path d="M23 31c1 7 4.5 10 9 10s8-3 9-10c-2 2.5-5 3.5-9 3.5s-7-1-9-3.5z" fill="#5a4630" />
+        <path d="M20 18c0-7 24-7 24 0z" fill="#1f2c44" />
+        <rect x="21" y="16.5" width="22" height="3.2" fill="#1f2c44" />
+        <path d="M21 18.2h22" stroke="#e2c486" strokeWidth="1" />
+        <path d="M21 19.6c4 3 18 3 22 0z" fill="#111" />
+        <circle cx="32" cy="14" r="1.6" fill="#e2c486" />
+        <path d="M14 55l7-2.5M50 55l-7-2.5" stroke="#e2c486" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="32" cy="52" r="1.1" fill="#e2c486" />
+        <circle cx="32" cy="57.5" r="1.1" fill="#e2c486" />
+      </>
+    ),
+    isabella: (
+      <>
+        {/* Comtesse : cheveux de jais relevés, chignon sur le côté, pendants d'oreilles et collier de rubis */}
+        <path d="M20 27c-1-12 6-16 12-16s13 4 12 16c-3-6-6-9-12-9s-9 3-12 9z" fill="#2a1a12" />
+        <circle cx="43.5" cy="14.5" r="4.6" fill="#2a1a12" />
+        <path d="M21.6 30v4M42.4 30v4" stroke="#e2c486" strokeWidth="1.2" />
+        <circle cx="21.6" cy="35.2" r="1.4" fill="#7fb3d5" />
+        <circle cx="42.4" cy="35.2" r="1.4" fill="#7fb3d5" />
+        <path d="M25 45c4 3.5 10 3.5 14 0" stroke="#b03a48" strokeWidth="1.9" strokeDasharray="0.5 2.6" strokeLinecap="round" fill="none" />
+      </>
+    ),
+    breval: (
+      <>
+        {/* Égyptologue : casque colonial, barbe grise, lorgnon */}
+        <path d="M23 30c0 9 4 14 9 14s9-5 9-14c-2 3-5 5-9 5s-7-2-9-5z" fill="#bdb6a6" />
+        <path d="M18 21c0-11 28-11 28 0z" fill="#d8c79a" />
+        <path d="M14 21.5c6 2 30 2 36 0" stroke="#b8a77a" strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="28" cy="26" r="2.7" stroke="#1a1410" strokeWidth="1.2" fill="none" />
+        <circle cx="36" cy="26" r="2.7" stroke="#1a1410" strokeWidth="1.2" fill="none" />
+        <path d="M30.7 26h2.6" stroke="#1a1410" strokeWidth="1.2" />
+      </>
+    ),
+    rose: (
+      <>
+        {/* Radiotélégraphiste : cheveux courts auburn, casque d'écoute, col d'uniforme */}
+        <path d="M21 25c-1-10 5-14 11-14s12 4 11 14c-3-4-7-6-11-6s-8 2-11 6z" fill="#8a4a2a" />
+        <path d="M19 26c0-15 26-15 26 0" stroke="#3a3a3a" strokeWidth="2.2" fill="none" />
+        <rect x="17" y="23" width="5" height="8" rx="2" fill="#3a3a3a" />
+        <rect x="42" y="23" width="5" height="8" rx="2" fill="#3a3a3a" />
+        <path d="M26 45l6 4 6-4" stroke="#f3ead6" strokeWidth="2" fill="none" strokeLinejoin="round" />
+        <path d="M41 51l-2 3h2.4l-2 3.4" stroke="#e2c486" strokeWidth="1.1" fill="none" />
+      </>
+    ),
+    max: (
+      <>
+        {/* Joueur : cheveux gominés à la raie, fine moustache, cigarette, nœud papillon et carte en poche */}
+        <path d="M21 23c0-10 22-11 22 0-6-4-15-4-22 0z" fill="#1a1410" />
+        <path d="M27 14.5l2 7" stroke="#e9d9bd" strokeWidth="0.9" />
+        <path d="M28 31c2-1 6-1 8 0" stroke="#1a1410" strokeWidth="1.3" strokeLinecap="round" />
+        <path d="M36 33.5l8 1.5" stroke="#f3ead6" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="44.3" cy="35.1" r="0.9" fill="#e2763a" />
+        <path d="M27 45l5 7 5-7z" fill="#f3ead6" />
+        <path d="M27.5 47l4.5 1.8 4.5-1.8v4.4l-4.5-1.8-4.5 1.8z" fill="#1a1410" />
+        <g transform="rotate(12 42.5 53.5)">
+          <rect x="40" y="50" width="5" height="7" rx="0.6" fill="#f3ead6" />
+          <path d="M42.5 52.3c-.7-1-2-.3-1.3.6l1.3 1.3 1.3-1.3c.7-.9-.6-1.6-1.3-.6z" fill="#b03a48" />
+        </g>
+      </>
+    ),
   };
   return (
     <svg viewBox="0 0 64 64" role="img" aria-label={`Portrait de ${PERSONNAGES[id].nom}`}>
@@ -207,6 +282,58 @@ const DESSINS_LIEUX: Record<LieuId, ReactNode> = {
       <path d="M8 44h48M8 54h48M12 44v10M22 44v10M32 44v10M42 44v10M52 44v10" {...TRAIT} />
     </>
   ),
+  // --- Le paquebot ---
+  suite: (
+    <>
+      <path d="M10 44h44v9H10zM12 53v4M52 53v4" {...TRAIT} />
+      <path d="M12 44V28c7-4 11-4 14 0v16" {...TRAIT} />
+      <rect x="16" y="37" width="9" height="7" rx="2" {...TRAIT} />
+      <rect x="36" y="12" width="15" height="15" rx="4" {...TRAIT} />
+      <path d="M43.5 12v15M36 19.5h15" {...TRAIT} />
+    </>
+  ),
+  poste_radio: (
+    <>
+      <rect x="10" y="28" width="44" height="26" rx="3" {...TRAIT} />
+      <circle cx="22" cy="41" r="6" {...TRAIT} />
+      <path d="M22 41l3-3M34 36h14M34 42h14M34 48h10" {...TRAIT} />
+      <path d="M30 28L38 10" {...TRAIT} />
+      <path d="M43 12c3 2 3 6 0 8M47 9c5 4 5 10 0 14" {...TRAIT} />
+    </>
+  ),
+  piscine: (
+    <>
+      <path d="M8 40c4-3 8-3 12 0s8 3 12 0 8-3 12 0 8 3 12 0" {...TRAIT} />
+      <path d="M8 50c4-3 8-3 12 0s8 3 12 0 8-3 12 0 8 3 12 0" {...TRAIT} />
+      <path d="M38 38V12M48 38V12M38 12c0-4 10-4 10 0M38 20h10M38 28h10" {...TRAIT} />
+    </>
+  ),
+  fumoir: (
+    <>
+      <rect x="12" y="14" width="18" height="26" rx="2" transform="rotate(-12 21 27)" {...TRAIT} />
+      <rect x="30" y="14" width="18" height="26" rx="2" transform="rotate(10 39 27)" {...TRAIT} />
+      <path d="M38 24c-2-3-6-1-4 2l4 4 4-4c2-3-2-5-4-2z" {...TRAIT} />
+      <path d="M12 52h26M40 52h5" {...TRAIT} />
+      <path d="M50 50c-3-3 3-5 0-8" {...TRAIT} />
+    </>
+  ),
+  salle_machines: (
+    <>
+      <circle cx="26" cy="38" r="10" {...TRAIT} />
+      <circle cx="26" cy="38" r="3.5" {...TRAIT} />
+      <path d="M36 38h4M33.1 45.1l2.8 2.8M26 48v4M18.9 45.1l-2.8 2.8M16 38h-4M18.9 30.9l-2.8-2.8M26 28v-4M33.1 30.9l2.8-2.8" {...TRAIT} />
+      <circle cx="48" cy="16" r="7" {...TRAIT} />
+      <path d="M48 16l3-4M48 23v12h-6" {...TRAIT} />
+    </>
+  ),
+  pont: (
+    <>
+      <circle cx="32" cy="18" r="9" {...TRAIT} />
+      <circle cx="32" cy="18" r="4" {...TRAIT} />
+      <path d="M25.6 11.6l3.6 3.6M38.4 11.6l-3.6 3.6M25.6 24.4l3.6-3.6M38.4 24.4l-3.6-3.6" {...TRAIT} />
+      <path d="M6 34h52M6 44h52M10 34v20M24 34v20M40 34v20M54 34v20" {...TRAIT} />
+    </>
+  ),
 };
 
 const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
@@ -295,6 +422,54 @@ const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
       <path d="M23.2 56.6l-1.4 3.3" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" />
       <ellipse cx="39.4" cy="15.6" rx="5.6" ry="6.8" transform="rotate(22.5 39.6 15)" fill="#d6d0c0" stroke="currentColor" strokeWidth="2" />
       <path d="M36.5 15c.2-1.9 1.1-3.3 2.5-4.1" stroke="#fbf8f0" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+    </>
+  ),
+  // --- Le paquebot ---
+  sextant: (
+    <>
+      <path d="M32 10L15 46M32 10L49 46M15 46q17 9 34 0" {...TRAIT} />
+      <path d="M32 10L40 49" {...TRAIT} />
+      <path d="M21 28h17" {...TRAIT} strokeWidth={4} />
+      <rect x="28.5" y="5" width="7" height="5" rx="1" {...TRAIT} />
+    </>
+  ),
+  statuette: (
+    <>
+      <path d="M18 54h28v4H18z" {...TRAIT} />
+      <path d="M24 54V38c0-4 3-6 6-6h4c3 0 6 2 6 6v16" {...TRAIT} />
+      <path d="M28 32l-1-14 4 6h2l4-6-1 14" {...TRAIT} />
+      <path d="M33 25c4 1 8 2 11 4l-8 2" {...TRAIT} />
+    </>
+  ),
+  lance_fusees: (
+    <>
+      <path d="M10 26h28v11H27l-2 4h-5l-3 13h-9l3-14c1-4 0-7-3-8z" {...TRAIT} />
+      <path d="M38 22h12v18H38" {...TRAIT} />
+      <path d="M55 18l3-4M56 31h5M55 41l3 4" {...TRAIT} />
+    </>
+  ),
+  champagne: (
+    <>
+      <path d="M16 18h32c0 10-7 16-16 16s-16-6-16-16z" {...TRAIT} />
+      <path d="M32 34v16M23 54h18" {...TRAIT} />
+      <circle cx="27" cy="25" r="1.4" fill="currentColor" />
+      <circle cx="33" cy="22" r="1.2" fill="currentColor" />
+      <circle cx="38" cy="26" r="1" fill="currentColor" />
+      <path d="M46 6c-2.4 3.6-2.4 6 0 7.2 2.4-1.2 2.4-3.6 0-7.2z" fill="currentColor" />
+    </>
+  ),
+  tisonnier: (
+    <>
+      <path d="M16 52L46 14" {...TRAIT} strokeWidth={3.4} />
+      <path d="M46 14l7-2-3 7" {...TRAIT} />
+      <circle cx="13" cy="55" r="4.5" {...TRAIT} />
+    </>
+  ),
+  gaffe: (
+    <>
+      <path d="M10 58L46 16" {...TRAIT} strokeWidth={3.2} />
+      <path d="M46 16c1-5 7-6 9-2s-2 7-6 5M46 16l4-8" {...TRAIT} />
+      <path d="M14 53.5l3 2.6" {...TRAIT} />
     </>
   ),
 };

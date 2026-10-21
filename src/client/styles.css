@@ -2475,6 +2475,21 @@ button.carte:hover:not(:disabled) {
     transform: translate(-90px, 470px) rotate(12deg);
   }
 }
+.ambiance-brouillard span {
+  left: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(214, 222, 232, 0.7), rgba(214, 222, 232, 0.28) 45%, transparent 70%);
+  filter: blur(8px);
+  animation-name: brouillard;
+}
+@keyframes brouillard {
+  from {
+    transform: translateX(-70vw);
+  }
+  to {
+    transform: translateX(110vw);
+  }
+}
 @keyframes neige {
   0% {
     transform: translate(0, 0);
@@ -2992,7 +3007,38 @@ button.carte:hover:not(:disabled) {
     radial-gradient(circle at 0% 0%, rgba(230, 242, 250, 0.12), transparent 22%),
     radial-gradient(circle at 100% 100%, rgba(230, 242, 250, 0.1), transparent 20%);
 }
+/* Paquebot : bleu marine, laiton, lueur des hublots dans le brouillard. */
+:root[data-affaire='paquebot'] {
+  --nuit: #070d16;
+  --nuit-2: #0c1624;
+  --panneau: #122034;
+  --panneau-2: #172a42;
+  --ardoise: #2c4560;
+  --ardoise-clair: #48668a;
+  --or: #c9a45c;
+  --or-clair: #e6c98c;
+  --or-sombre: #8a6a32;
+}
+:root[data-affaire='paquebot'] body {
+  background: radial-gradient(ellipse at top, #13253c 0%, var(--nuit) 60%) fixed, var(--nuit);
+}
+:root[data-affaire='paquebot'] .panneau {
+  background: linear-gradient(180deg, var(--panneau), #0b1626);
+}
+:root[data-affaire='paquebot'] .barre-jeu {
+  background: rgba(10, 20, 34, 0.94);
+  border-bottom-color: var(--or-sombre);
+}
+:root[data-affaire='paquebot'] .nuit {
+  background:
+    radial-gradient(ellipse 120% 70% at 50% 100%, rgba(200, 212, 225, 0.1), transparent 70%),
+    radial-gradient(circle at 8% 30%, rgba(255, 210, 140, 0.08), transparent 9%),
+    radial-gradient(circle at 92% 62%, rgba(255, 210, 140, 0.07), transparent 9%);
+}
 @media (max-width: 820px) {
+  :root[data-affaire='paquebot'] .onglets {
+    background: rgba(10, 20, 34, 0.97);
+  }
   :root[data-affaire='manoir'] .onglets {
     background: rgba(30, 20, 12, 0.97);
   }

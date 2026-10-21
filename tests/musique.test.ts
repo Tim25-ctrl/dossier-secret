@@ -33,7 +33,7 @@ describe('musique', () => {
   });
 
   it('pas de notes trop aiguës', () => {
-    for (const m of tous) for (const s of composer(m)) for (const n of s.notes) if (n.instr === 'piano' || n.instr === 'violoncelle') expect(n.midi).toBeLessThanOrEqual(midi('A4'));
+    for (const m of tous) for (const s of composer(m)) for (const n of s.notes) if (n.instr === 'piano' || n.instr === 'violoncelle' || n.instr === 'accordeon') expect(n.midi).toBeLessThanOrEqual(midi('A4'));
   });
 
   it('le swing décale la deuxième croche du temps aux deux tiers', () => {

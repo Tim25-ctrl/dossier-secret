@@ -2,7 +2,7 @@
 // conformes sont rejetées avant même d'atteindre le moteur de règles.
 
 import { z } from 'zod';
-import { AFFAIRES_IDS, ARMES, LIEUX, SUSPECTS, TOUS_ELEMENTS, type ActionJeu, type AffaireId } from '../shared/types';
+import { ARMES, CHOIX_AFFAIRES, LIEUX, SUSPECTS, TOUS_ELEMENTS, type ActionJeu, type ChoixAffaire } from '../shared/types';
 
 const suspect = z.enum(SUSPECTS);
 const lieu = z.enum(LIEUX);
@@ -39,7 +39,7 @@ export const schemaSolo = z
     bots: z.number().int().min(1).max(10),
     dureeTourS: z.number().int().min(30).max(3600).nullable(),
     modeComplice: z.enum(['classique', 'ruse']),
-    affaire: z.enum(AFFAIRES_IDS as [AffaireId, ...AffaireId[]]),
+    affaire: z.enum(CHOIX_AFFAIRES as [ChoixAffaire, ...ChoixAffaire[]]),
     historiqueCartes: z.enum(['visibles', 'anonymes']).optional(),
   })
   .strict();
@@ -82,7 +82,7 @@ export const schemaReglages = z
     dureeTourS: z.number().int().min(30).max(3600).nullable().optional(),
     modeComplice: z.enum(['classique', 'ruse']).optional(),
     historiqueCartes: z.enum(['visibles', 'anonymes']).optional(),
-    affaire: z.enum(AFFAIRES_IDS as [AffaireId, ...AffaireId[]]).optional(),
+    affaire: z.enum(CHOIX_AFFAIRES as [ChoixAffaire, ...ChoixAffaire[]]).optional(),
   })
   .strict();
 

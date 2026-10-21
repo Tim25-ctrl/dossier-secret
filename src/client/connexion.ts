@@ -20,7 +20,7 @@ import {
   type Session,
   type TypePartie,
 } from '../shared/protocole';
-import type { ActionJeu, AffaireId } from '../shared/types';
+import type { ActionJeu, AffaireId, ChoixAffaire } from '../shared/types';
 import {
   CLE_SESSION_COMPTE,
   definirProfilCompte,
@@ -76,7 +76,7 @@ function ecrireCompte(c: CompteLocal | null) {
 export interface ResumePartie {
   code: string;
   statut: 'lobby' | 'partie';
-  affaire: AffaireId;
+  affaire: ChoixAffaire;
   manche: number;
   manchesMax: number;
   joueurs: number;
@@ -390,7 +390,7 @@ class Connexion {
     bots: number,
     dureeTourS: number | null,
     modeComplice: 'classique' | 'ruse',
-    affaire: AffaireId,
+    affaire: ChoixAffaire,
     historiqueCartes: 'visibles' | 'anonymes' = 'visibles',
   ) {
     const r = await this.envoyer<{ session: Session }>('salon:solo', { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes });
@@ -574,7 +574,7 @@ class Connexion {
   reglerDureeTour = (dureeTourS: number | null) => this.envoyer('salon:reglages', { dureeTourS });
   reglerModeComplice = (modeComplice: 'classique' | 'ruse') => this.envoyer('salon:reglages', { modeComplice });
   reglerHistoriqueCartes = (historiqueCartes: 'visibles' | 'anonymes') => this.envoyer('salon:reglages', { historiqueCartes });
-  reglerAffaire = (affaire: AffaireId) => this.envoyer('salon:reglages', { affaire });
+  reglerAffaire = (affaire: ChoixAffaire) => this.envoyer('salon:reglages', { affaire });
   action = (a: ActionJeu) => this.envoyer('jeu:action', a);
 }
 

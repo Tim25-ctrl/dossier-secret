@@ -18,6 +18,11 @@ export const ELEMENTS_PAR_AFFAIRE = {
     lieux: ['compartiment', 'couloir', 'wagon_restaurant', 'voiture_salon', 'fourgon', 'plateforme'],
     armes: ['cordelette', 'stylet', 'pistolet', 'somnifere', 'cle_molette', 'canne'],
   },
+  paquebot: {
+    suspects: ['helene', 'legoff', 'isabella', 'breval', 'rose', 'max'],
+    lieux: ['suite', 'poste_radio', 'piscine', 'fumoir', 'salle_machines', 'pont'],
+    armes: ['sextant', 'statuette', 'lance_fusees', 'champagne', 'tisonnier', 'gaffe'],
+  },
 } as const;
 
 export type AffaireId = keyof typeof ELEMENTS_PAR_AFFAIRE;
@@ -61,6 +66,14 @@ export function affaireDe(id: string): AffaireId | null {
 
 export function estAffaire(x: unknown): x is AffaireId {
   return typeof x === 'string' && (AFFAIRES_IDS as string[]).includes(x);
+}
+
+/** Choix de l'histoire avant la partie : une affaire précise, ou « aléatoire » (tirée au sort au lancement). */
+export type ChoixAffaire = AffaireId | 'aleatoire';
+export const CHOIX_AFFAIRES: readonly ChoixAffaire[] = [...AFFAIRES_IDS, 'aleatoire'];
+
+export function estChoixAffaire(x: unknown): x is ChoixAffaire {
+  return x === 'aleatoire' || estAffaire(x);
 }
 
 export function categorieDe(id: string): Categorie | null {

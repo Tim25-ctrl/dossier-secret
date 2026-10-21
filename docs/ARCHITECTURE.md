@@ -24,6 +24,8 @@ src/
     data/indices.ts    Ses 79 cartes d'indice (règles logiques, faits chronologiques, témoignages partiels, journal d'Armand)
     data/train.ts      Le train de nuit (l'Étoile du Simplon) : présentation, voyageurs, lieux, armes
     data/indicesTrain.ts  Ses 44 cartes d'indice (relationnelles, témoignages partiels, carnet d'Octave)
+    data/paquebot.ts   Le paquebot (l'Aurélia) : présentation, suspects, lieux, armes
+    data/indicesPaquebot.ts  Ses 44 cartes d'indice (même structure que le train, journal d'Édouard)
     data/fauxIndices.ts   Modèles de faux indices (ruse « Dossier trafiqué »), communs à toutes les affaires
     logique.ts         Évaluation des règles, énumération des 216 combinaisons, conflits horaires
     types.ts           Types du jeu (actions, événements publics, journal privé, vue d'un joueur)

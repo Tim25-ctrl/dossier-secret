@@ -1,11 +1,11 @@
 // La nuit qui avance : chaque manche correspond à une demi-heure de la nuit du crime.
-// Manoir : de 23 h 30 à 5 h ; train : de 2 h à 7 h 30. Purement décoratif (aucun effet sur le jeu).
+// Manoir : de 23 h 30 à 5 h ; train : de 2 h à 7 h 30 ; paquebot : de 1 h à 6 h 30. Purement décoratif (aucun effet sur le jeu).
 
 import { useEffect, useRef } from 'react';
 import type { AffaireId } from '../shared/types';
 import { arreterAmbiance, definirAube, definirTension, demarrerAmbiance, sonnerManche } from './ambianceSonore';
 
-const DEBUT_MINUTES: Record<AffaireId, number> = { manoir: 23 * 60 + 30, train: 2 * 60 };
+const DEBUT_MINUTES: Record<AffaireId, number> = { manoir: 23 * 60 + 30, train: 2 * 60, paquebot: 60 };
 
 export function minutesDeManche(affaire: AffaireId, manche: number): number {
   return ((DEBUT_MINUTES[affaire] ?? DEBUT_MINUTES.manoir) + (Math.max(1, manche) - 1) * 30) % (24 * 60);
@@ -37,7 +37,7 @@ export function phaseNuit(manche: number, manchesMax: number): { obscurite: numb
  */
 export function useAmbianceSonore(affaire: AffaireId, manche: number, manchesMax: number, terminee: boolean) {
   useEffect(() => {
-    demarrerAmbiance(affaire === 'train' ? 'train' : 'manoir');
+    demarrerAmbiance(affaire);
     return () => arreterAmbiance();
   }, [affaire]);
 
@@ -45,7 +45,7 @@ export function useAmbianceSonore(affaire: AffaireId, manche: number, manchesMax
   useEffect(() => {
     definirAube(phaseNuit(manche, manchesMax).aube);
     definirTension(!terminee && manche >= manchesMax - 1);
-    if (manche > precedente.current) sonnerManche(minutesDeManche(affaire, manche) % 60 === 0);
+    if (manche > precedente.current) sonnerManche(minutesDeManche(affaire, manche));
     precedente.current = manche;
   }, [affaire, manche, manchesMax, terminee]);
 }

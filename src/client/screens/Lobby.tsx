@@ -6,8 +6,8 @@ import { Aide, useNotification } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
 import { ModaleQr, partageDisponible, partagerInvitation } from '../components/Invitation';
 import { connexion } from '../connexion';
-import { AFFAIRES } from '../../shared/data/catalogue';
-import { AFFAIRES_IDS, type AffaireId } from '../../shared/types';
+import { AFFAIRES, nomChoixAffaire } from '../../shared/data/catalogue';
+import { CHOIX_AFFAIRES, type ChoixAffaire } from '../../shared/types';
 import { MenuPrincipal } from '../components/Menu';
 import type { Preferences } from '../preferences';
 
@@ -135,17 +135,22 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
               <div className="reglage">
                 <label htmlFor="affaire">Affaire</label>
                 {estHote ? (
-                  <select id="affaire" value={salon.reglages.affaire} onChange={(e) => void agir(() => connexion.reglerAffaire(e.target.value as AffaireId))}>
-                    {AFFAIRES_IDS.map((a) => (
+                  <select id="affaire" value={salon.reglages.affaire} onChange={(e) => void agir(() => connexion.reglerAffaire(e.target.value as ChoixAffaire))}>
+                    {CHOIX_AFFAIRES.map((a) => (
                       <option key={a} value={a}>
-                        {AFFAIRES[a].court}
+                        {a === 'aleatoire' ? 'Au hasard (surprise au lancement)' : AFFAIRES[a].court}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <strong id="affaire">{AFFAIRES[salon.reglages.affaire].court}</strong>
+                  <strong id="affaire">{nomChoixAffaire(salon.reglages.affaire)}</strong>
                 )}
-                <Aide libelle="Aide sur l'affaire">{AFFAIRES[salon.reglages.affaire].accroche} Les règles sont les mêmes ; seuls les suspects, les lieux, les armes et les indices changent.</Aide>
+                <Aide libelle="Aide sur l'affaire">
+                  {salon.reglages.affaire === 'aleatoire'
+                    ? "L'une des histoires est tirée au sort au lancement de la partie : personne ne sait laquelle avant."
+                    : AFFAIRES[salon.reglages.affaire].accroche}{' '}
+                  Les règles sont les mêmes ; seuls les suspects, les lieux, les armes et les indices changent.
+                </Aide>
               </div>
               <div className="reglage">
                 <label htmlFor="duree-tour">Durée d'un tour</label>

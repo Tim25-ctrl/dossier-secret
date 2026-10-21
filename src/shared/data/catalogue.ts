@@ -2,11 +2,13 @@
 // Les identifiants (éléments et indices) sont uniques toutes affaires confondues,
 // ce qui permet de retrouver une fiche ou un indice sans savoir de quelle affaire il vient.
 
-import { affaireDe, AFFAIRE_PAR_DEFAUT, type AffaireId, type CarteIndice, type ElementId } from '../types';
+import { affaireDe, AFFAIRE_PAR_DEFAUT, type AffaireId, type CarteIndice, type ChoixAffaire, type ElementId } from '../types';
 import { FAUX_INDICES, INDICES } from './indices';
 import { FAUX_INDICES_TRAIN, INDICES_TRAIN } from './indicesTrain';
 import { AFFAIRE, ARMES_FICHES as ARMES_MANOIR, LIEUX_FICHES as LIEUX_MANOIR, PERSONNAGES as PERSONNAGES_MANOIR } from './manoir';
+import { FAUX_INDICES_PAQUEBOT, INDICES_PAQUEBOT } from './indicesPaquebot';
 import type { DonneesAffaire, FicheArme, FicheLieu, FichePersonnage, InfosAffaire } from './modeles';
+import { AFFAIRE_PAQUEBOT, ARMES_PAQUEBOT, LIEUX_PAQUEBOT, PERSONNAGES_PAQUEBOT } from './paquebot';
 import { AFFAIRE_TRAIN, ARMES_TRAIN, LIEUX_TRAIN, PERSONNAGES_TRAIN } from './train';
 
 export type { FicheArme, FicheLieu, FichePersonnage, InfosAffaire } from './modeles';
@@ -14,10 +16,23 @@ export type { FicheArme, FicheLieu, FichePersonnage, InfosAffaire } from './mode
 export const DONNEES_AFFAIRES: Record<AffaireId, DonneesAffaire> = {
   manoir: { infos: AFFAIRE, personnages: PERSONNAGES_MANOIR, lieux: LIEUX_MANOIR, armes: ARMES_MANOIR, indices: INDICES, fauxIndices: FAUX_INDICES },
   train: { infos: AFFAIRE_TRAIN, personnages: PERSONNAGES_TRAIN, lieux: LIEUX_TRAIN, armes: ARMES_TRAIN, indices: INDICES_TRAIN, fauxIndices: FAUX_INDICES_TRAIN },
+  paquebot: {
+    infos: AFFAIRE_PAQUEBOT,
+    personnages: PERSONNAGES_PAQUEBOT,
+    lieux: LIEUX_PAQUEBOT,
+    armes: ARMES_PAQUEBOT,
+    indices: INDICES_PAQUEBOT,
+    fauxIndices: FAUX_INDICES_PAQUEBOT,
+  },
 };
 
 /** Présentation de chaque affaire. */
-export const AFFAIRES: Record<AffaireId, InfosAffaire> = { manoir: AFFAIRE, train: AFFAIRE_TRAIN };
+export const AFFAIRES: Record<AffaireId, InfosAffaire> = { manoir: AFFAIRE, train: AFFAIRE_TRAIN, paquebot: AFFAIRE_PAQUEBOT };
+
+/** Nom court d'un choix d'histoire (« Le train de nuit », « Au hasard »). */
+export function nomChoixAffaire(c: ChoixAffaire): string {
+  return c === 'aleatoire' ? 'Au hasard' : (AFFAIRES[c]?.court ?? 'Partie');
+}
 
 const tous = <K extends 'personnages' | 'lieux' | 'armes'>(k: K) =>
   Object.assign({}, ...Object.values(DONNEES_AFFAIRES).map((d) => d[k])) as DonneesAffaire[K];

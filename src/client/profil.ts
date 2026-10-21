@@ -205,6 +205,13 @@ export const SUCCES: Succes[] = [
     description: 'Gagner une partie dans le train de nuit.',
     test: (c) => c.vue.affaire === 'train' && c.gagne,
   },
+  {
+    id: 'bon_port',
+    icone: '🚢',
+    titre: 'Bon port',
+    description: 'Gagner une partie à bord du paquebot.',
+    test: (c) => c.vue.affaire === 'paquebot' && c.gagne,
+  },
   { id: 'habitue', icone: '🎩', titre: 'Habitué des lieux', description: 'Terminer 10 parties.', test: (c) => c.profil.parties >= 10 },
   { id: 'veteran', icone: '🏛️', titre: 'Vétéran', description: 'Terminer 50 parties.', test: (c) => c.profil.parties >= 50 },
 ];

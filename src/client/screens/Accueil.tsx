@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { AFFAIRES } from '../../shared/data/catalogue';
-import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
+import { AFFAIRES, nomChoixAffaire } from '../../shared/data/catalogue';
+import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, CHOIX_AFFAIRES, elementsDe, type AffaireId, type ChoixAffaire } from '../../shared/types';
 import { grade, lireProfil } from '../profil';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
@@ -23,7 +23,7 @@ type Mode = 'menu' | 'creer' | 'rejoindre';
 function texteResume(r: ResumePartie | null, code: string): string {
   if (!r || r.code !== code) return `Salon ${code}`;
   const etape = r.statut === 'lobby' ? "Salon d'attente" : `Manche ${r.manche} / ${r.manchesMax}`;
-  return `${AFFAIRES[r.affaire]?.court ?? 'Partie'} · ${etape} · ${r.joueurs} joueurs · ${depuis(r.t)}`;
+  return `${nomChoixAffaire(r.affaire)} · ${etape} · ${r.joueurs} joueurs · ${depuis(r.t)}`;
 }
 
 export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
@@ -443,7 +443,7 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [duree, setDuree] = useState<number | null>(null);
   const [mode, setMode] = useState<'ruse' | 'classique'>('ruse');
   const [cartes, setCartes] = useState<'visibles' | 'anonymes'>('visibles');
-  const [affaire, setAffaire] = useState<AffaireId>(AFFAIRE_PAR_DEFAUT);
+  const [affaire, setAffaire] = useState<ChoixAffaire>(AFFAIRE_PAR_DEFAUT);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const lancer = async (e: FormEvent) => {
@@ -469,10 +469,10 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
         )}
         <div className="champ">
           <label htmlFor="affaire-solo">Affaire</label>
-          <select id="affaire-solo" value={affaire} onChange={(e) => setAffaire(e.target.value as AffaireId)}>
-            {AFFAIRES_IDS.map((a) => (
+          <select id="affaire-solo" value={affaire} onChange={(e) => setAffaire(e.target.value as ChoixAffaire)}>
+            {CHOIX_AFFAIRES.map((a) => (
               <option key={a} value={a}>
-                {AFFAIRES[a].court}
+                {a === 'aleatoire' ? 'Au hasard (surprise au lancement)' : AFFAIRES[a].court}
               </option>
             ))}
           </select>

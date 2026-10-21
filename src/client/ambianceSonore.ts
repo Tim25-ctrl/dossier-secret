@@ -4,6 +4,9 @@
 // - Manoir : pluie continue, rafales de vent, tonnerre lointain ; l'horloge sonne à chaque manche.
 // - Train (immobilisé par l'avalanche, donc sans roulement) : vent de montagne, craquements du
 //   métal, souffle de vapeur de la locomotive à l'arrêt ; la cloche du valet à chaque manche.
+// - Paquebot (machines coupées dans le brouillard) : houle lente contre la coque, clapotis, coque qui
+//   craque, et parfois la corne de brume d'un autre navire au loin ; la corne de brume de l'Aurélia
+//   sonne à chaque manche.
 // - Musique : de vrais petits morceaux (voir musique.ts), plus tendus dans les dernières manches.
 //
 // RÈGLE (comme pour les bruitages) : rien ne réagit à une information propre au complice. La
@@ -13,7 +16,7 @@ import { intensiteMeteo } from './meteo';
 import { lancerMusique } from './musique';
 import { contexteAudio, bruitDe, type CouleurBruit, type ReglageCanal } from './sons';
 
-export type AffaireSonore = 'manoir' | 'train';
+export type AffaireSonore = 'manoir' | 'train' | 'paquebot';
 
 interface Reglages {
   /** Interrupteur général des sons (réglage « Sons »). */
@@ -152,11 +155,18 @@ export function definirAube(aube: number) {
   synchroniser();
 }
 
-/** Nouvelle manche : l'horloge du manoir sonne (3 coups à l'heure pile, 1 à la demie) ou la cloche du valet. */
-export function sonnerManche(heurePile: boolean) {
+/**
+ * Nouvelle manche (`minutes` : l'heure de la nuit, en minutes depuis minuit). L'horloge du manoir
+ * sonne (3 coups à l'heure pile, 1 à la demie), la cloche du valet tinte dans le train, la corne de
+ * brume du paquebot mugit (deux longs coups à l'heure pile, un à la demie).
+ */
+export function sonnerManche(minutes: number) {
   const s = session;
   if (!s || !niveau(reglages.horloge)) return;
-  if (s.affaire === 'manoir') {
+  const heurePile = minutes % 60 === 0;
+  if (s.affaire === 'paquebot') {
+    for (let i = 0; i < (heurePile ? 2 : 1); i++) corneDeBrume(s, { debut: i * 4.2, duree: 3, gain: 0.32, sortie: s.horloge });
+  } else if (s.affaire === 'manoir') {
     const coups = heurePile ? 3 : 1;
     for (let i = 0; i < coups; i++) cloche(s, { base: 196, debut: i * 2.2, duree: 5, gain: 0.22 });
   } else {
@@ -209,6 +219,7 @@ function demarrer(affaire: AffaireSonore): Session | null {
     // L'averse arrive et repart en même temps que les gouttes à l'écran.
     repeter(s, 1000, 1000, () => s.intemperies.gain.setTargetAtTime(niveauIntemperies(), s.c.currentTime, 1.5), 1000);
     if (affaire === 'manoir') decorManoir(s);
+    else if (affaire === 'paquebot') decorPaquebot(s);
     else decorTrain(s);
     lancerMusique(
       { c, sortie: musique, echo: echoMusique, vivante: () => session === s, tension: () => s.tension, minuteurs: s.minuteurs },
@@ -400,5 +411,90 @@ function decorTrain(s: Session) {
       osc.stop(t + duree + 0.1);
     },
     alea(30_000, 60_000),
+  );
+}
+
+/** Corne de brume : un son grave et rauque, long, qui se perd dans le brouillard. */
+function corneDeBrume(s: Session, o: { debut: number; duree: number; gain: number; sortie: GainNode; grave?: number }) {
+  const t = s.c.currentTime + o.debut;
+  const base = o.grave ?? 98;
+  const filtre = s.c.createBiquadFilter();
+  filtre.type = 'lowpass';
+  filtre.frequency.value = 650;
+  filtre.Q.value = 0.8;
+  const g = s.c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(o.gain, t + 0.35);
+  g.gain.setValueAtTime(o.gain, t + o.duree);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + o.duree + 1.2);
+  filtre.connect(g);
+  g.connect(o.sortie);
+  g.connect(s.reverb);
+  for (const [rapport, part] of [
+    [1, 1],
+    [1.5, 0.6],
+    [2, 0.25],
+  ] as const) {
+    const osc = s.c.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(base * rapport * 0.97, t);
+    osc.frequency.linearRampToValueAtTime(base * rapport, t + 0.3);
+    const p = s.c.createGain();
+    p.gain.value = part * 0.5;
+    osc.connect(p).connect(filtre);
+    osc.start(t);
+    osc.stop(t + o.duree + 1.4);
+  }
+}
+
+function decorPaquebot(s: Session) {
+  // Houle lente contre la coque : un grondement sourd qui enfle et retombe (machines coupées).
+  const houle = bruitContinu(s, s.ambiance, [{ type: 'lowpass', freq: 380 }], 0.09, 'brun');
+  const lfo = s.c.createOscillator();
+  lfo.frequency.value = 0.09;
+  const ampleur = s.c.createGain();
+  ampleur.gain.value = 0.06;
+  lfo.connect(ampleur).connect(houle.g.gain);
+  lfo.start();
+  s.sources.push(lfo);
+  // Clapotis contre la coque : suit le brouillard (comme la pluie au manoir).
+  bruitContinu(s, s.intemperies, [{ type: 'bandpass', freq: 700, q: 0.9 }], 0.035);
+  // La coque qui craque, de temps en temps.
+  repeter(
+    s,
+    50_000,
+    120_000,
+    () => {
+      const t = s.c.currentTime;
+      const duree = alea(0.8, 1.6);
+      const osc = s.c.createOscillator();
+      osc.type = 'sawtooth';
+      const base = alea(60, 110);
+      osc.frequency.setValueAtTime(base, t);
+      for (let k = 1; k <= 5; k++) osc.frequency.linearRampToValueAtTime(base * alea(0.9, 1.15), t + (duree * k) / 5);
+      const f = s.c.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = alea(300, 600);
+      f.Q.value = 5;
+      const g = s.c.createGain();
+      enveloppe(g, t, 0.08, 0.1, duree);
+      osc.connect(f).connect(g);
+      g.connect(s.ambiance);
+      g.connect(s.echoAmbiance);
+      osc.start(t);
+      osc.stop(t + duree + 0.1);
+    },
+    alea(30_000, 60_000),
+  );
+  // Au loin, un autre navire répond dans le brouillard (seulement quand il est épais).
+  repeter(
+    s,
+    100_000,
+    200_000,
+    () => {
+      if (intensiteMeteo() < 0.4) return;
+      corneDeBrume(s, { debut: 0, duree: 2.4, gain: 0.08, sortie: s.ambiance, grave: 82 });
+    },
+    alea(40_000, 80_000),
   );
 }

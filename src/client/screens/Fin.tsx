@@ -10,6 +10,8 @@ import { Sceau } from '../components/Emblemes';
 import { texteEvenement } from '../components/jeu/Textes';
 import { connexion } from '../connexion';
 import { BoutonQuitter } from '../components/Quitter';
+import { Grade } from '../components/Profil';
+import { bilanPartie } from '../profil';
 
 const RAISONS = {
   accusation_correcte: 'Une accusation juste a résolu l’affaire.',
@@ -27,6 +29,8 @@ export function Fin({ etat }: { etat: EtatClient }) {
   const { afficher, vue: notification } = useNotification();
   const gagne = (r.vainqueur === 'complice') === (vue.moi.role === 'complice');
   const gagnant = r.accusations.find((a) => a.correcte);
+  // Profil : la partie est comptée une fois (pas les parties guidées).
+  const bilan = etat.salon.code.startsWith('GUIDE') ? null : bilanPartie(vue);
   useEffect(() => {
     jouer(gagne ? 'victoire' : 'defaite');
   }, [vue.partieId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -65,6 +69,27 @@ export function Fin({ etat }: { etat: EtatClient }) {
           <BoutonQuitter etat={etat} libelle="Quitter" classe="btn" />
         </div>
       </section>
+
+      {bilan && (
+        <section className="panneau bilan-profil" aria-label="Votre progression">
+          <Grade profil={bilan.profil} />
+          {bilan.nouveaux.length > 0 && (
+            <ul className="liste-succes nouveaux">
+              {bilan.nouveaux.map((s) => (
+                <li key={s.id} className="obtenu">
+                  <span className="icone-succes" aria-hidden="true">
+                    {s.icone}
+                  </span>
+                  <span>
+                    <strong>Nouveau succès : {s.titre}</strong>
+                    <span className="petit muet">{s.description}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <div className="deux-colonnes">
         <div>

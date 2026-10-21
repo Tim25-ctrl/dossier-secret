@@ -200,6 +200,23 @@ export class GestionnaireSalons {
     return { salon, joueur, jeton };
   }
 
+  /** Partie seul contre des bots : salon créé, bots ajoutés et enquête lancée d'un coup. */
+  creerSolo(nomBrut: unknown, nbBots: number, reglages: Partial<ReglagesSalon> = {}) {
+    if (!this.botsAutorises) throw new ErreurJeu('Les joueurs automatiques sont désactivés sur ce serveur.');
+    if (!Number.isInteger(nbBots) || nbBots < JOUEURS_MIN - 1 || nbBots > JOUEURS_MAX - 1)
+      throw new ErreurJeu(`Choisissez entre ${JOUEURS_MIN - 1} et ${JOUEURS_MAX - 1} adversaires.`);
+    const r = this.creer(nomBrut);
+    try {
+      r.salon.reglages = { ...r.salon.reglages, ...reglages };
+      for (let i = 0; i < nbBots; i++) this.ajouterBot(r.salon.code, r.joueur.id);
+      this.demarrer(r.salon.code, r.joueur.id);
+    } catch (e) {
+      this.salons.delete(r.salon.code);
+      throw e;
+    }
+    return r;
+  }
+
   rejoindre(codeBrut: unknown, nomBrut: unknown) {
     const s = this.salon(codeBrut as string);
     const nom = normaliserPseudo(nomBrut);

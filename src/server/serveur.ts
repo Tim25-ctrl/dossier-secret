@@ -17,7 +17,7 @@ import type { ConfigPartie } from '../engine/config';
 import type { AttentePlace, EvenementsClient, EvenementsServeur, Reponse, Session } from '../shared/protocole';
 import { ErreurJeu, GestionnaireSalons } from './salons';
 import { Coffre } from './sauvegarde';
-import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer } from './validation';
+import { lireAction, schemaMessage, schemaPseudo, schemaRejoindre, schemaReprendre, schemaReglages, schemaRepondrePlace, schemaRetirer, schemaSolo } from './validation';
 
 export interface OptionsServeur {
   port?: number;
@@ -353,6 +353,18 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
         const { salon, joueur, jeton } = gestionnaire.creer(nom);
         attacher(socket, salon.code, joueur.id);
         log(`Salon ${salon.code} créé.`);
+        diffuser(salon.code);
+        return { session: { code: salon.code, joueurId: joueur.id, jeton } satisfies Session };
+      }),
+    );
+
+    socket.on(
+      'salon:solo',
+      gerer('salon:solo', (p: unknown) => {
+        const { nom, bots, dureeTourS, modeComplice } = schemaSolo.parse(p);
+        const { salon, joueur, jeton } = gestionnaire.creerSolo(nom, bots, { dureeTourS, modeComplice });
+        attacher(socket, salon.code, joueur.id);
+        log(`Salon ${salon.code} : partie seul contre ${bots} bots.`);
         diffuser(salon.code);
         return { session: { code: salon.code, joueurId: joueur.id, jeton } satisfies Session };
       }),

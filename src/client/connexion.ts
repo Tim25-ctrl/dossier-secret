@@ -277,6 +277,12 @@ class Connexion {
     return r;
   }
 
+  async solo(nom: string, bots: number, dureeTourS: number | null, modeComplice: 'classique' | 'ruse') {
+    const r = await this.envoyer<{ session: Session }>('salon:solo', { nom, bots, dureeTourS, modeComplice });
+    if (r.ok) this.memoriser(r.session);
+    return r;
+  }
+
   /** Rejoint un salon ; pendant une partie, demande à reprendre la place du joueur qui a ce pseudonyme. */
   async rejoindre(code: string, nom: string) {
     const r = await this.envoyer<{ session: Session } | { attente: AttentePlace }>('salon:rejoindre', { code, nom });

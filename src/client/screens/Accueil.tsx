@@ -1,7 +1,9 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { jouer } from '../sons';
 import { AFFAIRE } from '../../shared/data/manoir';
-import { PSEUDO_MAX } from '../../shared/protocole';
+import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
+import { ModaleProfil } from '../components/Profil';
+import { libelleDuree } from './Lobby';
 import { Modale } from '../components/Commun';
 import { Icone, Sceau } from '../components/Emblemes';
 import { connexion } from '../connexion';
@@ -23,6 +25,8 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [parametres, setParametres] = useState(false);
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const [choixGuide, setChoixGuide] = useState(false);
+  const [solo, setSolo] = useState(false);
+  const [profil, setProfil] = useState(false);
   const installation = useInstallation();
   const [aideIos, setAideIos] = useState(false);
   // Reprise depuis un fichier de sauvegarde téléchargé pendant une partie.
@@ -92,6 +96,9 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <button className="btn" onClick={() => ouvrir('rejoindre')}>
               Rejoindre une partie
             </button>
+            <button className="btn" onClick={() => setSolo(true)}>
+              🤖 Jouer contre des bots
+            </button>
             <button className="btn" onClick={() => setChoixGuide(true)}>
               🎓 Apprendre à jouer (partie guidée)
             </button>
@@ -103,6 +110,9 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <div className="ligne" style={{ justifyContent: 'center' }}>
               <button className="btn btn-discret" onClick={() => setRegles(true)}>
                 <Icone nom="livre" /> Règles du jeu
+              </button>
+              <button className="btn btn-discret" onClick={() => setProfil(true)}>
+                🏅 Mon profil
               </button>
               <button className="btn btn-discret" onClick={() => setParametres(true)}>
                 <Icone nom="reglages" /> Paramètres
@@ -205,6 +215,8 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           </div>
         </Modale>
       )}
+      {solo && <ModaleSolo prefs={prefs} majPrefs={majPrefs} onFermer={() => setSolo(false)} />}
+      {profil && <ModaleProfil onFermer={() => setProfil(false)} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} />}
       {tutoriel && (
         <Modale
@@ -240,6 +252,81 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
         </Modale>
       )}
     </main>
+  );
+}
+
+/** Partie seul contre des bots : quelques réglages, puis l'enquête commence aussitôt. */
+function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void; onFermer: () => void }) {
+  const [pseudo, setPseudo] = useState(prefs.pseudo);
+  const [bots, setBots] = useState(3);
+  const [duree, setDuree] = useState<number | null>(null);
+  const [mode, setMode] = useState<'ruse' | 'classique'>('ruse');
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+  const lancer = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!pseudo.trim()) return setErreur('Choisissez un pseudonyme.');
+    setEnvoi(true);
+    setErreur(null);
+    majPrefs({ pseudo: pseudo.trim() });
+    const r = await connexion.solo(pseudo, bots, duree, mode);
+    setEnvoi(false);
+    if (!r.ok) setErreur(r.erreur);
+  };
+  return (
+    <Modale titre="Jouer contre des bots" onFermer={onFermer}>
+      <form onSubmit={lancer} noValidate>
+        <p className="muet petit" style={{ marginTop: 0 }}>
+          Une vraie partie, seul face à des joueurs automatiques. L'un d'eux sera peut-être le complice… ou ce sera vous.
+        </p>
+        <div className="champ">
+          <label htmlFor="pseudo-solo">Votre pseudonyme</label>
+          <input id="pseudo-solo" value={pseudo} maxLength={PSEUDO_MAX} onChange={(e) => setPseudo(e.target.value)} autoComplete="nickname" />
+        </div>
+        <div className="champ">
+          <label htmlFor="nb-bots">Adversaires</label>
+          <select id="nb-bots" value={bots} onChange={(e) => setBots(Number(e.target.value))}>
+            {[2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n} bots ({n + 1} joueurs){n === 3 ? ' (conseillé)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="champ">
+          <label htmlFor="duree-solo">Durée de vos tours</label>
+          <select id="duree-solo" value={duree === null ? 'aucune' : String(duree)} onChange={(e) => setDuree(e.target.value === 'aucune' ? null : Number(e.target.value))}>
+            {DUREES_TOUR.map((d) => (
+              <option key={String(d)} value={d === null ? 'aucune' : String(d)}>
+                {libelleDuree(d)}
+                {d === null ? ' (conseillé)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="champ">
+          <label htmlFor="mode-solo">Complice</label>
+          <select id="mode-solo" value={mode} onChange={(e) => setMode(e.target.value as 'ruse' | 'classique')}>
+            <option value="ruse">Rusé (conseillé)</option>
+            <option value="classique">Classique</option>
+          </select>
+        </div>
+        {erreur && (
+          <div className="erreur" role="alert">
+            {erreur}
+          </div>
+        )}
+        <div className="ligne" style={{ marginTop: 8 }}>
+          <button type="button" className="btn btn-discret" onClick={onFermer}>
+            Annuler
+          </button>
+          <span className="espace" />
+          <button type="submit" className="btn btn-or" disabled={envoi}>
+            {envoi ? 'Lancement…' : "Lancer l'enquête"}
+          </button>
+        </div>
+      </form>
+    </Modale>
   );
 }
 

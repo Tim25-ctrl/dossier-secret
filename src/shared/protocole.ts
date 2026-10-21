@@ -77,6 +77,11 @@ export type Reponse<T = object> = ({ ok: true } & T) | { ok: false; erreur: stri
 /** Événements envoyés par le client (avec accusé de réception). */
 export interface EvenementsClient {
   'salon:creer': (p: { nom: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
+  /** Partie seul contre des bots, lancée immédiatement. */
+  'salon:solo': (
+    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice },
+    ack: (r: Reponse<{ session: Session }>) => void,
+  ) => void;
   /** Pendant une partie, « rejoindre » avec le pseudonyme d'un joueur absent demande sa place (réponse `attente`). */
   'salon:rejoindre': (p: { code: string; nom: string }, ack: (r: Reponse<{ session: Session } | { attente: AttentePlace }>) => void) => void;
   'salon:annulerDemande': (p: object, ack: (r: Reponse) => void) => void;

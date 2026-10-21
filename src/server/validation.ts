@@ -33,6 +33,14 @@ export const schemaAction = z.discriminatedUnion('type', [
 ]);
 
 export const schemaPseudo = z.object({ nom: z.string().max(60) });
+export const schemaSolo = z
+  .object({
+    nom: z.string().max(60),
+    bots: z.number().int().min(1).max(10),
+    dureeTourS: z.number().int().min(30).max(3600).nullable(),
+    modeComplice: z.enum(['classique', 'ruse']),
+  })
+  .strict();
 export const schemaRejoindre = z.object({ code: z.string().max(20), nom: z.string().max(60) });
 export const schemaReprendre = z.object({ code: z.string().max(20), jeton: z.string().max(100) });
 export const schemaMessage = z.object({ texte: z.string().max(1000) });

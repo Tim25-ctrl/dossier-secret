@@ -2123,3 +2123,108 @@ button.carte:hover:not(:disabled) {
 .frise-icone {
   flex: none;
 }
+
+/* Réactions rapides dans la discussion */
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.reaction {
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 1.25rem;
+  line-height: 1;
+  border-radius: 999px;
+  border: 1px solid var(--ardoise-clair);
+  background: var(--nuit-2);
+  cursor: pointer;
+}
+.reaction:hover:not(:disabled) {
+  border-color: var(--or);
+}
+.reaction:disabled {
+  opacity: 0.5;
+}
+.reaction-message {
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+/* Profil : grade, statistiques, succès */
+.grade-titre {
+  font-family: var(--titre);
+  font-size: 1.3rem;
+  color: var(--or-clair);
+}
+.grade-barre {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ardoise);
+  overflow: hidden;
+  margin: 6px 0 4px;
+}
+.grade-barre span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--or-sombre), var(--or-clair));
+}
+.stats-profil {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+.stats-profil div {
+  border: 1px solid var(--ardoise);
+  border-radius: var(--rayon);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+.stats-profil strong {
+  font-size: 1.2rem;
+}
+.stats-profil span {
+  font-size: 0.85em;
+  color: var(--ivoire-doux);
+}
+.liste-succes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+}
+.liste-succes li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--ardoise);
+  border-radius: var(--rayon);
+  padding: 8px 10px;
+}
+.liste-succes li > span:not(.icone-succes) {
+  display: flex;
+  flex-direction: column;
+}
+.liste-succes li.obtenu {
+  border-color: var(--or-sombre);
+}
+.liste-succes li.verrouille {
+  opacity: 0.55;
+}
+.icone-succes {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.liste-succes.nouveaux {
+  margin-top: 12px;
+}
+.bilan-profil {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}

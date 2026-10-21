@@ -24,7 +24,7 @@ export function Grade({ profil }: { profil: Profil }) {
   );
 }
 
-export function ModaleProfil({ onFermer }: { onFermer: () => void }) {
+export function ModaleProfil({ onFermer, onGuide }: { onFermer: () => void; onGuide?: () => void }) {
   const [profil, setProfil] = useState(lireProfil);
   const [confirmer, setConfirmer] = useState(false);
   const debloques = SUCCES.filter((s) => profil.succes[s.id]).length;
@@ -57,6 +57,13 @@ export function ModaleProfil({ onFermer }: { onFermer: () => void }) {
           <span>meilleure série</span>
         </div>
       </div>
+      {onGuide && (
+        <p style={{ margin: '12px 0 0' }}>
+          <button className="btn btn-petit" onClick={onGuide}>
+            🎓 Refaire une partie guidée
+          </button>
+        </p>
+      )}
       <h4 style={{ margin: '16px 0 8px' }}>
         Succès ({debloques} / {SUCCES.length})
       </h4>

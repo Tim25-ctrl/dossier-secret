@@ -15,10 +15,12 @@ export interface Preferences {
   conseils: boolean;
   /** Conseils déjà lus (« Compris »). */
   conseilsVus: string[];
+  /** Parties guidées terminées jusqu'au bout (rôle appris). */
+  guidesTermines: ('enqueteur' | 'complice')[];
 }
 
 const CLE = 'dossier-secret:preferences';
-const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false, son: true, volume: 0.6, conseils: true, conseilsVus: [] };
+const DEFAUT: Preferences = { taille: 'normal', animations: 'normales', pseudo: '', tutorielVu: false, son: true, volume: 0.6, conseils: true, conseilsVus: [], guidesTermines: [] };
 
 function lire(): Preferences {
   try {

@@ -2251,3 +2251,28 @@ button.carte:hover:not(:disabled) {
 .histoire-affaire p {
   line-height: 1.55;
 }
+
+/* Accueil : histoires dans un menu déroulant */
+.affaires-deroulant {
+  max-width: 560px;
+  width: 100%;
+  margin: 2px 0 8px;
+  border: 1px solid var(--ardoise);
+  border-radius: var(--rayon);
+  background: rgba(10, 15, 29, 0.35);
+}
+.affaires-deroulant summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--or-clair);
+  list-style-position: inside;
+}
+.affaires-deroulant[open] summary {
+  border-bottom: 1px solid var(--ardoise);
+}
+.affaires-deroulant .liste-affaires {
+  margin: 0;
+  padding: 10px 14px 12px;
+  text-align: left;
+}

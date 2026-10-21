@@ -26,6 +26,14 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [parametres, setParametres] = useState(false);
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const [choixGuide, setChoixGuide] = useState(false);
+  // Les deux parties guidées terminées : le bouton quitte l'accueil (elles restent dans Paramètres et Profil).
+  const guidesTermines = prefs.guidesTermines ?? [];
+  const guidesFinis = guidesTermines.includes('enqueteur') && guidesTermines.includes('complice');
+  const revoirGuide = () => {
+    setParametres(false);
+    setProfil(false);
+    setChoixGuide(true);
+  };
   const [solo, setSolo] = useState(false);
   const [profil, setProfil] = useState(false);
   const installation = useInstallation();
@@ -83,13 +91,18 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           <p style={{ maxWidth: 560, color: 'var(--ivoire-doux)' }}>
             Un crime, six suspects, un huis clos coupé du monde. Menez l'enquête entre amis… mais méfiez-vous : l'un de vous protège le meurtrier.
           </p>
-          <ul className="liste-affaires" aria-label="Les affaires">
-            {AFFAIRES_IDS.map((a) => (
-              <li key={a}>
-                <strong>{AFFAIRES[a].court}</strong> — {AFFAIRES[a].accroche}
-              </li>
-            ))}
-          </ul>
+          <details className="affaires-deroulant">
+            <summary>
+              📚 Les histoires <span className="muet">({AFFAIRES_IDS.length})</span>
+            </summary>
+            <ul className="liste-affaires" aria-label="Les histoires">
+              {AFFAIRES_IDS.map((a) => (
+                <li key={a}>
+                  <strong>{AFFAIRES[a].court}</strong> — {AFFAIRES[a].accroche}
+                </li>
+              ))}
+            </ul>
+          </details>
           <p className="muet petit">3 à 6 joueurs · 15 à 30 minutes · navigateur, tablette ou smartphone</p>
           <div className="accueil-actions" style={{ marginTop: 10 }}>
             {derniere && (
@@ -106,9 +119,20 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <button className="btn" onClick={() => setSolo(true)}>
               🤖 Jouer contre des bots
             </button>
-            <button className="btn" onClick={() => setChoixGuide(true)}>
-              🎓 Apprendre à jouer (partie guidée)
+            <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
+              📂 {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
             </button>
+            <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
+            {erreurFichier && (
+              <p className="erreur petit" role="alert" style={{ margin: 0 }}>
+                {erreurFichier}
+              </p>
+            )}
+            {!guidesFinis && (
+              <button className="btn" onClick={() => setChoixGuide(true)}>
+                🎓 Apprendre à jouer (partie guidée)
+              </button>
+            )}
             {installation !== 'indisponible' && (
               <button className="btn" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
                 📲 Installer le jeu sur cet appareil
@@ -124,16 +148,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               <button className="btn btn-discret" onClick={() => setParametres(true)}>
                 <Icone nom="reglages" /> Paramètres
               </button>
-              <button className="btn btn-discret" disabled={lecture} onClick={() => fichier.current?.click()}>
-                📂 {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
-              </button>
-              <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
             </div>
-            {erreurFichier && (
-              <p className="erreur petit" role="alert">
-                {erreurFichier}
-              </p>
-            )}
           </div>
         </>
       )}
@@ -212,19 +227,19 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           <p>Une vraie partie contre deux bots, avec un guide qui vous montre où cliquer. Quel rôle voulez-vous apprendre ?</p>
           <div className="choix-guide">
             <button className="btn btn-or" onClick={() => guider('enqueteur')}>
-              🔎 Enquêteur
+              🔎 Enquêteur{guidesTermines.includes('enqueteur') ? ' ✓' : ''}
               <span className="petit">Pour commencer : hypothèses, carnet, archives, accusation.</span>
             </button>
             <button className="btn" onClick={() => guider('complice')}>
-              🎭 Complice
+              🎭 Complice{guidesTermines.includes('complice') ? ' ✓' : ''}
               <span className="petit">Ensuite : mentir, falsifier, trafiquer un dossier sans se faire démasquer.</span>
             </button>
           </div>
         </Modale>
       )}
       {solo && <ModaleSolo prefs={prefs} majPrefs={majPrefs} onFermer={() => setSolo(false)} />}
-      {profil && <ModaleProfil onFermer={() => setProfil(false)} />}
-      {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} />}
+      {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} />}
+      {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} onGuide={revoirGuide} />}
       {tutoriel && (
         <Modale
           titre="Première visite ?"
@@ -348,7 +363,18 @@ function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPref
   );
 }
 
-export function ModaleParametres({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void; onFermer: () => void }) {
+export function ModaleParametres({
+  prefs,
+  majPrefs,
+  onFermer,
+  onGuide,
+}: {
+  prefs: Preferences;
+  majPrefs: (p: Partial<Preferences>) => void;
+  onFermer: () => void;
+  /** Depuis l'accueil seulement : relancer une partie guidée. */
+  onGuide?: () => void;
+}) {
   return (
     <Modale titre="Paramètres" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Fermer</button>}>
       <div className="champ">
@@ -403,6 +429,13 @@ export function ModaleParametres({ prefs, majPrefs, onFermer }: { prefs: Prefere
         <button className="btn btn-discret btn-petit" onClick={() => majPrefs({ conseilsVus: [] })}>
           Réafficher tous les conseils déjà lus
         </button>
+      )}
+      {onGuide && (
+        <div className="champ" style={{ marginTop: 14 }}>
+          <button className="btn btn-petit" onClick={onGuide}>
+            🎓 Refaire une partie guidée
+          </button>
+        </div>
       )}
     </Modale>
   );

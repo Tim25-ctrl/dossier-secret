@@ -574,7 +574,7 @@ function VoileGuide({ cible, trouActif }: { cible: HTMLElement | null; trouActif
   );
 }
 
-export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
+export function GuideTutoriel({ onTermine }: { onTermine: (role: 'enqueteur' | 'complice') => void }) {
   const etat = useConnexion().etat;
   const vue = etat?.partie ?? null;
   const [i, setI] = useState(0);
@@ -643,7 +643,7 @@ export function GuideTutoriel({ onTermine }: { onTermine: () => void }) {
   });
 
   useEffect(() => {
-    if (termine) onTermine();
+    if (termine) onTermine(vue?.moi.role === 'complice' ? 'complice' : 'enqueteur');
   }, [termine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!contexte || termine || contexte.vue.etape === 'terminee') return null;

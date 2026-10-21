@@ -16,6 +16,38 @@ const CLE_DERNIERE = 'dossier-secret:derniere-session';
 /** Dernière sauvegarde chiffrée reçue du serveur (voir src/server/sauvegarde.ts). */
 const CLE_SAUVEGARDE = 'dossier-secret:sauvegarde';
 const SALON_INCONNU = 'Aucun salon ne correspond';
+/** Résumé lisible de la dernière partie (histoire, manche, joueurs) pour l'accueil. */
+const CLE_RESUME = 'dossier-secret:resume-partie';
+
+export interface ResumePartie {
+  code: string;
+  statut: 'lobby' | 'partie';
+  affaire: AffaireId;
+  manche: number;
+  manchesMax: number;
+  joueurs: number;
+  /** Dernière mise à jour (ms). */
+  t: number;
+}
+
+/** Résumé de la dernière partie de cet appareil (null si aucun ou illisible). */
+export function lireResume(): ResumePartie | null {
+  try {
+    const r = JSON.parse(localStorage.getItem(CLE_RESUME) ?? 'null') as ResumePartie | null;
+    return r && typeof r.code === 'string' && typeof r.t === 'number' ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+function ecrireResume(r: ResumePartie | null) {
+  try {
+    if (r) localStorage.setItem(CLE_RESUME, JSON.stringify(r));
+    else localStorage.removeItem(CLE_RESUME);
+  } catch {
+    /* stockage indisponible */
+  }
+}
 
 interface SauvegardeLocale {
   code: string;
@@ -159,6 +191,18 @@ class Connexion {
       if (this.local) return;
       // Partie terminée : la sauvegarde de cet appareil ne sert plus, on l'efface.
       if (e.salon.statut === 'terminee' && lireSauvegarde()?.code === e.salon.code) ecrireSauvegarde(null);
+      // Résumé pour la carte « Partie en cours » de l'accueil (effacé quand la partie est finie).
+      if (e.salon.statut === 'terminee') ecrireResume(null);
+      else
+        ecrireResume({
+          code: e.salon.code,
+          statut: e.salon.statut,
+          affaire: e.partie?.affaire ?? e.salon.reglages.affaire,
+          manche: e.partie?.manche ?? 0,
+          manchesMax: e.partie?.regles.manchesMax ?? 12,
+          joueurs: e.salon.joueurs.length,
+          t: Date.now(),
+        });
       this.maj({ etat: e, decalage: e.heureServeur - Date.now() });
     });
     this.socket.on('expulse', ({ raison }) => {
@@ -341,6 +385,7 @@ class Connexion {
     ecrire(sessionStorage, CLE_SESSION, null);
     ecrire(localStorage, CLE_DERNIERE, null);
     ecrireSauvegarde(null);
+    ecrireResume(null);
     this.maj({ session: null, etat: null, expulsion: null });
     return r;
   }

@@ -343,7 +343,7 @@ export function Sceau({ taille = 96 }: { taille?: number }) {
 }
 
 /** Petites icônes d'interface. */
-export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' | 'couronne' | 'robot' | 'loupe' | 'reglages' | 'livre' | 'plume' | 'dossier' | 'bulle'; taille?: number }) {
+export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' | 'couronne' | 'robot' | 'loupe' | 'reglages' | 'livre' | 'plume' | 'dossier' | 'bulle' | 'joueurs' | 'insigne'; taille?: number }) {
   const chemins: Record<typeof nom, ReactNode> = {
     cadenas: <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" />,
     oeil: (
@@ -361,6 +361,25 @@ export function Icone({ nom, taille = 18 }: { nom: 'cadenas' | 'oeil' | 'copie' 
     plume: <path d="M20 4C10 4 6 10 5 19l3-3c4 0 9-2 12-12zM5 19l-2 2" />,
     dossier: <path d="M3 6h6l2 2h10v11H3z" />,
     bulle: <path d="M4 5h16v11H10l-5 4v-4H4z" />,
+    // Trois silhouettes à chapeau melon : les enquêteurs réunis.
+    joueurs: (
+      <>
+        <path d="M9.5 6.5h5M10 6.5c0-2.6 4-2.6 4 0" />
+        <circle cx="12" cy="9.5" r="2.4" />
+        <path d="M7.5 20c.4-3.6 2.2-5.6 4.5-5.6s4.1 2 4.5 5.6" />
+        <circle cx="5.5" cy="11" r="2" />
+        <path d="M2 19.5c.3-2.7 1.6-4.2 3.5-4.2 1 0 1.8.4 2.4 1.1" />
+        <circle cx="18.5" cy="11" r="2" />
+        <path d="M22 19.5c-.3-2.7-1.6-4.2-3.5-4.2-1 0-1.8.4-2.4 1.1" />
+      </>
+    ),
+    // Insigne étoilé (grade de l'enquêteur).
+    insigne: (
+      <>
+        <path d="M12 2.5l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4-3.9-3.8 5.4-.8z" />
+        <path d="M8.5 17.5L7 22l5-2 5 2-1.5-4.5" />
+      </>
+    ),
   };
   return (
     <svg width={taille} height={taille} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -2276,3 +2276,221 @@ button.carte:hover:not(:disabled) {
   padding: 10px 14px 12px;
   text-align: left;
 }
+
+/* ------------------------------------------------------------------ */
+/* Accueil : barre du haut, cartes de mode, histoires, ambiance        */
+/* ------------------------------------------------------------------ */
+.accueil {
+  position: relative;
+  overflow-x: hidden;
+  justify-content: flex-start;
+  padding-top: 76px;
+}
+.accueil-haut {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+}
+.puce-profil {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 70%;
+  padding: 4px 12px 4px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--or-sombre);
+  background: rgba(10, 15, 29, 0.6);
+  color: var(--ivoire);
+  cursor: pointer;
+  text-align: left;
+}
+.puce-profil:hover {
+  border-color: var(--or);
+}
+.puce-profil-icone {
+  display: inline-flex;
+  color: var(--or-clair);
+}
+.puce-profil-texte {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+.puce-profil-texte strong,
+.puce-profil-texte span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.puce-profil-texte span {
+  font-size: 0.78rem;
+  color: var(--ivoire-doux);
+}
+.bouton-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--ardoise-clair);
+  background: rgba(10, 15, 29, 0.6);
+  color: var(--or-clair);
+  cursor: pointer;
+}
+.bouton-icone:hover {
+  border-color: var(--or);
+}
+.accueil .logo,
+.accueil > p,
+.accueil > details,
+.accueil-actions {
+  position: relative;
+  z-index: 1;
+}
+.accueil-actions {
+  width: min(460px, 100%);
+  gap: 14px;
+}
+.carte-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--ardoise);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(27, 35, 64, 0.92), rgba(15, 20, 38, 0.92));
+  box-shadow: var(--ombre);
+  text-align: left;
+}
+.carte-en-cours {
+  border-color: var(--or-sombre);
+}
+.carte-mode-entete {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.carte-mode-icone {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--or-sombre);
+  color: var(--or-clair);
+  background: rgba(201, 164, 92, 0.08);
+}
+.carte-mode h2 {
+  margin: 0 0 2px;
+  font-size: 1.35rem;
+  color: var(--or-clair);
+}
+.carte-mode p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ivoire-doux);
+}
+.accueil-secondaire {
+  justify-content: center;
+}
+.affaires-deroulant summary {
+  text-align: center;
+}
+.cartes-histoires {
+  list-style: none;
+  margin: 0;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+.carte-histoire {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--ardoise);
+  border-radius: var(--rayon);
+  text-align: left;
+  background: rgba(10, 15, 29, 0.45);
+}
+.carte-histoire strong {
+  color: var(--or-clair);
+  font-family: var(--titre);
+  font-size: 1.2rem;
+}
+.carte-histoire .petit {
+  color: var(--ivoire-doux);
+}
+.portraits-histoire {
+  display: flex;
+}
+.portraits-histoire > span + span {
+  margin-left: -8px;
+}
+
+/* Ambiance : pluie (manoir) ou neige (train) derrière le titre */
+.ambiance {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 420px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+.ambiance span {
+  position: absolute;
+  top: -40px;
+  display: block;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.ambiance-pluie span {
+  width: 1px;
+  background: linear-gradient(transparent, rgba(190, 205, 255, 0.85));
+  animation-name: pluie;
+}
+.ambiance-neige span {
+  border-radius: 50%;
+  background: #f3ead6;
+  animation-name: neige;
+}
+@keyframes pluie {
+  from {
+    transform: translate(0, 0) rotate(12deg);
+  }
+  to {
+    transform: translate(-90px, 470px) rotate(12deg);
+  }
+}
+@keyframes neige {
+  0% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(18px, 230px);
+  }
+  100% {
+    transform: translate(-6px, 470px);
+  }
+}
+:root[data-animations='reduites'] .ambiance {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambiance {
+    display: none;
+  }
+}

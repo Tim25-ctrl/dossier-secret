@@ -1,19 +1,39 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { jouer } from '../sons';
 import { AFFAIRES } from '../../shared/data/catalogue';
-import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, type AffaireId } from '../../shared/types';
+import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
+import { Ambiance, type TypeAmbiance } from '../components/Ambiance';
+import { grade, lireProfil } from '../profil';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
 import { libelleDuree } from './Lobby';
 import { Modale } from '../components/Commun';
-import { Icone, Sceau } from '../components/Emblemes';
-import { connexion } from '../connexion';
+import { Embleme, Icone, Sceau } from '../components/Emblemes';
+import { connexion, lireResume, type ResumePartie } from '../connexion';
 import { installer, useInstallation } from '../installation';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
 import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
 
 type Mode = 'menu' | 'creer' | 'rejoindre';
+
+/** « il y a 5 min », « il y a 2 h », « il y a 3 jours ». */
+function depuis(t: number): string {
+  const min = Math.max(0, Math.round((Date.now() - t) / 60_000));
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const j = Math.round(h / 24);
+  return `il y a ${j} jour${j > 1 ? 's' : ''}`;
+}
+
+/** Ligne de la carte « Partie en cours » : histoire, manche, joueurs, dernière activité. */
+function texteResume(r: ResumePartie | null, code: string): string {
+  if (!r || r.code !== code) return `Salon ${code}`;
+  const etape = r.statut === 'lobby' ? "Salon d'attente" : `Manche ${r.manche} / ${r.manchesMax}`;
+  return `${AFFAIRES[r.affaire]?.court ?? 'Partie'} · ${etape} · ${r.joueurs} joueurs · ${depuis(r.t)}`;
+}
 
 export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p: Partial<Preferences>) => void }) {
   const codeUrl = new URLSearchParams(location.search).get('salon') ?? '';
@@ -22,7 +42,13 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [code, setCode] = useState(codeUrl.toUpperCase());
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
-  const [regles, setRegles] = useState(false);
+  // Règles : false (fermées), true (choix de l'histoire dans la fenêtre) ou une histoire précise.
+  const [regles, setRegles] = useState<boolean | AffaireId>(false);
+  // Ambiance de l'accueil : la pluie du manoir ou la neige du train, au hasard à chaque visite.
+  const [ambiance] = useState<TypeAmbiance>(() => (Math.random() < 0.5 ? 'pluie' : 'neige'));
+  const [profilLocal] = useState(lireProfil);
+  const gradeActuel = grade(profilLocal.victoires).actuel;
+  const resume = lireResume();
   const [parametres, setParametres] = useState(false);
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const [choixGuide, setChoixGuide] = useState(false);
@@ -80,6 +106,29 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
 
   return (
     <main className="accueil">
+      <Ambiance type={ambiance} />
+      {mode === 'menu' && (
+        <div className="accueil-haut">
+          <button className="puce-profil" onClick={() => setProfil(true)} aria-label={`Mon profil : ${gradeActuel.titre}`}>
+            <span className="puce-profil-icone">
+              <Icone nom="insigne" taille={22} />
+            </span>
+            <span className="puce-profil-texte">
+              <strong>{prefs.pseudo.trim() || 'Mon profil'}</strong>
+              <span>
+                {gradeActuel.titre} · {profilLocal.victoires} victoire{profilLocal.victoires > 1 ? 's' : ''}
+              </span>
+            </span>
+          </button>
+          <span className="espace" />
+          <button className="bouton-icone" onClick={() => setRegles(true)} aria-label="Règles du jeu" title="Règles du jeu">
+            <Icone nom="livre" taille={22} />
+          </button>
+          <button className="bouton-icone" onClick={() => setParametres(true)} aria-label="Paramètres" title="Paramètres">
+            <Icone nom="reglages" taille={22} />
+          </button>
+        </div>
+      )}
       <div className="logo">
         <Sceau taille={104} />
         <h1>Dossier Secret</h1>
@@ -93,62 +142,103 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           </p>
           <details className="affaires-deroulant">
             <summary>
-              📚 Les histoires <span className="muet">({AFFAIRES_IDS.length})</span>
+              Les histoires <span className="muet">({AFFAIRES_IDS.length})</span>
             </summary>
-            <ul className="liste-affaires" aria-label="Les histoires">
+            <ul className="cartes-histoires" aria-label="Les histoires">
               {AFFAIRES_IDS.map((a) => (
-                <li key={a}>
-                  <strong>{AFFAIRES[a].court}</strong> — {AFFAIRES[a].accroche}
+                <li key={a} className="carte-histoire">
+                  <div className="portraits-histoire" aria-hidden="true">
+                    {elementsDe(a).suspects.map((id) => (
+                      <Embleme key={id} id={id} taille={34} />
+                    ))}
+                  </div>
+                  <strong>{AFFAIRES[a].court}</strong>
+                  <span className="petit">{AFFAIRES[a].accroche}</span>
+                  <button className="btn btn-discret btn-petit" onClick={() => setRegles(a)}>
+                    Lire l'histoire
+                  </button>
                 </li>
               ))}
             </ul>
           </details>
-          <p className="muet petit">3 à 6 joueurs · 15 à 30 minutes · navigateur, tablette ou smartphone</p>
-          <div className="accueil-actions" style={{ marginTop: 10 }}>
+
+          <div className="accueil-actions">
             {derniere && (
-              <button className="btn btn-or" onClick={() => void connexion.reprendre(derniere)}>
-                Reprendre ma partie ({derniere.code})
-              </button>
+              <section className="carte-mode carte-en-cours" aria-label="Partie en cours">
+                <div className="carte-mode-entete">
+                  <span className="carte-mode-icone">
+                    <Icone nom="dossier" taille={30} />
+                  </span>
+                  <div>
+                    <h2>Partie en cours</h2>
+                    <p>{texteResume(resume, derniere.code)}</p>
+                  </div>
+                </div>
+                <button className="btn btn-or" onClick={() => void connexion.reprendre(derniere)}>
+                  Reprendre ma partie
+                </button>
+              </section>
             )}
-            <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
-              Créer une partie
-            </button>
-            <button className="btn" onClick={() => ouvrir('rejoindre')}>
-              Rejoindre une partie
-            </button>
-            <button className="btn" onClick={() => setSolo(true)}>
-              🤖 Jouer contre des bots
-            </button>
-            <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
-              📂 {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
-            </button>
-            <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
-            {erreurFichier && (
-              <p className="erreur petit" role="alert" style={{ margin: 0 }}>
-                {erreurFichier}
-              </p>
+
+            <section className="carte-mode" aria-labelledby="titre-multijoueur">
+              <div className="carte-mode-entete">
+                <span className="carte-mode-icone">
+                  <Icone nom="joueurs" taille={30} />
+                </span>
+                <div>
+                  <h2 id="titre-multijoueur">Multijoueur</h2>
+                  <p>3 à 6 joueurs, chacun sur son appareil. Créez un salon et partagez son code.</p>
+                </div>
+              </div>
+              <button className={`btn ${derniere ? '' : 'btn-or'}`} onClick={() => ouvrir('creer')}>
+                Créer une partie
+              </button>
+              <button className="btn" onClick={() => ouvrir('rejoindre')}>
+                Rejoindre une partie
+              </button>
+              <button className="btn" disabled={lecture} onClick={() => fichier.current?.click()}>
+                {lecture ? 'Reprise…' : 'Reprendre une sauvegarde'}
+              </button>
+              <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => void lireFichier(e)} />
+              {erreurFichier && (
+                <p className="erreur petit" role="alert" style={{ margin: 0 }}>
+                  {erreurFichier}
+                </p>
+              )}
+            </section>
+
+            <section className="carte-mode" aria-labelledby="titre-solo">
+              <div className="carte-mode-entete">
+                <span className="carte-mode-icone">
+                  <Icone nom="loupe" taille={30} />
+                </span>
+                <div>
+                  <h2 id="titre-solo">Seul contre des bots</h2>
+                  <p>Une vraie partie face à 2 à 5 joueurs automatiques, à votre rythme.</p>
+                </div>
+              </div>
+              <button className="btn" onClick={() => setSolo(true)}>
+                Jouer contre des bots
+              </button>
+            </section>
+
+            {(!guidesFinis || installation !== 'indisponible') && (
+              <div className="ligne accueil-secondaire">
+                {!guidesFinis && (
+                  <button className="btn btn-discret" onClick={() => setChoixGuide(true)}>
+                    Apprendre à jouer (partie guidée)
+                  </button>
+                )}
+                {installation !== 'indisponible' && (
+                  <button className="btn btn-discret" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
+                    Installer le jeu sur cet appareil
+                  </button>
+                )}
+              </div>
             )}
-            {!guidesFinis && (
-              <button className="btn" onClick={() => setChoixGuide(true)}>
-                🎓 Apprendre à jouer (partie guidée)
-              </button>
-            )}
-            {installation !== 'indisponible' && (
-              <button className="btn" onClick={() => (installation === 'invitation' ? void installer() : setAideIos(true))}>
-                📲 Installer le jeu sur cet appareil
-              </button>
-            )}
-            <div className="ligne" style={{ justifyContent: 'center' }}>
-              <button className="btn btn-discret" onClick={() => setRegles(true)}>
-                <Icone nom="livre" /> Règles du jeu
-              </button>
-              <button className="btn btn-discret" onClick={() => setProfil(true)}>
-                🏅 Mon profil
-              </button>
-              <button className="btn btn-discret" onClick={() => setParametres(true)}>
-                <Icone nom="reglages" /> Paramètres
-              </button>
-            </div>
+            <p className="muet petit" style={{ margin: 0 }}>
+              15 à 30 minutes · navigateur, tablette ou smartphone
+            </p>
           </div>
         </>
       )}
@@ -203,7 +293,9 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
 
       <div className="pied">Jeu de fiction. Toute ressemblance avec des personnes existantes serait fortuite.</div>
 
-      {regles && <ModaleRegles onFermer={() => setRegles(false)} />}
+      {regles !== false && (
+        <ModaleRegles onFermer={() => setRegles(false)} affaire={regles === true ? undefined : regles} section={regles === true ? 'regles' : 'dossier'} />
+      )}
       {aideIos && (
         <Modale titre="Installer le jeu sur l'iPhone" onFermer={() => setAideIos(false)}>
           <ol className="etapes-installation">
@@ -238,7 +330,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
         </Modale>
       )}
       {solo && <ModaleSolo prefs={prefs} majPrefs={majPrefs} onFermer={() => setSolo(false)} />}
-      {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} />}
+      {profil && <ModaleProfil onFermer={() => setProfil(false)} onGuide={revoirGuide} pseudo={prefs.pseudo} onPseudo={(p) => majPrefs({ pseudo: p })} />}
       {parametres && <ModaleParametres prefs={prefs} majPrefs={majPrefs} onFermer={() => setParametres(false)} onGuide={revoirGuide} />}
       {tutoriel && (
         <Modale

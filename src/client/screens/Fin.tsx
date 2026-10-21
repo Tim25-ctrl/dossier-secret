@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { jouer } from '../sons';
-import { INDICES, INDICES_PAR_ID, jourDuJournal } from '../../shared/data/indices';
+import { AFFAIRES, INDICES_PAR_ID, indicesDe } from '../../shared/data/catalogue';
+import { jourDuJournal } from '../../shared/data/indices';
 import { indiceValide } from '../../shared/logique';
-import { nomElement } from '../../shared/data/manoir';
+import { nomElement } from '../../shared/data/catalogue';
 import type { EtatClient } from '../../shared/protocole';
 import type { VueJoueur } from '../../shared/types';
 import { Carte, CarteIndice, TripletVue, useNotification } from '../components/Commun';
@@ -34,8 +35,9 @@ export function Fin({ etat }: { etat: EtatClient }) {
   useEffect(() => {
     jouer(gagne ? 'victoire' : 'defaite');
   }, [vue.partieId]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Pages du journal vraies pour la solution : elles racontent la dernière semaine d'Armand sans contradiction.
-  const pagesJournal = INDICES.filter((c) => c.categorie === 'journal' && indiceValide(c, r.solution)).sort((a, b) => jourDuJournal(a) - jourDuJournal(b));
+  // Pages du carnet de la victime vraies pour la solution : elles racontent sa dernière semaine sans contradiction.
+  const infos = AFFAIRES[vue.affaire];
+  const pagesJournal = indicesDe(vue.affaire).filter((c) => c.categorie === 'journal' && indiceValide(c, r.solution)).sort((a, b) => jourDuJournal(a) - jourDuJournal(b));
   const pagesLues = new Set([...vue.moi.indicesConsultes.map((i) => i.indice), ...vue.indicesPublics.map((i) => i.indice)]);
 
   return (
@@ -116,10 +118,8 @@ export function Fin({ etat }: { etat: EtatClient }) {
             </p>
           </section>
           <section className="panneau">
-            <h2>Le journal d'Armand</h2>
-            <p className="muet petit">
-              La dernière semaine de la victime, telle qu'on peut la reconstituer maintenant que l'affaire est close. Les pages lues pendant la partie sont signalées.
-            </p>
+            <h2>{infos.journal.libelle.replace(/^(Journal|Carnet)/, (m) => `Le ${m.toLowerCase()}`)}</h2>
+            <p className="muet petit">{infos.journal.fin}</p>
             <div className="indices">
               {pagesJournal.map((c) => (
                 <div key={c.id}>
@@ -191,7 +191,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
               <summary>Historique complet</summary>
               <ul className="journal" style={{ marginTop: 8 }}>
                 {vue.historique.map((ev, i) => {
-                  const t = texteEvenement(ev, nom, moi);
+                  const t = texteEvenement(ev, nom, moi, vue.affaire);
                   return t ? (
                     <li key={i} className={t.classe}>
                       {t.contenu}

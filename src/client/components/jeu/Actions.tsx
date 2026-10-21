@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
-import { nomElement } from '../../../shared/data/manoir';
+import { nomElement } from '../../../shared/data/catalogue';
 import {
-  ARMES,
-  LIEUX,
-  SUSPECTS,
+  elementsDe,
+  type AffaireId,
   type ArmeId,
   type ChampTriplet,
   type ElementId,
@@ -89,9 +88,9 @@ export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue
         Une hypothèse n'est pas une accusation : elle sert à obtenir des informations. Les marqueurs rappellent ce que vous savez déjà (« main », « publique »,
         « pièce », « vue », « indice »). Vous pouvez inclure vos propres cartes pour brouiller les pistes.
       </p>
-      <Selecteur titre="Le meurtrier présumé" ids={SUSPECTS} valeur={t.suspect} choisir={t.setSuspect} sources={sources} />
-      <Selecteur titre="Le lieu du crime" ids={LIEUX} valeur={t.lieu} choisir={t.setLieu} sources={sources} />
-      <Selecteur titre="L'arme" ids={ARMES} valeur={t.arme} choisir={t.setArme} sources={sources} />
+      <Selecteur titre="Le meurtrier présumé" ids={elementsDe(vue.affaire).suspects} valeur={t.suspect} choisir={t.setSuspect} sources={sources} />
+      <Selecteur titre="Le lieu du crime" ids={elementsDe(vue.affaire).lieux} valeur={t.lieu} choisir={t.setLieu} sources={sources} />
+      <Selecteur titre="L'arme" ids={elementsDe(vue.affaire).armes} valeur={t.arme} choisir={t.setArme} sources={sources} />
       <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
         <legend style={{ fontWeight: 600, marginBottom: 6 }}>
           Joueurs à interroger, dans l'ordre ({interroges.length}/{k})
@@ -115,7 +114,8 @@ export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue
   );
 }
 
-export function ModaleAccusation({ sources, onFermer, onErreur }: { sources: Sources; onFermer: () => void; onErreur: (e: string) => void }) {
+export function ModaleAccusation({ affaire, sources, onFermer, onErreur }: { affaire: AffaireId; sources: Sources; onFermer: () => void; onErreur: (e: string) => void }) {
+  const { suspects: SUSPECTS, lieux: LIEUX, armes: ARMES } = elementsDe(affaire);
   const t = useTriplet();
   const [confirmation, setConfirmation] = useState(false);
   const [envoi, setEnvoi] = useState(false);
@@ -415,7 +415,10 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
   const [champ, setChamp] = useState<ChampTriplet>('suspect');
   const [valeur, setValeur] = useState<ElementId | null>(null);
   const [envoi, setEnvoi] = useState(false);
-  const options = useMemo(() => (champ === 'suspect' ? SUSPECTS : champ === 'lieu' ? LIEUX : ARMES).filter((x) => x !== f.original[champ]) as ElementId[], [champ, f.original]);
+  const options = useMemo(() => {
+    const e = elementsDe(vue.affaire);
+    return (champ === 'suspect' ? e.suspects : champ === 'lieu' ? e.lieux : e.armes).filter((x) => x !== f.original[champ]) as ElementId[];
+  }, [champ, f.original, vue.affaire]);
 
   const envoyer = async (action: Parameters<typeof connexion.action>[0]) => {
     setEnvoi(true);

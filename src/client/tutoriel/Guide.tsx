@@ -2,7 +2,7 @@
 // (le reste de l'écran est assombri et bloqué) et avance toute seule quand l'action est faite.
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { nomElement } from '../../shared/data/manoir';
+import { nomElement } from '../../shared/data/catalogue';
 import type { ElementId, VueJoueur } from '../../shared/types';
 import { connexion, useConnexion } from '../connexion';
 import { CONFIG_PAR_DEFAUT } from '../../engine/config';

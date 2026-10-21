@@ -1,13 +1,40 @@
 // Types partagés entre le moteur, le serveur et le client.
 // Ce fichier ne contient AUCUNE donnée secrète : uniquement des formes de données.
 
-export const SUSPECTS = ['eleonore', 'victor', 'morel', 'marchand', 'camille', 'gabriel'] as const;
-export const LIEUX = ['bureau', 'bibliotheque', 'serre', 'cave', 'salle_a_manger', 'salon_musique'] as const;
-export const ARMES = ['chandelier', 'coupe_papier', 'revolver', 'dague', 'presse_papier', 'poison'] as const;
+// ---------------------------------------------------------------------------
+// Affaires : chaque histoire a ses six suspects, six lieux et six armes.
+// Les identifiants sont uniques toutes affaires confondues : un élément suffit
+// donc à retrouver son affaire.
+// ---------------------------------------------------------------------------
 
-export type SuspectId = (typeof SUSPECTS)[number];
-export type LieuId = (typeof LIEUX)[number];
-export type ArmeId = (typeof ARMES)[number];
+export const ELEMENTS_PAR_AFFAIRE = {
+  manoir: {
+    suspects: ['eleonore', 'victor', 'morel', 'marchand', 'camille', 'gabriel'],
+    lieux: ['bureau', 'bibliotheque', 'serre', 'cave', 'salle_a_manger', 'salon_musique'],
+    armes: ['chandelier', 'coupe_papier', 'revolver', 'dague', 'presse_papier', 'poison'],
+  },
+  train: {
+    suspects: ['irina', 'hector', 'mathilde', 'lucas', 'margaret', 'paul'],
+    lieux: ['compartiment', 'couloir', 'wagon_restaurant', 'voiture_salon', 'fourgon', 'plateforme'],
+    armes: ['cordelette', 'stylet', 'pistolet', 'somnifere', 'cle_molette', 'canne'],
+  },
+} as const;
+
+export type AffaireId = keyof typeof ELEMENTS_PAR_AFFAIRE;
+export const AFFAIRES_IDS = Object.keys(ELEMENTS_PAR_AFFAIRE) as AffaireId[];
+/** Affaire jouée quand rien n'est précisé (et pour les parties sauvegardées avant l'arrivée des autres affaires). */
+export const AFFAIRE_PAR_DEFAUT: AffaireId = 'manoir';
+
+type Elements<C extends 'suspects' | 'lieux' | 'armes'> = (typeof ELEMENTS_PAR_AFFAIRE)[AffaireId][C][number];
+
+/** Tous les suspects, lieux et armes de toutes les affaires (validation des messages, catégories). */
+export const SUSPECTS = AFFAIRES_IDS.flatMap((a) => ELEMENTS_PAR_AFFAIRE[a].suspects) as readonly Elements<'suspects'>[];
+export const LIEUX = AFFAIRES_IDS.flatMap((a) => ELEMENTS_PAR_AFFAIRE[a].lieux) as readonly Elements<'lieux'>[];
+export const ARMES = AFFAIRES_IDS.flatMap((a) => ELEMENTS_PAR_AFFAIRE[a].armes) as readonly Elements<'armes'>[];
+
+export type SuspectId = Elements<'suspects'>;
+export type LieuId = Elements<'lieux'>;
+export type ArmeId = Elements<'armes'>;
 export type ElementId = SuspectId | LieuId | ArmeId;
 export type Categorie = 'suspect' | 'lieu' | 'arme';
 
@@ -15,6 +42,26 @@ export type Categorie = 'suspect' | 'lieu' | 'arme';
 export const SANS_LIMITE = Number.MAX_SAFE_INTEGER;
 
 export const TOUS_ELEMENTS: readonly ElementId[] = [...SUSPECTS, ...LIEUX, ...ARMES];
+
+/** Les éléments d'une affaire, par catégorie et tous ensemble. */
+export function elementsDe(affaire: AffaireId) {
+  const e = ELEMENTS_PAR_AFFAIRE[affaire];
+  const suspects = e.suspects as readonly SuspectId[];
+  const lieux = e.lieux as readonly LieuId[];
+  const armes = e.armes as readonly ArmeId[];
+  return { suspects, lieux, armes, tous: [...suspects, ...lieux, ...armes] as readonly ElementId[] };
+}
+
+const AFFAIRE_DE_ELEMENT = new Map<string, AffaireId>(AFFAIRES_IDS.flatMap((a) => elementsDe(a).tous.map((e) => [e, a] as const)));
+
+/** Affaire à laquelle appartient un élément (null s'il n'existe pas). */
+export function affaireDe(id: string): AffaireId | null {
+  return AFFAIRE_DE_ELEMENT.get(id) ?? null;
+}
+
+export function estAffaire(x: unknown): x is AffaireId {
+  return typeof x === 'string' && (AFFAIRES_IDS as string[]).includes(x);
+}
 
 export function categorieDe(id: string): Categorie | null {
   if ((SUSPECTS as readonly string[]).includes(id)) return 'suspect';
@@ -245,6 +292,8 @@ export interface ResultatPartie {
 
 export interface VueJoueur {
   partieId: string;
+  /** Histoire jouée. */
+  affaire: AffaireId;
   moi: {
     id: string;
     nom: string;

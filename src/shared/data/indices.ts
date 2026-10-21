@@ -9,8 +9,11 @@
 // Le générateur ne retient une carte que si toutes ses règles sont vraies pour la
 // solution tirée au sort : un indice ne peut donc jamais exclure la vraie solution.
 
-import { ARMES, LIEUX, SUSPECTS, type ArmeId, type CarteIndice, type LieuId, type RegleIndice, type SuspectId } from '../types';
+import { elementsDe, type ArmeId, type CarteIndice, type LieuId, type RegleIndice, type SuspectId } from '../types';
+import { genererFauxIndices, seulsSuspects as seulsSuspectsParmi } from './fauxIndices';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from './manoir';
+
+const MANOIR = elementsDe('manoir');
 
 /**
  * Témoignage partiel : « si le crime a eu lieu là (ou avec cette arme), le coupable est l'un de
@@ -18,7 +21,7 @@ import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from './manoir';
  * l'indice n'écarte rien à lui seul et laisse toujours deux coupables possibles.
  */
 function seulsSuspects(pivot: LieuId | ArmeId, suspects: SuspectId[]): RegleIndice[] {
-  return SUSPECTS.filter((s) => !suspects.includes(s)).map((s) => ({ type: 'pasEnsemble', a: s, b: pivot }));
+  return seulsSuspectsParmi(MANOIR.suspects, pivot, suspects);
 }
 
 export const INDICES: CarteIndice[] = [
@@ -884,140 +887,20 @@ export const INDICES: CarteIndice[] = [
   },
 ];
 
-/** Date d'une page du journal (« Journal d'Armand — 12 octobre » -> 12), pour les trier. */
+/** Jour d'une page du carnet de la victime (« Journal d'Armand — 12 octobre » -> 12), pour les trier. */
 export function jourDuJournal(c: CarteIndice): number {
-  return Number(/(\d+) octobre/.exec(c.titre)?.[1] ?? 0);
+  return Number(/(\d+)(?:er)?\s+\p{L}+\s*$/u.exec(c.titre)?.[1] ?? 0);
 }
 
-/**
- * Modèles de FAUX indices « pas X avec Y » pour toutes les paires d'éléments.
- * Ils ne sont jamais tirés comme vrais indices : seule la ruse « Dossier trafiqué » les utilise,
- * quand aucun indice rédigé ne peut servir de faux pour la solution de la partie.
- */
-function modelesFaux(): CarteIndice[] {
-  const minuscule = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
-  const armeNom = (a: ArmeId) => ARMES_FICHES[a].article.replace(/^avec /, '');
-  const out: CarteIndice[] = [];
-  for (const s of SUSPECTS) {
-    const nom = PERSONNAGES[s].nom;
-    for (const l of LIEUX) {
-      const lieu = LIEUX_FICHES[l];
-      out.push({
-        id: `FAUX-${s}-${l}`,
-        titre: `Le témoin ${lieu.article.replace(/^dans /, 'de ')}`,
-        categorie: 'temoignage',
-        texte: `Un témoin assure que personne n'est entré ${lieu.article} pendant la soirée, et surtout pas ${nom}. Si ${nom} est coupable, le crime n'a pas eu lieu ${lieu.article}.`,
-        concerne: [s, l],
-        regles: [{ type: 'pasEnsemble', a: s, b: l }],
-        disponibleDesManche: 1,
-      });
-    }
-    for (const a of ARMES) {
-      out.push({
-        id: `FAUX-${s}-${a}`,
-        titre: `Les empreintes sur ${armeNom(a)}`,
-        categorie: 'trace',
-        texte: `Les seules empreintes relevées sur ${armeNom(a)} ne sont pas celles de ${nom}, et personne ne l'a vu s'en approcher. Si ${nom} est coupable, ce n'est pas ${ARMES_FICHES[a].article}.`,
-        concerne: [s, a],
-        regles: [{ type: 'pasEnsemble', a: s, b: a }],
-        disponibleDesManche: 1,
-      });
-    }
-  }
-  for (const l of LIEUX) {
-    const lieu = LIEUX_FICHES[l];
-    for (const a of ARMES) {
-      out.push({
-        id: `FAUX-${l}-${a}`,
-        titre: `Rien ${lieu.article}`,
-        categorie: 'trace',
-        texte: `Les enquêteurs ont passé ${minuscule(lieu.nom)} au peigne fin : rien n'indique que ${armeNom(a)} y ait servi. Si le crime a eu lieu ${lieu.article}, ce n'était pas ${ARMES_FICHES[a].article}.`,
-        concerne: [l, a],
-        regles: [{ type: 'pasEnsemble', a: l, b: a }],
-        disponibleDesManche: 1,
-      });
-    }
-  }
-  return [...out, ...modelesFauxJournal()];
-}
-
-/**
- * Fausses pages du journal d'Armand, une par paire d'éléments : un dossier « Journal » trafiqué
- * doit rester une page de journal, datée de la même semaine que les vraies.
- */
-function modelesFauxJournal(): CarteIndice[] {
-  const prenom: Record<SuspectId, string> = {
-    eleonore: 'Éléonore',
-    victor: 'Victor',
-    morel: 'Lucien',
-    marchand: 'Étienne',
-    camille: 'Mademoiselle Vasseur',
-    gabriel: 'Gabriel',
-  };
-  const out: CarteIndice[] = [];
-  let n = 0;
-  const page = (id: string, texte: string, concerne: CarteIndice['concerne'], regle: RegleIndice) =>
-    out.push({
-      id,
-      titre: `Journal d'Armand — ${11 + (n++ % 6)} octobre`,
-      categorie: 'journal',
-      texte,
-      concerne,
-      regles: [regle],
-      disponibleDesManche: 1,
-    });
-  for (const s of SUSPECTS) {
-    for (const l of LIEUX) {
-      const lieu = LIEUX_FICHES[l].article;
-      page(
-        `FAUX-J-${s}-${l}`,
-        `« ${prenom[s]} m'a juré ce soir de ne plus jamais mettre les pieds ${lieu}, pas même pour me faire plaisir. Pour une fois, je le crois : il y a des souvenirs qu'on ne veut pas réveiller. »`,
-        [s, l],
-        { type: 'pasEnsemble', a: s, b: l },
-      );
-    }
-    for (const a of ARMES) {
-      const arme = ARMES_FICHES[a].article.replace(/^avec /, '');
-      page(
-        `FAUX-J-${s}-${a}`,
-        `« J'ai mis ${arme} sous clé, et ${prenom[s]} ignore tout de la cachette. Voilà au moins une chose qui ne pourra pas se retourner contre moi dans cette maison. »`,
-        [s, a],
-        { type: 'pasEnsemble', a: s, b: a },
-      );
-    }
-  }
-  for (const l of LIEUX) {
-    const lieu = LIEUX_FICHES[l].article;
-    for (const a of ARMES) {
-      const arme = ARMES_FICHES[a].article.replace(/^avec /, '');
-      page(
-        `FAUX-J-${l}-${a}`,
-        `« Ce matin, j'ai fait retirer ${arme} : il n'y a plus rien de tel ${lieu}, et je suis le seul à connaître sa cachette. Les domestiques chuchotent ; qu'ils chuchotent. »`,
-        [l, a],
-        { type: 'pasEnsemble', a: l, b: a },
-      );
-    }
-  }
-  return out;
-}
-
-export const FAUX_INDICES: CarteIndice[] = modelesFaux();
-
-export const INDICES_PAR_ID: Record<string, CarteIndice> = Object.fromEntries([...INDICES, ...FAUX_INDICES].map((c) => [c.id, c]));
-
-export const LIBELLES_CATEGORIE_INDICE: Record<CarteIndice['categorie'], string> = {
-  temoignage: 'Témoignage',
-  objet: 'Objet',
-  horaire: 'Horaire',
-  deplacement: 'Déplacement',
-  document: 'Document',
-  trace: 'Trace',
-  contradiction: 'Contradiction',
-  journal: "Journal d'Armand",
-};
-
-/** Libellés des dossiers d'archives (indices + pièces à conviction). */
-export const LIBELLES_CATEGORIE_DOSSIER: Record<CarteIndice['categorie'] | 'piece', string> = {
-  ...LIBELLES_CATEGORIE_INDICE,
-  piece: 'Pièce à conviction',
-};
+/** Faux indices de la ruse « Dossier trafiqué » (voir fauxIndices.ts). Identifiants inchangés pour les parties sauvegardées. */
+export const FAUX_INDICES: CarteIndice[] = genererFauxIndices(MANOIR, { personnages: PERSONNAGES, lieux: LIEUX_FICHES, armes: ARMES_FICHES }, {
+  prefixe: 'FAUX',
+  titrePage: (n) => `Journal d'Armand — ${11 + n} octobre`,
+  prenoms: { eleonore: 'Éléonore', victor: 'Victor', morel: 'Lucien', marchand: 'Étienne', camille: 'Mademoiselle Vasseur', gabriel: 'Gabriel' },
+  pageSuspectLieu: (prenom, lieu) =>
+    `« ${prenom} m'a juré ce soir de ne plus jamais mettre les pieds ${lieu}, pas même pour me faire plaisir. Pour une fois, je le crois : il y a des souvenirs qu'on ne veut pas réveiller. »`,
+  pageSuspectArme: (prenom, arme) =>
+    `« J'ai mis ${arme} sous clé, et ${prenom} ignore tout de la cachette. Voilà au moins une chose qui ne pourra pas se retourner contre moi dans cette maison. »`,
+  pageLieuArme: (lieu, arme) =>
+    `« Ce matin, j'ai fait retirer ${arme} : il n'y a plus rien de tel ${lieu}, et je suis le seul à connaître sa cachette. Les domestiques chuchotent ; qu'ils chuchotent. »`,
+});

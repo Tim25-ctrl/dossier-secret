@@ -19,8 +19,12 @@
 ```
 src/
   shared/            Code partagé (aucun secret) : types, données de l'affaire, logique des indices, protocole
-    data/manoir.ts     Personnages, lieux, armes (fiches complètes)
-    data/indices.ts    79 cartes d'indice (règles logiques, faits chronologiques, témoignages partiels, journal d'Armand) + modèles de faux indices
+    data/catalogue.ts  Catalogue des affaires : fiches et indices de toutes les histoires, réunis par identifiant
+    data/manoir.ts     Le Manoir des Brumes : présentation, personnages, lieux, armes
+    data/indices.ts    Ses 79 cartes d'indice (règles logiques, faits chronologiques, témoignages partiels, journal d'Armand)
+    data/train.ts      Le train de nuit (l'Étoile du Simplon) : présentation, voyageurs, lieux, armes
+    data/indicesTrain.ts  Ses 44 cartes d'indice (relationnelles, témoignages partiels, carnet d'Octave)
+    data/fauxIndices.ts   Modèles de faux indices (ruse « Dossier trafiqué »), communs à toutes les affaires
     logique.ts         Évaluation des règles, énumération des 216 combinaisons, conflits horaires
     types.ts           Types du jeu (actions, événements publics, journal privé, vue d'un joueur)
     protocole.ts       Messages WebSocket client <-> serveur
@@ -65,6 +69,10 @@ scripts/simulate.ts  Simulations d'équilibrage
 ## Hypothèse falsifiée : deux versions
 
 Le moteur conserve `original` (jamais modifiée, utilisée pour calculer les cartes à montrer) et `publique` (diffusée aux autres). L'auteur voit uniquement son original : rien dans ses données ne lui indique que les autres ont vu une version différente. Limite inhérente à la règle : comme les cartes à montrer sont calculées sur l'original, un joueur interrogé peut se voir proposer une carte absente de la version annoncée.
+
+## Plusieurs affaires
+
+Chaque affaire (« histoire ») a ses six suspects, six lieux et six armes, déclarés dans `ELEMENTS_PAR_AFFAIRE` (`src/shared/types.ts`). Les identifiants des éléments et des indices sont **uniques toutes affaires confondues** : un élément ou un indice suffit à retrouver son affaire, et les fiches peuvent être cherchées sans savoir d'où elles viennent. La partie mémorise son affaire (`config.affaire`, « manoir » par défaut, y compris pour les parties sauvegardées avant l'arrivée du train) ; le moteur, les bots et l'interface n'utilisent que les éléments et les indices de cette affaire, et le serveur refuse une hypothèse, une accusation, une falsification ou une marque de carnet portant sur une autre histoire. La vue envoyée au joueur contient le nom de l'affaire (`vue.affaire`), jamais le dossier secret.
 
 ## Génération des affaires
 

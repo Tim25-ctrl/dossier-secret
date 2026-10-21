@@ -2,7 +2,7 @@
 // Dessinées à la main en SVG pour rester gratuites, nettes et légères.
 
 import type { ReactNode } from 'react';
-import { PERSONNAGES } from '../../shared/data/manoir';
+import { PERSONNAGES } from '../../shared/data/catalogue';
 import { categorieDe, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../shared/types';
 
 const TRAIT = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.4, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
@@ -54,6 +54,57 @@ function Portrait({ id }: { id: SuspectId }) {
         <path d="M14 21h36" stroke="#1a1410" strokeWidth="3" strokeLinecap="round" />
         <path d="M22 21c0-8 20-8 20 0z" fill="#1a1410" />
         <path d="M22 42c5 3 15 3 20 0l-2 6c-5 2-11 2-16 0z" fill="#8a3b3b" />
+      </>
+    ),
+    // --- Le train de nuit ---
+    irina: (
+      <>
+        <path d="M21 24c0-10 22-10 22 0c-4-4-18-4-22 0z" fill="#1a1410" />
+        <circle cx="32" cy="12" r="4.5" fill="#1a1410" />
+        <path d="M25 17l3-4 4 3 4-3 3 4" stroke="#e2c486" strokeWidth="1.6" fill="none" strokeLinejoin="round" />
+        <path d="M27 46c3 2 7 2 10 0" stroke="#f3ead6" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      </>
+    ),
+    hector: (
+      <>
+        <path d="M22 18h20v-4c0-4-20-4-20 0z" fill="#3b4a2a" />
+        <path d="M19 18h26" stroke="#1a1410" strokeWidth="2.6" strokeLinecap="round" />
+        <path d="M23 31c3-3 6-2 9 0 3-2 6-3 9 0-3 2-6 1-9-1-3 2-6 3-9 1z" fill="#f3ead6" />
+        <path d="M38 50h4v3h-4z" fill="#b65c6b" />
+        <circle cx="40" cy="55.5" r="2.2" fill="#e2c486" />
+      </>
+    ),
+    mathilde: (
+      <>
+        <path d="M21 23c1-10 21-10 22 0c-5-4-17-4-22 0z" fill="#5a4630" />
+        <circle cx="42" cy="17" r="3.4" fill="#5a4630" />
+        <path d="M23 45l9 5 9-5" stroke="#f3ead6" strokeWidth="2.2" fill="none" strokeLinejoin="round" />
+        <circle cx="32" cy="51" r="1.8" fill="#c9a14a" />
+      </>
+    ),
+    lucas: (
+      <>
+        <path d="M22 19c0-8 20-8 20 0z" fill="#5a3b22" />
+        <path d="M20 19h25" stroke="#1a1410" strokeWidth="3" strokeLinecap="round" />
+        <rect x="29" y="13" width="6" height="3" rx="0.8" fill="#e2c486" />
+        <circle cx="32" cy="52" r="1.4" fill="#e2c486" />
+        <circle cx="32" cy="57.5" r="1.4" fill="#e2c486" />
+      </>
+    ),
+    margaret: (
+      <>
+        <path d="M20 29c-1-12 6-17 12-17s13 5 12 17c-2-5-4-8-6-9-4 2-9 2-12 0-2 1-4 4-6 9z" fill="#c98b3a" />
+        <path d="M22 18h20" stroke="#1a1410" strokeWidth="2" />
+        <path d="M40 18c2-6 6-9 9-9-1 4-4 7-9 9z" fill="#f3ead6" />
+        <path d="M25 44c4 4 10 4 14 0" stroke="#f3ead6" strokeWidth="1.6" strokeDasharray="0.5 3.2" fill="none" strokeLinecap="round" />
+      </>
+    ),
+    paul: (
+      <>
+        <ellipse cx="31" cy="16.5" rx="12" ry="4.5" fill="#1a1410" />
+        <circle cx="31" cy="11.5" r="1.3" fill="#1a1410" />
+        <path d="M36 33h7v3.5c0 2.5-3.5 2.5-3.5 0" stroke="#5a3b22" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M27 47l5 2 5-2v5l-5-2-5 2z" fill="#8a3b3b" />
       </>
     ),
   };
@@ -112,6 +163,50 @@ const DESSINS_LIEUX: Record<LieuId, ReactNode> = {
       <circle cx="37" cy="24" r="3" {...TRAIT} />
     </>
   ),
+  // --- Le train de nuit ---
+  compartiment: (
+    <>
+      <rect x="16" y="10" width="32" height="20" rx="5" {...TRAIT} />
+      <path d="M10 40h44v8H10zM14 48v6M50 48v6" {...TRAIT} />
+      <path d="M16 40c0-5 9-5 9 0" {...TRAIT} />
+      <path d="M24 16l6 6M34 14l8 8" {...TRAIT} />
+    </>
+  ),
+  couloir: (
+    <>
+      <path d="M8 8l16 16v16L8 56M56 8L40 24v16l16 16M24 24h16M24 40h16" {...TRAIT} />
+      <path d="M12 20v8M52 20v8" {...TRAIT} />
+      <circle cx="32" cy="16" r="2" fill="currentColor" />
+    </>
+  ),
+  wagon_restaurant: (
+    <>
+      <path d="M10 40h44M18 40v14M46 40v14" {...TRAIT} />
+      <path d="M26 40v-8M20 32h12l-3-8h-6z" {...TRAIT} />
+      <path d="M40 28c0 5 5 5 5 0v-4h-5zM42.5 33v7" {...TRAIT} />
+    </>
+  ),
+  voiture_salon: (
+    <>
+      <path d="M14 54V40c0-4 4-6 8-6h20c4 0 8 2 8 6v14M14 46h36M18 54v-8M46 54v-8" {...TRAIT} />
+      <path d="M32 6v8M23 14h18l-3 6H26z" {...TRAIT} />
+      <path d="M26 20v3M32 20v3M38 20v3" {...TRAIT} />
+    </>
+  ),
+  fourgon: (
+    <>
+      <rect x="8" y="40" width="24" height="14" rx="2" {...TRAIT} />
+      <rect x="34" y="32" width="22" height="22" rx="2" {...TRAIT} />
+      <rect x="12" y="24" width="18" height="16" rx="2" {...TRAIT} />
+      <path d="M20 40v14M45 32v22M21 24v16" {...TRAIT} />
+    </>
+  ),
+  plateforme: (
+    <>
+      <path d="M6 32l12-16 9 10 8-8 23 14" {...TRAIT} />
+      <path d="M8 44h48M8 54h48M12 44v10M22 44v10M32 44v10M42 44v10M52 44v10" {...TRAIT} />
+    </>
+  ),
 };
 
 const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
@@ -154,6 +249,49 @@ const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
       <path d="M26 8h12M28 8v12L16 44c-3 7 2 12 8 12h16c6 0 11-5 8-12L36 20V8" {...TRAIT} />
       <path d="M20 40h24" {...TRAIT} />
       <path d="M28 46l8 6M36 46l-8 6" {...TRAIT} />
+    </>
+  ),
+  // --- Le train de nuit ---
+  cordelette: (
+    <>
+      <path d="M10 14c8 0 11 8 20 8s12-8 20-8" {...TRAIT} />
+      <path d="M30 22v12" {...TRAIT} />
+      <path d="M26 34h8l3 18H23z" {...TRAIT} />
+      <path d="M27.5 40v10M32.5 40v10" {...TRAIT} />
+    </>
+  ),
+  stylet: (
+    <>
+      <path d="M32 6l3.5 32h-7z" {...TRAIT} />
+      <path d="M22 38h20M32 38v12" {...TRAIT} />
+      <circle cx="32" cy="54" r="3.5" {...TRAIT} />
+    </>
+  ),
+  pistolet: (
+    <>
+      <path d="M12 22h32v9H31l-2 4h-5l-3 15h-9l3-15c1-4 0-7-3-8z" {...TRAIT} />
+      <path d="M44 22h7v4h-7" {...TRAIT} />
+      <path d="M24 35c2 2 5 2 5 0" {...TRAIT} />
+    </>
+  ),
+  somnifere: (
+    <>
+      <path d="M26 22h12v4c4 2 6 6 6 10v14c0 3-2 5-5 5H25c-3 0-5-2-5-5V36c0-4 2-8 6-10z" {...TRAIT} />
+      <path d="M28 22v-7c0-4 8-4 8 0v7" {...TRAIT} />
+      <path d="M30 48a4 4 0 1 0 4-6 3 3 0 0 1-4 6z" fill="currentColor" />
+    </>
+  ),
+  cle_molette: (
+    <>
+      <path d="M12 48l22-22M17 53l22-22M12 48l5 5" {...TRAIT} />
+      <path d="M34 26c-3-6 1-14 9-15l-5 7 3 5 6 1 5-6c2 8-6 15-13 13" {...TRAIT} />
+    </>
+  ),
+  canne: (
+    <>
+      <path d="M35 19L21 57" {...TRAIT} />
+      <circle cx="38" cy="13" r="7" {...TRAIT} />
+      <path d="M35 12h.5M41 12h.5M35.5 16c1.5 1.2 3.5 1.2 5 0" {...TRAIT} />
     </>
   ),
 };

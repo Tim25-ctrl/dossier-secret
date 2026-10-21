@@ -3,9 +3,8 @@
 // explicitement copié ici reste sur le serveur (solution, mains des autres,
 // rôle des autres, versions originales des hypothèses des autres, journal d'audit…).
 
-import { INDICES_PAR_ID } from '../shared/data/indices';
-import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../shared/data/manoir';
-import { ceQueLIndiceEcarte, combinaisonsPossibles } from '../shared/logique';
+import { AFFAIRES, ARMES_FICHES, INDICES_PAR_ID, LIEUX_FICHES, PERSONNAGES } from '../shared/data/catalogue';
+import { ceQueLIndiceEcarte, combinaisonsPossibles, tripletsDe } from '../shared/logique';
 import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
 import { coutRuse, nbInterroges, pouvoirsPour, rusesPour } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
@@ -37,6 +36,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
 
   const vue: VueJoueur = {
     partieId: etat.id,
+    affaire: etat.config.affaire,
     moi: {
       id: moi.id,
       nom: moi.nom,
@@ -151,20 +151,19 @@ export function resultatPartie(etat: EtatPartie): ResultatPartie {
   const arme = ARMES_FICHES[solution.arme];
   const complice = etat.joueurs[etat.complice];
 
+  const infos = AFFAIRES[etat.config.affaire];
   const explication = [
-    `${perso.nom}, ${perso.titre}, a tué Armand de Valombre ${lieu.article}, ${arme.article}, entre 22 h 50 et 23 h 10.`,
+    `${perso.nom}, ${perso.titre}, a tué ${infos.victime} ${lieu.article}, ${arme.article}, ${infos.heureCrime}.`,
     perso.aveu,
     `${lieu.recit} ${arme.recit}`,
-    solution.lieu === 'bureau'
-      ? "Le corps n'a pas été déplacé : Armand est mort là où on l'a trouvé."
-      : "Le corps a ensuite été transporté jusqu'au bureau pour égarer les soupçons.",
+    solution.lieu === infos.lieuDecouverte ? infos.corpsNonDeplace : infos.corpsDeplace,
     `Le complice était ${complice.nom} : il connaissait le nom du coupable depuis le début, mais ignorait le lieu et l'arme.`,
   ];
 
   // Indices décisifs : ceux qui éliminent le plus de fausses pistes.
   const indices = tousLesIndicesDeLAffaire(etat.affaire);
   const indicesDecisifs = indices
-    .map((c) => ({ c, elimine: 216 - combinaisonsPossibles([c]).length }))
+    .map((c) => ({ c, elimine: tripletsDe(etat.config.affaire).length - combinaisonsPossibles([c], [], etat.config.affaire).length }))
     .sort((a, b) => b.elimine - a.elimine)
     .slice(0, 4)
     .map(({ c }) => ({ indice: c.id, explication: ceQueLIndiceEcarte(c).join(' · ') }));

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { INDICES_PAR_ID, LIBELLES_CATEGORIE_INDICE } from '../../shared/data/indices';
-import { nomCourt, nomElement } from '../../shared/data/manoir';
+import { INDICES_PAR_ID, affaireDeCarte, libelleCategorie } from '../../shared/data/catalogue';
+import { nomCourt, nomElement } from '../../shared/data/catalogue';
 import { ceQueLIndiceEcarte, precision } from '../../shared/logique';
 import { categorieDe, type CarteIndice as CarteIndiceType, type ElementId, type Triplet } from '../../shared/types';
 import { Embleme, Icone } from './Emblemes';
@@ -76,7 +76,7 @@ export function CarteIndice({ id, dossier, ouvert = true, categorie }: { id: str
   return (
     <article className={affichee === 'journal' ? 'indice page-journal' : 'indice'}>
       <div className="meta">
-        <span>{LIBELLES_CATEGORIE_INDICE[affichee]}</span>
+        <span>{libelleCategorie(affichee, affaireDeCarte(c))}</span>
         {dossier !== undefined && <span>Dossier n° {dossier}</span>}
         <span>Précision {precision(c)}</span>
       </div>

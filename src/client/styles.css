@@ -2228,3 +2228,18 @@ button.carte:hover:not(:disabled) {
   margin-left: auto;
   margin-right: auto;
 }
+
+/* Accueil : liste des affaires */
+.liste-affaires {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+  color: var(--ivoire-doux);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 560px;
+}
+.liste-affaires strong {
+  color: var(--or-clair);
+}

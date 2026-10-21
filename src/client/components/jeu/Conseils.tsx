@@ -2,7 +2,7 @@
 // chaque situation se présente, avec « Compris ». Ce qui a déjà été vu ne revient pas.
 
 import type { ReactNode } from 'react';
-import { nomElement } from '../../../shared/data/manoir';
+import { nomElement } from '../../../shared/data/catalogue';
 import type { VueJoueur } from '../../../shared/types';
 import type { Preferences } from '../../preferences';
 

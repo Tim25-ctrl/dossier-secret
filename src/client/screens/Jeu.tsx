@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../shared/data/indices';
-import { nomCourt, nomElement } from '../../shared/data/manoir';
+import { INDICES_PAR_ID, libelleCategorie } from '../../shared/data/catalogue';
+import { nomCourt, nomElement } from '../../shared/data/catalogue';
 import type { EtatClient } from '../../shared/protocole';
 import { SANS_LIMITE, categorieDe, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
@@ -352,7 +352,7 @@ export function Jeu({
       </div>
 
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
-      {modale === 'accusation' && <ModaleAccusation sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
+      {modale === 'accusation' && <ModaleAccusation affaire={vue.affaire} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}
       {doitRepondre && !vue.pause && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {fenetrePause && (
@@ -531,7 +531,7 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
             <div>
               <h4 style={{ margin: 0 }}>{a.categorie === 'piece' ? 'Pièce à conviction' : 'Dossier scellé'} n° {a.dossier}</h4>
               <span className="muet petit">
-                {LIBELLES_CATEGORIE_DOSSIER[a.categorie]} · {a.disponible ? 'consultable' : `s'ouvre à la manche ${a.disponibleDesManche}`}
+                {libelleCategorie(a.categorie, vue.affaire)} · {a.disponible ? 'consultable' : `s'ouvre à la manche ${a.disponibleDesManche}`}
               </span>
             </div>
             <span className="espace" />
@@ -576,7 +576,7 @@ function SceauBrise({ anime }: { anime: boolean }) {
 
 function Journal({ vue, nom, limite }: { vue: VueJoueur; nom: Noms; limite?: number }) {
   const lignes = vue.historique
-    .map((ev, i) => ({ i, r: texteEvenement(ev, nom, vue.moi.id) }))
+    .map((ev, i) => ({ i, r: texteEvenement(ev, nom, vue.moi.id, vue.affaire) }))
     .filter((x) => x.r !== null)
     .reverse();
   const affichees = limite ? lignes.slice(0, limite) : lignes;

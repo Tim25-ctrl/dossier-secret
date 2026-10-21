@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { CONFIG_PAR_DEFAUT } from '../../../engine/config';
-import { INDICES_PAR_ID, LIBELLES_CATEGORIE_DOSSIER } from '../../../shared/data/indices';
-import { nomElement } from '../../../shared/data/manoir';
-import type { EntreePrivee, EvenementPublic } from '../../../shared/types';
+import { INDICES_PAR_ID, libelleCategorie } from '../../../shared/data/catalogue';
+import { nomElement } from '../../../shared/data/catalogue';
+import { AFFAIRE_PAR_DEFAUT, type AffaireId, type EntreePrivee, type EvenementPublic } from '../../../shared/types';
 import { Carte, TripletVue } from '../Commun';
 
 export type Noms = (id: string) => string;
@@ -17,6 +17,7 @@ export function texteEvenement(
   ev: EvenementPublic,
   nom: Noms,
   moi: string,
+  affaire: AffaireId = AFFAIRE_PAR_DEFAUT,
 ): { contenu: ReactNode; classe?: string } | null {
   const qui = (id: string) => (id === moi ? 'Vous' : nom(id));
   switch (ev.type) {
@@ -60,7 +61,7 @@ export function texteEvenement(
     case 'fin_hypothese':
       return ev.montreePar === null ? { contenu: "Aucune carte n'a été montrée." } : null;
     case 'archive':
-      return { contenu: `${qui(ev.joueur)} ${ev.joueur === moi ? 'consultez' : 'consulte'} le dossier d'archives n° ${ev.dossier} (${LIBELLES_CATEGORIE_DOSSIER[ev.categorie]}).` };
+      return { contenu: `${qui(ev.joueur)} ${ev.joueur === moi ? 'consultez' : 'consulte'} le dossier d'archives n° ${ev.dossier} (${libelleCategorie(ev.categorie, affaire)}).` };
     case 'indice_public':
       return { classe: 'important', contenu: `Nouvel indice versé au dossier public : « ${INDICES_PAR_ID[ev.indice]?.titre} ».` };
     case 'accusation':

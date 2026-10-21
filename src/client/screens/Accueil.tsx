@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { jouer } from '../sons';
-import { AFFAIRE } from '../../shared/data/manoir';
+import { AFFAIRES } from '../../shared/data/catalogue';
+import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, type AffaireId } from '../../shared/types';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
 import { libelleDuree } from './Lobby';
@@ -74,15 +75,21 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
       <div className="logo">
         <Sceau taille={104} />
         <h1>Dossier Secret</h1>
-        <div className="sous-titre">{AFFAIRE.titre}</div>
+        <div className="sous-titre">Enquête et bluff entre amis</div>
       </div>
 
       {mode === 'menu' && (
         <>
           <p style={{ maxWidth: 560, color: 'var(--ivoire-doux)' }}>
-            Un collectionneur assassiné, six suspects, un manoir coupé du monde par la tempête. Menez l'enquête entre amis… mais méfiez-vous : l'un de vous protège
-            le meurtrier.
+            Un crime, six suspects, un huis clos coupé du monde. Menez l'enquête entre amis… mais méfiez-vous : l'un de vous protège le meurtrier.
           </p>
+          <ul className="liste-affaires" aria-label="Les affaires">
+            {AFFAIRES_IDS.map((a) => (
+              <li key={a}>
+                <strong>{AFFAIRES[a].court}</strong> — {AFFAIRES[a].accroche}
+              </li>
+            ))}
+          </ul>
           <p className="muet petit">3 à 6 joueurs · 15 à 30 minutes · navigateur, tablette ou smartphone</p>
           <div className="accueil-actions" style={{ marginTop: 10 }}>
             {derniere && (
@@ -261,6 +268,7 @@ function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPref
   const [bots, setBots] = useState(3);
   const [duree, setDuree] = useState<number | null>(null);
   const [mode, setMode] = useState<'ruse' | 'classique'>('ruse');
+  const [affaire, setAffaire] = useState<AffaireId>(AFFAIRE_PAR_DEFAUT);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const lancer = async (e: FormEvent) => {
@@ -269,7 +277,7 @@ function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPref
     setEnvoi(true);
     setErreur(null);
     majPrefs({ pseudo: pseudo.trim() });
-    const r = await connexion.solo(pseudo, bots, duree, mode);
+    const r = await connexion.solo(pseudo, bots, duree, mode, affaire);
     setEnvoi(false);
     if (!r.ok) setErreur(r.erreur);
   };
@@ -282,6 +290,16 @@ function ModaleSolo({ prefs, majPrefs, onFermer }: { prefs: Preferences; majPref
         <div className="champ">
           <label htmlFor="pseudo-solo">Votre pseudonyme</label>
           <input id="pseudo-solo" value={pseudo} maxLength={PSEUDO_MAX} onChange={(e) => setPseudo(e.target.value)} autoComplete="nickname" />
+        </div>
+        <div className="champ">
+          <label htmlFor="affaire-solo">Affaire</label>
+          <select id="affaire-solo" value={affaire} onChange={(e) => setAffaire(e.target.value as AffaireId)}>
+            {AFFAIRES_IDS.map((a) => (
+              <option key={a} value={a}>
+                {AFFAIRES[a].court}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="champ">
           <label htmlFor="nb-bots">Adversaires</label>

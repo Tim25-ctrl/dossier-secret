@@ -168,7 +168,9 @@ describe('Partie en ligne : sécurité et synchronisation', () => {
       expect(v.moi.main).toEqual(etatServeur.joueurs[id].main);
       expect(brut).not.toContain('"solution"');
       expect(brut).not.toContain('"audit"');
-      expect(brut).not.toContain('"affaire"');
+      // Le dossier secret (solution, indices tirés) n'est jamais envoyé ; seul le nom de l'histoire l'est ("affaire":"manoir").
+      expect(brut).not.toMatch(/"affaire":{/);
+      expect(brut).not.toContain('"indicesPublicsDepart"');
       expect(brut).not.toContain('jetonHash');
       if (id === etatServeur.complice) {
         expect(v.moi.role).toBe('complice');

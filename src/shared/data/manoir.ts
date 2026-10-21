@@ -2,12 +2,15 @@
 // Données publiques (fiches du dossier). La solution n'est JAMAIS ici :
 // elle est tirée au sort par le serveur au début de chaque partie.
 
-import type { ArmeId, ElementId, LieuId, SuspectId } from '../types';
+import type { ArmesDe, FicheArme, FicheLieu, FichePersonnage, InfosAffaire, LieuxDe, SuspectsDe } from './modeles';
 
-export const AFFAIRE = {
-  id: 'manoir-des-brumes',
+export const AFFAIRE: InfosAffaire = {
+  id: 'manoir',
   titre: "L'affaire du Manoir des Brumes",
+  court: 'Le Manoir des Brumes',
+  accroche: 'Un collectionneur assassiné, six suspects, un manoir coupé du monde par la tempête.',
   victime: 'Armand de Valombre',
+  victimeCourt: 'Armand',
   resume: [
     'Le 17 octobre, à 23 h 17, Armand de Valombre, riche collectionneur, est retrouvé mort dans son bureau. Une violente tempête isole son vieux manoir du reste du monde.',
     "Six personnes se trouvaient au manoir ce soir-là. Toutes avaient une raison de lui en vouloir. Toutes cachent un secret. Plusieurs ont menti sur leurs déplacements.",
@@ -15,25 +18,19 @@ export const AFFAIRE = {
     "Parmi vous se cache un complice : il connaît le nom du meurtrier et fera tout pour que l'enquête échoue.",
   ],
   fenetreCrime: { de: '22:50', a: '23:10' },
+  heureCrime: 'entre 22 h 50 et 23 h 10',
+  lieuDecouverte: 'bureau',
+  corpsNonDeplace: "Le corps n'a pas été déplacé : Armand est mort là où on l'a trouvé.",
+  corpsDeplace: "Le corps a ensuite été transporté jusqu'au bureau pour égarer les soupçons.",
+  journal: {
+    libelle: "Journal d'Armand",
+    presentation:
+      'Des pages du journal intime de la victime, datées du 11 au 17 octobre, sont glissées dans les dossiers. Chacune raconte une dispute avec un proche… et écarte une combinaison. À la fin de la partie, toute sa dernière semaine est révélée.',
+    fin: "La dernière semaine de la victime, telle qu'on peut la reconstituer maintenant que l'affaire est close. Les pages lues pendant la partie sont signalées.",
+  },
 };
 
-export interface FichePersonnage {
-  id: SuspectId;
-  nom: string;
-  titre: string;
-  description: string;
-  histoire: string;
-  relation: string;
-  mobile: string;
-  secret: string;
-  alibi: string;
-  connaissances: string;
-  /** Phrase utilisée dans l'explication finale lorsque ce personnage est coupable. */
-  aveu: string;
-  couleur: string;
-}
-
-export const PERSONNAGES: Record<SuspectId, FichePersonnage> = {
+export const PERSONNAGES: Record<SuspectsDe<'manoir'>, FichePersonnage> = {
   eleonore: {
     id: 'eleonore',
     nom: 'Éléonore de Valombre',
@@ -67,6 +64,7 @@ export const PERSONNAGES: Record<SuspectId, FichePersonnage> = {
   morel: {
     id: 'morel',
     nom: 'Docteur Lucien Morel',
+    court: 'Dr Morel',
     titre: 'le médecin',
     description: 'Médecin de famille réservé, passionné de botanique, il vient au manoir chaque semaine.',
     histoire:
@@ -126,17 +124,7 @@ export const PERSONNAGES: Record<SuspectId, FichePersonnage> = {
   },
 };
 
-export interface FicheLieu {
-  id: LieuId;
-  nom: string;
-  article: string; // « dans le bureau »
-  description: string;
-  details: string[];
-  recit: string;
-  icone: string;
-}
-
-export const LIEUX_FICHES: Record<LieuId, FicheLieu> = {
+export const LIEUX_FICHES: Record<LieuxDe<'manoir'>, FicheLieu> = {
   bureau: {
     id: 'bureau',
     nom: 'Le bureau',
@@ -193,17 +181,7 @@ export const LIEUX_FICHES: Record<LieuId, FicheLieu> = {
   },
 };
 
-export interface FicheArme {
-  id: ArmeId;
-  nom: string;
-  article: string; // « avec le chandelier en bronze »
-  description: string;
-  caracteristiques: string[];
-  recit: string;
-  icone: string;
-}
-
-export const ARMES_FICHES: Record<ArmeId, FicheArme> = {
+export const ARMES_FICHES: Record<ArmesDe<'manoir'>, FicheArme> = {
   chandelier: {
     id: 'chandelier',
     nom: 'Chandelier en bronze',
@@ -260,19 +238,3 @@ export const ARMES_FICHES: Record<ArmeId, FicheArme> = {
   },
 };
 
-export function nomElement(id: ElementId): string {
-  if (id in PERSONNAGES) return PERSONNAGES[id as SuspectId].nom;
-  if (id in LIEUX_FICHES) return LIEUX_FICHES[id as LieuId].nom;
-  if (id in ARMES_FICHES) return ARMES_FICHES[id as ArmeId].nom;
-  return id;
-}
-
-/** Nom court (prénom pour les personnages, sans article pour les lieux). */
-export function nomCourt(id: ElementId): string {
-  if (id in PERSONNAGES) {
-    const p = PERSONNAGES[id as SuspectId];
-    return id === 'morel' ? 'Dr Morel' : p.nom.split(' ')[0];
-  }
-  if (id in LIEUX_FICHES) return LIEUX_FICHES[id as LieuId].nom.replace(/^(Le |La |L')/, '');
-  return nomElement(id);
-}

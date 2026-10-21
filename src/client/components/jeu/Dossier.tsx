@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/manoir';
-import { ARMES, LIEUX, SUSPECTS, categorieDe, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../../shared/types';
+import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/catalogue';
+import { categorieDe, elementsDe, type AffaireId, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../../shared/types';
 import { Embleme } from '../Emblemes';
 
 /** Contenu de la fiche d'un élément : le même dans les règles et sur la carte du carnet. */
@@ -92,9 +92,10 @@ export function CarteDeJeu({ id }: { id: ElementId }) {
   );
 }
 
-export function Dossier() {
+export function Dossier({ affaire }: { affaire: AffaireId }) {
   const [section, setSection] = useState<'suspects' | 'lieux' | 'armes'>('suspects');
-  const ids: readonly ElementId[] = section === 'suspects' ? SUSPECTS : section === 'lieux' ? LIEUX : ARMES;
+  const e = elementsDe(affaire);
+  const ids: readonly ElementId[] = section === 'suspects' ? e.suspects : section === 'lieux' ? e.lieux : e.armes;
   return (
     <div>
       <div className="ligne" role="tablist" aria-label="Sections du dossier" style={{ marginBottom: 12 }}>

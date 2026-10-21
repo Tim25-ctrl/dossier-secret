@@ -3,7 +3,7 @@
 // d'équilibrage. Ses décisions sont une approximation grossière d'un humain.
 
 import { pick, shuffle, type Rng } from '../engine/rng';
-import { SUSPECTS, elementsDuTriplet, type ActionJeu, type SuspectId, type Triplet, type VueJoueur } from '../shared/types';
+import { elementsDe, elementsDuTriplet, type ActionJeu, type SuspectId, type Triplet, type VueJoueur } from '../shared/types';
 import { candidatsComplice, deduireRobuste, deduireSimple, type Connaissance } from './deduction';
 
 export interface ProfilBot {
@@ -75,6 +75,7 @@ export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL
 function decisionFalsification(vue: VueJoueur, original: Triplet, rng: Rng, profil: ProfilBot): ActionJeu {
   const meurtrier = vue.moi.meurtrier!;
   if (!profil.pouvoirs) return { type: 'passerFalsification' };
+  const SUSPECTS = elementsDe(vue.affaire).suspects;
   const innocents = SUSPECTS.filter((s) => s !== meurtrier && s !== original.suspect);
   if (original.suspect === meurtrier) return { type: 'falsifier', champ: 'suspect', valeur: pick(rng, innocents) };
   if (rng.int(1000) < profil.falsificationOpportuniste * 1000)
@@ -140,8 +141,9 @@ function tourComplice(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
   if (peutHypothese && !preferArchives(vue, rng)) {
     // Hypothèse « crédible » qui détourne l'attention du meurtrier.
     const k = deduireRobuste(vue);
-    const suspects = SUSPECTS.filter((s) => s !== meurtrier) as SuspectId[];
-    const base = k.combinaisons.length ? pick(rng, k.combinaisons) : { suspect: meurtrier, lieu: 'bureau', arme: 'chandelier' } as Triplet;
+    const e = elementsDe(vue.affaire);
+    const suspects = e.suspects.filter((s) => s !== meurtrier) as SuspectId[];
+    const base = k.combinaisons.length ? pick(rng, k.combinaisons) : ({ suspect: meurtrier, lieu: pick(rng, e.lieux), arme: pick(rng, e.armes) } as Triplet);
     const t: Triplet = { ...base, suspect: pick(rng, suspects) };
     return { type: 'hypothese', ...t, interroges: choisirInterroges(vue, t, null, rng) };
   }

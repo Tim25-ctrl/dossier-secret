@@ -2,7 +2,7 @@
 // conformes sont rejetées avant même d'atteindre le moteur de règles.
 
 import { z } from 'zod';
-import { ARMES, LIEUX, SUSPECTS, TOUS_ELEMENTS, type ActionJeu } from '../shared/types';
+import { AFFAIRES_IDS, ARMES, LIEUX, SUSPECTS, TOUS_ELEMENTS, type ActionJeu, type AffaireId } from '../shared/types';
 
 const suspect = z.enum(SUSPECTS);
 const lieu = z.enum(LIEUX);
@@ -39,6 +39,7 @@ export const schemaSolo = z
     bots: z.number().int().min(1).max(10),
     dureeTourS: z.number().int().min(30).max(3600).nullable(),
     modeComplice: z.enum(['classique', 'ruse']),
+    affaire: z.enum(AFFAIRES_IDS as [AffaireId, ...AffaireId[]]),
   })
   .strict();
 export const schemaRejoindre = z.object({ code: z.string().max(20), nom: z.string().max(60) });
@@ -47,7 +48,12 @@ export const schemaMessage = z.object({ texte: z.string().max(1000) });
 export const schemaRetirer = z.object({ joueurId: idJoueur });
 export const schemaRepondrePlace = z.object({ demandeId: z.string().min(1).max(40), accepter: z.boolean() });
 export const schemaReglages = z
-  .object({ dureeTourS: z.number().int().min(30).max(3600).nullable().optional(), modeComplice: z.enum(['classique', 'ruse']).optional(), historiqueCartes: z.enum(['visibles', 'anonymes']).optional() })
+  .object({
+    dureeTourS: z.number().int().min(30).max(3600).nullable().optional(),
+    modeComplice: z.enum(['classique', 'ruse']).optional(),
+    historiqueCartes: z.enum(['visibles', 'anonymes']).optional(),
+    affaire: z.enum(AFFAIRES_IDS as [AffaireId, ...AffaireId[]]).optional(),
+  })
   .strict();
 
 export function lireAction(brut: unknown): ActionJeu {

@@ -4,14 +4,13 @@
 // cette solution sont candidats, 3) une sélection est construite puis VALIDÉE.
 // Si la validation échoue, on régénère : une partie incohérente ne démarre jamais.
 
-import { INDICES, INDICES_PAR_ID } from '../shared/data/indices';
+import { INDICES_PAR_ID, indicesDe } from '../shared/data/catalogue';
 import { combinaisonsPossibles, estRelationnel, indiceValide, indicesIncompatibles } from '../shared/logique';
 import {
-  ARMES,
-  LIEUX,
-  SUSPECTS,
-  TOUS_ELEMENTS,
+  AFFAIRE_PAR_DEFAUT,
+  elementsDe,
   elementsDuTriplet,
+  type AffaireId,
   type CarteIndice,
   type ElementId,
   type SuspectId,
@@ -44,8 +43,9 @@ export function tousLesIndicesDeLAffaire(a: Affaire): CarteIndice[] {
   );
 }
 
-export function tirerSolution(rng: Rng): Triplet {
-  return { suspect: pick(rng, SUSPECTS), lieu: pick(rng, LIEUX), arme: pick(rng, ARMES) };
+export function tirerSolution(rng: Rng, affaire: AffaireId = AFFAIRE_PAR_DEFAUT): Triplet {
+  const e = elementsDe(affaire);
+  return { suspect: pick(rng, e.suspects), lieu: pick(rng, e.lieux), arme: pick(rng, e.armes) };
 }
 
 function distincts<T>(items: T[]): number {
@@ -53,8 +53,8 @@ function distincts<T>(items: T[]): number {
 }
 
 /** Les indices donnés laissent-ils au moins deux possibilités dans chaque catégorie ? */
-function laisseDuDoutePartout(cartes: CarteIndice[]): boolean {
-  const c = combinaisonsPossibles(cartes);
+function laisseDuDoutePartout(cartes: CarteIndice[], affaire: AffaireId): boolean {
+  const c = combinaisonsPossibles(cartes, [], affaire);
   return distincts(c.map((t) => t.suspect)) >= 2 && distincts(c.map((t) => t.lieu)) >= 2 && distincts(c.map((t) => t.arme)) >= 2;
 }
 
@@ -64,7 +64,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
   const total = config.nbIndicesPublicsDepart + nbDifferes + config.nbDossiersArchives;
   const compatibles = shuffle(
     rng,
-    INDICES.filter((c) => indiceValide(c, solution) && (!config.indicesRelationnels || estRelationnel(c))),
+    indicesDe(config.affaire).filter((c) => indiceValide(c, solution) && (!config.indicesRelationnels || estRelationnel(c))),
   );
 
   const choisis: CarteIndice[] = [];
@@ -72,7 +72,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
     if (choisis.length >= total) break;
     if (choisis.some((c) => indicesIncompatibles(c, carte))) continue;
     const essai = [...choisis, carte];
-    if (combinaisonsPossibles(essai).length < config.minCombinaisonsIndices) continue;
+    if (combinaisonsPossibles(essai, [], config.affaire).length < config.minCombinaisonsIndices) continue;
     choisis.push(carte);
   }
   if (choisis.length < total) return null;
@@ -82,7 +82,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
   let depart: CarteIndice[] | null = null;
   for (let essai = 0; essai < 20 && !depart; essai++) {
     const tirage = shuffle(rng, departPossibles).slice(0, config.nbIndicesPublicsDepart);
-    if (tirage.length === config.nbIndicesPublicsDepart && laisseDuDoutePartout(tirage)) depart = tirage;
+    if (tirage.length === config.nbIndicesPublicsDepart && laisseDuDoutePartout(tirage, config.affaire)) depart = tirage;
   }
   if (!depart) return null;
   let reste = choisis.filter((c) => !depart!.includes(c));
@@ -111,7 +111,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
 
 export function genererAffaire(rng: Rng, config: ConfigPartie, solutionImposee?: Triplet): Affaire {
   for (let tentative = 0; tentative < 50; tentative++) {
-    const solution = solutionImposee ?? tirerSolution(rng);
+    const solution = solutionImposee ?? tirerSolution(rng, config.affaire);
     for (let essai = 0; essai < 40; essai++) {
       const affaire = tenterSelection(rng, solution, config);
       if (affaire && validerAffaire(affaire, config).length === 0) return affaire;
@@ -128,7 +128,8 @@ export function genererAffaire(rng: Rng, config: ConfigPartie, solutionImposee?:
 export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[] {
   const erreurs: string[] = [];
   const { solution } = affaire;
-  if (!SUSPECTS.includes(solution.suspect) || !LIEUX.includes(solution.lieu) || !ARMES.includes(solution.arme)) {
+  const e = elementsDe(config.affaire);
+  if (!e.suspects.includes(solution.suspect) || !e.lieux.includes(solution.lieu) || !e.armes.includes(solution.arme)) {
     erreurs.push('Solution invalide.');
     return erreurs;
   }
@@ -142,6 +143,8 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
   }
   const cartes = ids.map((id) => INDICES_PAR_ID[id]);
 
+  const autreAffaire = new Set(indicesDe(config.affaire).map((c) => c.id));
+  for (const c of cartes) if (!autreAffaire.has(c.id)) erreurs.push(`L'indice ${c.id} n'appartient pas à cette affaire.`);
   for (const c of cartes) if (!indiceValide(c, solution)) erreurs.push(`L'indice ${c.id} exclut la vraie solution.`);
   if (config.indicesRelationnels)
     for (const c of cartes) if (!estRelationnel(c)) erreurs.push(`L'indice ${c.id} écarte directement un élément (il doit être relationnel).`);
@@ -149,7 +152,7 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
     for (let j = i + 1; j < cartes.length; j++)
       if (indicesIncompatibles(cartes[i], cartes[j])) erreurs.push(`Les indices ${cartes[i].id} et ${cartes[j].id} se contredisent.`);
 
-  const possibles = combinaisonsPossibles(cartes);
+  const possibles = combinaisonsPossibles(cartes, [], config.affaire);
   if (!possibles.some((t) => t.suspect === solution.suspect && t.lieu === solution.lieu && t.arme === solution.arme))
     erreurs.push('La solution ne fait pas partie des combinaisons possibles.');
   if (possibles.length < config.minCombinaisonsIndices)
@@ -158,7 +161,7 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
   const depart = affaire.indicesPublicsDepart.map((id) => INDICES_PAR_ID[id]);
   if (depart.length !== config.nbIndicesPublicsDepart) erreurs.push("Nombre d'indices publics de départ incorrect.");
   if (depart.some((c) => c.disponibleDesManche > 1)) erreurs.push("Un indice public de départ n'est pas disponible en manche 1.");
-  if (!laisseDuDoutePartout(depart)) erreurs.push('Les indices publics de départ révèlent un élément de la solution.');
+  if (!laisseDuDoutePartout(depart, config.affaire)) erreurs.push('Les indices publics de départ révèlent un élément de la solution.');
 
   for (const d of affaire.indicesPublicsDifferes)
     if (INDICES_PAR_ID[d.indice].disponibleDesManche > d.manche) erreurs.push(`L'indice ${d.indice} est publié avant sa disponibilité.`);
@@ -182,12 +185,12 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
  *   5 joueurs : 3 cartes chacun, 0 restante
  *   6 joueurs : 2 cartes chacun, 3 restantes
  */
-export function distribuerCartes(rng: Rng, solution: Triplet, joueurs: string[]): Distribution {
+export function distribuerCartes(rng: Rng, solution: Triplet, joueurs: string[], affaire: AffaireId = AFFAIRE_PAR_DEFAUT): Distribution {
   if (joueurs.length < JOUEURS_MIN || joueurs.length > JOUEURS_MAX) throw new Error('Nombre de joueurs invalide.');
   const secretes = new Set<ElementId>(elementsDuTriplet(solution));
   const paquet = shuffle(
     rng,
-    TOUS_ELEMENTS.filter((e) => !secretes.has(e)),
+    elementsDe(affaire).tous.filter((e) => !secretes.has(e)),
   );
   const parJoueur = Math.floor(paquet.length / joueurs.length);
   const mains: Record<string, ElementId[]> = {};
@@ -197,12 +200,13 @@ export function distribuerCartes(rng: Rng, solution: Triplet, joueurs: string[])
   return { mains, cartesPubliques: paquet.slice(parJoueur * joueurs.length) };
 }
 
-export function validerDistribution(d: Distribution, solution: Triplet, joueurs: string[]): string[] {
+export function validerDistribution(d: Distribution, solution: Triplet, joueurs: string[], affaire: AffaireId = AFFAIRE_PAR_DEFAUT): string[] {
   const erreurs: string[] = [];
   const toutes = [...Object.values(d.mains).flat(), ...d.cartesPubliques];
   if (new Set(toutes).size !== toutes.length) erreurs.push('Une carte est distribuée deux fois.');
   for (const e of elementsDuTriplet(solution)) if (toutes.includes(e)) erreurs.push('Une carte de la solution a été distribuée.');
-  if (toutes.length !== TOUS_ELEMENTS.length - 3) erreurs.push('Toutes les cartes hors solution ne sont pas distribuées.');
+  const elements = elementsDe(affaire).tous;
+  if (toutes.length !== elements.length - 3 || toutes.some((c) => !elements.includes(c))) erreurs.push('Toutes les cartes hors solution ne sont pas distribuées.');
   const tailles = joueurs.map((j) => d.mains[j]?.length ?? -1);
   if (new Set(tailles).size !== 1) erreurs.push('Les mains ne sont pas de même taille.');
   if (Object.keys(d.mains).length !== joueurs.length) erreurs.push('Mains et joueurs ne correspondent pas.');

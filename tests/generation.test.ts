@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FAUX_INDICES, INDICES, INDICES_PAR_ID, jourDuJournal } from '../src/shared/data/indices';
+import { FAUX_INDICES, INDICES, jourDuJournal } from '../src/shared/data/indices';
+import { INDICES_PAR_ID } from '../src/shared/data/catalogue';
 import { ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../src/shared/data/manoir';
 import {
   TOUS_TRIPLETS,
@@ -22,7 +23,9 @@ import {
   type Affaire,
 } from '../src/engine/generateur';
 import { seededRng } from '../src/engine/rng';
-import { TOUS_ELEMENTS, categorieDe, elementsDuTriplet, type CarteIndice } from '../src/shared/types';
+import { categorieDe, elementsDe, elementsDuTriplet, type CarteIndice } from '../src/shared/types';
+
+const TOUS_ELEMENTS = elementsDe('manoir').tous;
 
 /** Témoignage partiel : quatre « pas X avec Y » autour d'un même lieu ou d'une même arme. */
 const estTemoignagePartiel = (c: CarteIndice) => reglesEffectives(c).length === 4 && reglesEffectives(c).every((r) => r.type === 'pasEnsemble' && (r.b === c.concerne[0] || r.a === c.concerne[0]));

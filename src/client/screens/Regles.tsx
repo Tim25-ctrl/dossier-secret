@@ -1,19 +1,27 @@
-import { AFFAIRE } from '../../shared/data/manoir';
+import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, indicesDe, nomCourt } from '../../shared/data/catalogue';
+import { ceQueLIndiceEcarte, reglesEffectives } from '../../shared/logique';
 import { useState } from 'react';
+import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
 import { Modale } from '../components/Commun';
 import { Dossier } from '../components/jeu/Dossier';
 
-export function ContenuRegles() {
+export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: AffaireId }) {
+  const infos = AFFAIRES[affaire];
+  const e = elementsDe(affaire);
+  // Exemple tiré d'un vrai témoignage partiel de l'affaire (quatre règles « pas X avec Y » résumées en une phrase).
+  const partiel = indicesDe(affaire).find((c) => reglesEffectives(c).length === 4);
+  const phrase = partiel ? ceQueLIndiceEcarte(partiel)[0] : '';
+  const exemplePartiel = phrase.charAt(0).toLowerCase() + phrase.slice(1);
   return (
     <div className="regles">
-      <h3>L'affaire</h3>
-      {AFFAIRE.resume.map((p) => (
+      <h3>{infos.titre}</h3>
+      {infos.resume.map((p) => (
         <p key={p}>{p}</p>
       ))}
 
       <h3>But du jeu</h3>
       <p>
-        Découvrir <strong>qui</strong> a tué Armand, <strong>où</strong> et <strong>avec quelle arme</strong>. Six suspects, six lieux et six armes : une seule
+        Découvrir <strong>qui</strong> a tué {infos.victimeCourt}, <strong>où</strong> et <strong>avec quelle arme</strong>. Six suspects, six lieux et six armes : une seule
         combinaison est la bonne. Le meurtrier est un personnage de l'histoire — aucun joueur ne l'incarne.
       </p>
 
@@ -177,24 +185,28 @@ export function ContenuRegles() {
         et cohérents entre eux : aucun n'exclut la vraie solution.
       </p>
       <p>
-        Chaque indice relie deux éléments : « si le crime a eu lieu dans la cave, ce n'était pas avec le revolver », « si Gabriel est coupable, ce n'est pas avec le
-        chandelier »… Un indice n'innocente jamais à lui seul un suspect, un lieu ou une arme : il ne devient décisif qu'en le croisant avec les cartes que vous
+        Chaque indice relie deux éléments : « si le crime a eu lieu {LIEUX_FICHES[e.lieux[3]].article}, ce n'était pas {ARMES_FICHES[e.armes[2]].article} », « si{' '}
+        {nomCourt(e.suspects[5])} est coupable, ce n'est pas {ARMES_FICHES[e.armes[0]].article} »… Un indice n'innocente jamais à lui seul un suspect, un lieu ou une arme : il ne devient décisif qu'en le croisant avec les cartes que vous
         connaissez.
       </p>
       <p>
-        <strong>Témoignages partiels.</strong> Certaines traces désignent deux coupables possibles pour un lieu ou une arme : « si le crime a eu lieu dans la serre, le
-        coupable est Victor ou Gabriel ». Seules, elles ne tranchent pas ; croisées avec une carte, elles peuvent tout changer.
+        <strong>Témoignages partiels.</strong> Certaines traces désignent deux coupables possibles pour un lieu ou une arme : « {exemplePartiel} ». Seules, elles ne tranchent pas ; croisées avec une carte, elles peuvent tout changer.
       </p>
       <p>
-        <strong>Le journal d'Armand.</strong> Des pages du journal intime de la victime, datées du 11 au 17 octobre, sont glissées dans les dossiers. Chacune raconte
-        une dispute avec un proche… et écarte une combinaison. À la fin de la partie, toute sa dernière semaine est révélée.
+        <strong>{infos.journal.libelle}.</strong> {infos.journal.presentation}
       </p>
     </div>
   );
 }
 
-export function ModaleRegles({ onFermer, section: initiale = 'regles' }: { onFermer: () => void; section?: 'regles' | 'dossier' }) {
+/**
+ * Règles et dossier de l'affaire. En partie, `affaire` est celle jouée ; depuis l'accueil
+ * (sans affaire), le joueur choisit l'histoire à consulter.
+ */
+export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: imposee }: { onFermer: () => void; section?: 'regles' | 'dossier'; affaire?: AffaireId }) {
   const [section, setSection] = useState<'regles' | 'dossier'>(initiale);
+  const [choisie, setChoisie] = useState<AffaireId>(imposee ?? AFFAIRE_PAR_DEFAUT);
+  const affaire = imposee ?? choisie;
   return (
     <Modale titre="Règles du jeu" onFermer={onFermer} pied={<button className="btn btn-or" onClick={onFermer}>Compris</button>}>
       <div className="ligne" role="tablist" aria-label="Sections des règles" style={{ marginBottom: 12 }}>
@@ -205,12 +217,22 @@ export function ModaleRegles({ onFermer, section: initiale = 'regles' }: { onFer
           Le dossier de l'affaire
         </button>
       </div>
+      {!imposee && (
+        <div className="ligne choix-affaire-regles" role="group" aria-label="Histoire" style={{ marginBottom: 12 }}>
+          <span className="petit muet">Histoire :</span>
+          {AFFAIRES_IDS.map((a) => (
+            <button key={a} className={`btn btn-petit ${a === choisie ? 'btn-or' : 'btn-discret'}`} aria-pressed={a === choisie} onClick={() => setChoisie(a)}>
+              {AFFAIRES[a].court}
+            </button>
+          ))}
+        </div>
+      )}
       {section === 'regles' ? (
-        <ContenuRegles />
+        <ContenuRegles affaire={affaire} />
       ) : (
         <>
           <p className="muet petit">Fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
-          <Dossier />
+          <Dossier affaire={affaire} />
         </>
       )}
     </Modale>

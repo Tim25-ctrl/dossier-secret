@@ -2,13 +2,10 @@
 // Il ne lit QUE la vue filtrée d'un joueur (VueJoueur), exactement comme un
 // humain : il n'a jamais accès à la solution ni aux cartes des autres.
 
-import { INDICES_PAR_ID } from '../shared/data/indices';
+import { INDICES_PAR_ID } from '../shared/data/catalogue';
 import { combinaisonsPossibles } from '../shared/logique';
 import {
-  ARMES,
-  LIEUX,
-  SUSPECTS,
-  TOUS_ELEMENTS,
+  elementsDe,
   elementsDuTriplet,
   type ElementId,
   type Triplet,
@@ -32,7 +29,6 @@ interface Contrainte {
   cartes: ElementId[];
 }
 
-const CATEGORIES: ElementId[][] = [[...SUSPECTS], [...LIEUX], [...ARMES]];
 
 /**
  * @param confianceAucuneCarte si false, les réponses « aucune carte » des autres
@@ -81,6 +77,10 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   const moi = vue.moi.id;
   const joueurs = vue.joueurs.map((j) => j.id);
   const tailles = new Map(vue.joueurs.map((j) => [j.id, j.nbCartes]));
+  // Seules les cartes de l'affaire jouée existent dans cette partie.
+  const e = elementsDe(vue.affaire);
+  const TOUS_ELEMENTS = e.tous;
+  const CATEGORIES: (readonly ElementId[])[] = [e.suspects, e.lieux, e.armes];
   const possession = new Map<ElementId, Possession>();
   for (const c of TOUS_ELEMENTS) possession.set(c, new Map(joueurs.map((j) => [j, undefined])));
   let coherent = true;
@@ -194,7 +194,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   ];
   // Une accusation publique incorrecte élimine sa combinaison.
   const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
-  let combinaisons = combinaisonsPossibles(indices, horsSolution).filter(
+  let combinaisons = combinaisonsPossibles(indices, horsSolution, vue.affaire).filter(
     (t) => !faussesAccusations.some((f) => f.suspect === t.suspect && f.lieu === t.lieu && f.arme === t.arme),
   );
   if (vue.moi.meurtrier) combinaisons = combinaisons.filter((t) => t.suspect === vue.moi.meurtrier);
@@ -236,7 +236,7 @@ export function deduireSimple(vue: VueJoueur): Triplet[] {
       ...vue.moi.indicesConsultes.filter((i) => !o.indicesExclus?.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
     ];
     const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
-    return combinaisonsPossibles(indices, connues).filter(
+    return combinaisonsPossibles(indices, connues, vue.affaire).filter(
       (t) => !faussesAccusations.some((f) => f.suspect === t.suspect && f.lieu === t.lieu && f.arme === t.arme),
     );
   };

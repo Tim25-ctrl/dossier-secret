@@ -1,6 +1,6 @@
 // Protocole WebSocket entre le navigateur et le serveur (types uniquement).
 
-import type { ActionJeu, HistoriqueCartes, ModeComplice, VueJoueur } from './types';
+import type { ActionJeu, AffaireId, HistoriqueCartes, ModeComplice, VueJoueur } from './types';
 
 export const LONGUEUR_CODE = 6;
 export const ALPHABET_CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -28,6 +28,8 @@ export interface MessageChat {
 export const DUREES_TOUR: (number | null)[] = [60, 120, 180, 300, 600, null];
 
 export interface ReglagesSalon {
+  /** Histoire jouée. */
+  affaire: AffaireId;
   /** Durée d'un tour en secondes ; null = sans limite. */
   dureeTourS: number | null;
   /** Pouvoirs du complice. */
@@ -79,7 +81,7 @@ export interface EvenementsClient {
   'salon:creer': (p: { nom: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
   /** Partie seul contre des bots, lancée immédiatement. */
   'salon:solo': (
-    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice },
+    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice; affaire: AffaireId },
     ack: (r: Reponse<{ session: Session }>) => void,
   ) => void;
   /** Pendant une partie, « rejoindre » avec le pseudonyme d'un joueur absent demande sa place (réponse `attente`). */

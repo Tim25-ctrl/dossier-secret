@@ -10,7 +10,9 @@ import { CONFIG_PAR_DEFAUT } from '../../engine/config';
 import { cryptoRng, seededRng } from '../../engine/rng';
 import { vuePour } from '../../engine/vue';
 import type { EtatClient, EvenementsClient, MessageChat, Reponse } from '../../shared/protocole';
-import { ARMES, LIEUX, SUSPECTS, categorieDe, type ActionJeu, type ElementId, type Triplet } from '../../shared/types';
+import { categorieDe, elementsDe, type ActionJeu, type ElementId, type Triplet } from '../../shared/types';
+
+const MANOIR = elementsDe('manoir');
 import { connexion, type MoteurLocal } from '../connexion';
 
 export const MOI = 'vous';
@@ -75,9 +77,9 @@ class PartieLocale implements MoteurLocal {
     const t: Record<string, ElementId> = {};
     t[categorieDe(sienne)!] = sienne;
     for (const [cat, ids] of [
-      ['suspect', SUSPECTS],
-      ['lieu', LIEUX],
-      ['arme', ARMES],
+      ['suspect', MANOIR.suspects],
+      ['lieu', MANOIR.lieux],
+      ['arme', MANOIR.armes],
     ] as const)
       t[cat] ??= ids.find((e) => !miennes.has(e) && !this.etat.joueurs[HERCULE].main.includes(e))!;
     return t as unknown as Triplet;
@@ -94,7 +96,7 @@ class PartieLocale implements MoteurLocal {
         joueurs: e.ordre.map((id) => ({ id, nom: e.joueurs[id].nom, connecte: true, bot: e.joueurs[id].bot, hote: id === MOI, parti: false })),
         messages: this.messages,
         botsAutorises: true,
-        reglages: { dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles' },
+        reglages: { affaire: 'manoir', dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles' },
         min: 3,
         max: 6,
         reprise: false,
@@ -145,9 +147,9 @@ class PartieLocale implements MoteurLocal {
       const autres = e.joueurs[MARPLE].main;
       const t: Record<string, ElementId> = { [categorieDe(mienne)!]: mienne };
       for (const [cat, ids] of [
-        ['suspect', SUSPECTS],
-        ['lieu', LIEUX],
-        ['arme', ARMES],
+        ['suspect', MANOIR.suspects],
+        ['lieu', MANOIR.lieux],
+        ['arme', MANOIR.armes],
       ] as const)
         t[cat] ??= autres.find((x) => categorieDe(x) === cat) ?? ids.find((x) => !e.joueurs[MOI].main.includes(x))!;
       return { type: 'hypothese', suspect: t.suspect, lieu: t.lieu, arme: t.arme, interroges: [MOI] } as ActionJeu;

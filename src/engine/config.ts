@@ -4,9 +4,11 @@
 //  - une hypothèse coûte 2 PA ;
 //  - les pouvoirs du complice dépendent du nombre de joueurs.
 
-import type { ModeComplice, HistoriqueCartes, TypeRuse } from '../shared/types';
+import type { AffaireId, ModeComplice, HistoriqueCartes, TypeRuse } from '../shared/types';
 
 export interface ConfigPartie {
+  /** Histoire jouée (suspects, lieux, armes et indices). */
+  affaire: AffaireId;
   manchesMax: number;
   pointsAction: number;
   /** Nombre maximal d'hypothèses par tour. */
@@ -62,6 +64,7 @@ export interface ConfigPartie {
 }
 
 export const CONFIG_PAR_DEFAUT: ConfigPartie = {
+  affaire: 'manoir',
   manchesMax: 12,
   pointsAction: 2,
   hypothesesMaxParTour: 1,

@@ -2,13 +2,14 @@
 // énumération des combinaisons possibles. Utilisée par le moteur (génération,
 // validation) et par le client (affichage de ce qu'un indice permet d'écarter).
 
-import { AFFAIRE, ARMES_FICHES, LIEUX_FICHES, nomElement } from './data/manoir';
+import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, affaireDeCarte, nomElement } from './data/catalogue';
 import {
-  ARMES,
+  AFFAIRE_PAR_DEFAUT,
   LIEUX,
-  SUSPECTS,
-  TOUS_ELEMENTS,
+  affaireDe,
   categorieDe,
+  elementsDe,
+  type AffaireId,
   type ArmeId,
   type Categorie,
   type CarteIndice,
@@ -25,16 +26,15 @@ export function minutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-const CRIME_DE = minutes(AFFAIRE.fenetreCrime.de);
-const CRIME_A = minutes(AFFAIRE.fenetreCrime.a);
 
 function estLieuDuCrimePossible(endroit: string): endroit is LieuId {
   return (LIEUX as readonly string[]).includes(endroit);
 }
 
-/** Un fait couvre-t-il toute la fenêtre du crime ? */
+/** Un fait couvre-t-il toute la fenêtre du crime (celle de l'affaire de la personne ou de l'objet) ? */
 export function couvreFenetreCrime(fait: FaitChronologique): boolean {
-  return minutes(fait.de) <= CRIME_DE && minutes(fait.a) >= CRIME_A;
+  const { de, a } = AFFAIRES[affaireDe(fait.entite) ?? AFFAIRE_PAR_DEFAUT].fenetreCrime;
+  return minutes(fait.de) <= minutes(de) && minutes(fait.a) >= minutes(a);
 }
 
 /** Règles qui découlent mécaniquement d'un fait chronologique. */
@@ -70,19 +70,42 @@ export function indiceValide(carte: CarteIndice, solution: Triplet): boolean {
   return reglesEffectives(carte).every((r) => regleVraie(r, solution));
 }
 
-export const TOUS_TRIPLETS: readonly Triplet[] = SUSPECTS.flatMap((suspect) =>
-  LIEUX.flatMap((lieu) => ARMES.map((arme) => ({ suspect, lieu, arme }))),
-);
+const TRIPLETS = new Map<AffaireId, readonly Triplet[]>();
+
+/** Les 216 combinaisons meurtrier / lieu / arme d'une affaire. */
+export function tripletsDe(affaire: AffaireId): readonly Triplet[] {
+  let t = TRIPLETS.get(affaire);
+  if (!t) {
+    const e = elementsDe(affaire);
+    t = e.suspects.flatMap((suspect) => e.lieux.flatMap((lieu) => e.armes.map((arme) => ({ suspect, lieu, arme }))));
+    TRIPLETS.set(affaire, t);
+  }
+  return t;
+}
+
+/** Combinaisons de l'affaire du Manoir (affaire par défaut). */
+export const TOUS_TRIPLETS: readonly Triplet[] = tripletsDe(AFFAIRE_PAR_DEFAUT);
+
+/** Affaire déduite des indices ou des éléments écartés (affaire par défaut si rien ne l'indique). */
+function affaireDeduite(cartes: readonly CarteIndice[], ecartes: readonly ElementId[]): AffaireId {
+  if (cartes.length) return affaireDeCarte(cartes[0]);
+  for (const e of ecartes) {
+    const a = affaireDe(e);
+    if (a) return a;
+  }
+  return AFFAIRE_PAR_DEFAUT;
+}
 
 /**
  * Combinaisons meurtrier / lieu / arme compatibles avec un ensemble d'indices
  * et un ensemble d'éléments connus comme n'étant pas dans la solution
  * (cartes détenues par des joueurs ou rendues publiques).
  */
-export function combinaisonsPossibles(cartes: readonly CarteIndice[], elementsEcartes: Iterable<ElementId> = []): Triplet[] {
+export function combinaisonsPossibles(cartes: readonly CarteIndice[], elementsEcartes: Iterable<ElementId> = [], affaire?: AffaireId): Triplet[] {
   const regles = cartes.flatMap(reglesEffectives);
-  const ecartes = new Set(elementsEcartes);
-  return TOUS_TRIPLETS.filter(
+  const liste = [...elementsEcartes];
+  const ecartes = new Set(liste);
+  return tripletsDe(affaire ?? affaireDeduite(cartes, liste)).filter(
     (t) => !ecartes.has(t.suspect) && !ecartes.has(t.lieu) && !ecartes.has(t.arme) && regles.every((r) => regleVraie(r, t)),
   );
 }
@@ -113,7 +136,8 @@ export function estRelationnel(carte: CarteIndice): boolean {
 
 /** Part des 216 combinaisons éliminées par l'indice seul. */
 export function partEliminee(carte: CarteIndice): number {
-  return 1 - combinaisonsPossibles([carte]).length / TOUS_TRIPLETS.length;
+  const affaire = affaireDeCarte(carte);
+  return 1 - combinaisonsPossibles([carte], [], affaire).length / tripletsDe(affaire).length;
 }
 
 export function precision(carte: CarteIndice): Precision {
@@ -145,7 +169,10 @@ export function descriptionRegle(r: RegleIndice): string {
   }
 }
 
-const PAR_CATEGORIE: Record<Categorie, readonly ElementId[]> = { suspect: SUSPECTS, lieu: LIEUX, arme: ARMES };
+function parCategorie(affaire: AffaireId): Record<Categorie, readonly ElementId[]> {
+  const e = elementsDe(affaire);
+  return { suspect: e.suspects, lieu: e.lieux, arme: e.armes };
+}
 
 /** « si le crime a eu lieu dans la serre » / « si l'arme est le chandelier en bronze » / « si Victor Delorme est coupable ». */
 function conditionSur(e: ElementId): string {
@@ -171,7 +198,9 @@ export function ceQueLIndiceEcarte(carte: CarteIndice): string[] {
   const regles = reglesEffectives(carte);
   const resumees = new Set<RegleIndice>();
   const phrases: string[] = [];
-  for (const pivot of TOUS_ELEMENTS) {
+  const affaire = affaireDeCarte(carte);
+  const categories = parCategorie(affaire);
+  for (const pivot of elementsDe(affaire).tous) {
     for (const cat of ['suspect', 'lieu', 'arme'] as const) {
       if (categorieDe(pivot) === cat) continue;
       const groupe = regles.filter(
@@ -180,7 +209,7 @@ export function ceQueLIndiceEcarte(carte: CarteIndice): string[] {
       );
       if (groupe.length < 3) continue;
       const exclus = new Set(groupe.map((r) => (r.a === pivot ? r.b : r.a)));
-      const restants = PAR_CATEGORIE[cat].filter((e) => !exclus.has(e));
+      const restants = categories[cat].filter((e) => !exclus.has(e));
       const phrase = `${conditionSur(pivot)}, ${seulsPossibles(cat, restants)}`;
       phrases.push(phrase.charAt(0).toUpperCase() + phrase.slice(1));
       for (const r of groupe) resumees.add(r);

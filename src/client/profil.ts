@@ -130,7 +130,14 @@ export const SUCCES: Succes[] = [
     test: (c) => c.vue.moi.indicesConsultes.length + c.vue.moi.piecesConsultees.length >= 5,
   },
   { id: 'serie3', icone: '🔥', titre: 'Sur une lancée', description: 'Gagner 3 parties d’affilée.', test: (c) => c.profil.serie >= 3 },
-  { id: 'habitue', icone: '🎩', titre: 'Habitué du manoir', description: 'Terminer 10 parties.', test: (c) => c.profil.parties >= 10 },
+  {
+    id: 'terminus',
+    icone: '🚂',
+    titre: 'Terminus',
+    description: 'Gagner une partie dans le train de nuit.',
+    test: (c) => c.vue.affaire === 'train' && c.gagne,
+  },
+  { id: 'habitue', icone: '🎩', titre: 'Habitué des lieux', description: 'Terminer 10 parties.', test: (c) => c.profil.parties >= 10 },
   { id: 'veteran', icone: '🏛️', titre: 'Vétéran', description: 'Terminer 50 parties.', test: (c) => c.profil.parties >= 50 },
 ];
 

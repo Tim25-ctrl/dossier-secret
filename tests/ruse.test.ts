@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { avancer, cartesCorrespondantes, type EtatPartie } from '../src/engine/partie';
 import { vuePour } from '../src/engine/vue';
-import { INDICES, INDICES_PAR_ID } from '../src/shared/data/indices';
+import { INDICES } from '../src/shared/data/indices';
+import { INDICES_PAR_ID } from '../src/shared/data/catalogue';
 import { indiceValide } from '../src/shared/logique';
 import { categorieDe, elementsDuTriplet, type Triplet } from '../src/shared/types';
 import { FALSIF_MS, Horloge, SOLUTION, act, actif, allerAuTourDe, autres, nouvellePartie, passerFalsification, tripletAvec } from './aide';

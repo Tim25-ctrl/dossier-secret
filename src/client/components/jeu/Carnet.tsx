@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { INDICES_PAR_ID } from '../../../shared/data/indices';
-import { nomElement } from '../../../shared/data/manoir';
+import { INDICES_PAR_ID } from '../../../shared/data/catalogue';
+import { nomElement } from '../../../shared/data/catalogue';
 import { combinaisonsPossibles } from '../../../shared/logique';
-import { ARMES, LIEUX, SUSPECTS, type ElementId, type Marque, type VueJoueur } from '../../../shared/types';
+import { elementsDe, type ElementId, type Marque, type VueJoueur } from '../../../shared/types';
 import { connexion } from '../../connexion';
 import { Aide, Prive } from '../Commun';
 import { Embleme } from '../Emblemes';
@@ -21,8 +21,8 @@ const MARQUES: { m: Marque; court: string; long: string }[] = [
 export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementId, string>> {
   const s: Partial<Record<ElementId, string>> = {};
   const indices = [...v.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]), ...v.moi.indicesConsultes.map((i) => INDICES_PAR_ID[i.indice])];
-  const possibles = combinaisonsPossibles(indices);
-  for (const e of [...SUSPECTS, ...LIEUX, ...ARMES] as ElementId[]) {
+  const possibles = combinaisonsPossibles(indices, [], v.affaire);
+  for (const e of elementsDe(v.affaire).tous) {
     if (!possibles.some((t) => t.suspect === e || t.lieu === e || t.arme === e)) s[e] = 'écarté par un indice';
   }
   for (const e of v.cartesPubliques) s[e] = 'carte publique';
@@ -140,9 +140,9 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
         </Aide>
       </div>
       <div className="carnet-grille">
-        {colonne('Suspects', SUSPECTS)}
-        {colonne('Lieux', LIEUX)}
-        {colonne('Armes', ARMES)}
+        {colonne('Suspects', elementsDe(vue.affaire).suspects)}
+        {colonne('Lieux', elementsDe(vue.affaire).lieux)}
+        {colonne('Armes', elementsDe(vue.affaire).armes)}
       </div>
       <div className="champ" style={{ marginTop: 14 }}>
         <label htmlFor="notes">

@@ -6,15 +6,15 @@
 // Toutes les vérifications de règles sont faites ici ; le client n'est jamais cru.
 
 import {
-  ARMES,
-  LIEUX,
   SANS_LIMITE,
-  SUSPECTS,
+  affaireDe,
   categorieDe,
+  elementsDe,
   elementsDuTriplet,
   memeTriplet,
   type ActionJeu,
   type Carnet,
+  type CarteIndice,
   type ChampTriplet,
   type ElementId,
   type EntreePrivee,
@@ -26,7 +26,7 @@ import {
   type TypeRuse,
   type Vainqueur,
 } from '../shared/types';
-import { FAUX_INDICES, INDICES, INDICES_PAR_ID } from '../shared/data/indices';
+import { INDICES_PAR_ID, fauxIndicesDe, indicesDe } from '../shared/data/catalogue';
 import { estRelationnel, indiceValide } from '../shared/logique';
 import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, coutRuse, nbInterroges, pouvoirsPour, rusesPour, type ConfigPartie } from './config';
 import {
@@ -182,8 +182,8 @@ export function creerPartie(params: {
 
   // 3. Distribution des cartes.
   const ordre = shuffle(rng, ids);
-  const distribution = distribuerCartes(rng, affaire.solution, ordre);
-  const erreursDistribution = validerDistribution(distribution, affaire.solution, ordre);
+  const distribution = distribuerCartes(rng, affaire.solution, ordre, config.affaire);
+  const erreursDistribution = validerDistribution(distribution, affaire.solution, ordre, config.affaire);
   if (erreursDistribution.length) throw new Error(`Distribution invalide : ${erreursDistribution.join(' ; ')}`);
 
   // Cartes non distribuées : publiques, ou pièces à conviction dans les archives.
@@ -297,11 +297,13 @@ export function cartesCorrespondantes(etat: EtatPartie, joueur: string, t: Tripl
   return etat.joueurs[joueur].main.filter((c) => elements.includes(c));
 }
 
-function tripletValide(t: { suspect: unknown; lieu: unknown; arme: unknown }): t is Triplet {
+/** Un triplet de l'affaire jouée (pas d'élément d'une autre histoire). */
+function tripletValide(etat: EtatPartie, t: { suspect: unknown; lieu: unknown; arme: unknown }): t is Triplet {
+  const e = elementsDe(etat.config.affaire);
   return (
-    (SUSPECTS as readonly unknown[]).includes(t.suspect) &&
-    (LIEUX as readonly unknown[]).includes(t.lieu) &&
-    (ARMES as readonly unknown[]).includes(t.arme)
+    (e.suspects as readonly unknown[]).includes(t.suspect) &&
+    (e.lieux as readonly unknown[]).includes(t.lieu) &&
+    (e.armes as readonly unknown[]).includes(t.arme)
   );
 }
 
@@ -485,7 +487,7 @@ function formulerHypothese(
   if (etat.hypothesesCeTour >= etat.config.hypothesesMaxParTour)
     return refus(`Vous ne pouvez formuler que ${etat.config.hypothesesMaxParTour} hypothèse(s) par tour.`);
   const triplet = { suspect: action.suspect, lieu: action.lieu, arme: action.arme };
-  if (!tripletValide(triplet)) return refus('Hypothèse invalide : choisissez un suspect, un lieu et une arme.');
+  if (!tripletValide(etat, triplet)) return refus('Hypothèse invalide : choisissez un suspect, un lieu et une arme.');
 
   const attendu = nbInterroges(etat.ordre.length);
   const interroges = action.interroges;
@@ -553,7 +555,7 @@ function decisionFalsification(
     h.decisionFalsificationPrise = false;
     return refus('Élément à falsifier invalide.');
   }
-  if (categorieDe(action.valeur) !== champ) {
+  if (categorieDe(action.valeur) !== champ || affaireDe(action.valeur) !== etat.config.affaire) {
     h.decisionFalsificationPrise = false;
     return refus('La nouvelle valeur doit être de la même catégorie.');
   }
@@ -679,17 +681,18 @@ function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
     ...etat.affaire.archives.map((d) => d.indice),
     ...(etat.trafics ?? []).map((t) => t.indiceFaux),
   ]);
-  const estFaux = (c: (typeof INDICES)[number]) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution);
-  const tousFaux = INDICES.filter(estFaux);
+  const estFaux = (c: CarteIndice) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution);
+  const tousFaux = indicesDe(etat.config.affaire).filter(estFaux);
   // Un faux indice doit ressembler aux vrais : relationnel lui aussi. À défaut d'indice rédigé
   // utilisable, on prend un modèle « pas X avec Y » sur une paire de la solution (toujours faux).
   const relationnels = tousFaux.filter((c) => !etat.config.indicesRelationnels || estRelationnel(c));
-  const faux = relationnels.length ? relationnels : etat.config.indicesRelationnels ? FAUX_INDICES.filter(estFaux) : tousFaux;
+  const modeles = fauxIndicesDe(etat.config.affaire);
+  const faux = relationnels.length ? relationnels : etat.config.indicesRelationnels ? modeles.filter(estFaux) : tousFaux;
   // Le faux garde la catégorie du dossier (une page du journal reste une page du journal) :
   // indice rédigé de même catégorie, sinon modèle de même catégorie, sinon n'importe quel faux.
   const categorie = INDICES_PAR_ID[indiceVrai].categorie;
   const memeCategorie = faux.filter((c) => c.categorie === categorie);
-  const modelesMemeCategorie = etat.config.indicesRelationnels ? FAUX_INDICES.filter((c) => c.categorie === categorie && estFaux(c)) : [];
+  const modelesMemeCategorie = etat.config.indicesRelationnels ? modeles.filter((c) => c.categorie === categorie && estFaux(c)) : [];
   const choix = memeCategorie.length ? memeCategorie : modelesMemeCategorie.length ? modelesMemeCategorie : faux;
   return choix[alea(etat, choix.length)].id;
 }
@@ -771,7 +774,7 @@ function accuser(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { 
   if (j.role === 'complice') return refus('Le complice ne peut pas formuler d’accusation finale.');
   if (!j.peutAccuser) return refus('Vous avez déjà formulé une accusation finale.');
   const triplet = { suspect: action.suspect, lieu: action.lieu, arme: action.arme };
-  if (!tripletValide(triplet)) return refus('Accusation invalide : choisissez un suspect, un lieu et une arme.');
+  if (!tripletValide(etat, triplet)) return refus('Accusation invalide : choisissez un suspect, un lieu et une arme.');
 
   // Le serveur seul décide du résultat. L'accusation n'est jamais falsifiable.
   const correcte = memeTriplet(triplet, etat.affaire.solution);
@@ -851,7 +854,7 @@ function majCarnet(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, 
   if (action.marques !== undefined) {
     if (typeof action.marques !== 'object' || action.marques === null) return refus('Carnet invalide.');
     for (const [cle, valeur] of Object.entries(action.marques)) {
-      if (!categorieDe(cle)) return refus('Élément de carnet inconnu.');
+      if (!categorieDe(cle) || affaireDe(cle) !== etat.config.affaire) return refus('Élément de carnet inconnu.');
       if (!MARQUES.includes(valeur as Marque)) return refus('Marque de carnet invalide.');
     }
   }

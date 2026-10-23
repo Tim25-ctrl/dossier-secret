@@ -286,6 +286,27 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
     if (b.top >= z.haut + 4 && b.bottom <= basLibre) return;
     window.scrollBy({ top: b.top - z.haut - 14, behavior: 'smooth' });
   });
+  // Fenêtre couverte par la bulle (téléphone) : de la place sous la fenêtre, et elle défile une fois
+  // pour que ses boutons passent juste au-dessus de la bulle.
+  const fenetreCouverte = useRef<HTMLElement | null>(null);
+  const fenetreDefilee = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const v = fenetreCouverte.current;
+    const actif = !!v && v.isConnected && !!bulle.current;
+    document.body.classList.toggle('guide-sur-fenetre', actif);
+    if (!actif) return;
+    // Place occupée par la bulle depuis le bas de l'écran (elle flotte au-dessus de la barre d'onglets).
+    document.documentElement.style.setProperty('--hauteur-guide', `${Math.max(0, window.innerHeight - bulle.current!.getBoundingClientRect().top)}px`);
+    if (fenetreDefilee.current === v) return;
+    fenetreDefilee.current = v;
+    // Un court délai : la fenêtre et la bulle ont leur taille définitive (texte complet, marge appliquée).
+    setTimeout(() => {
+      const m = v!.querySelector('.modale')?.getBoundingClientRect();
+      const b = bulle.current?.getBoundingClientRect();
+      if (m && b && m.bottom > b.top - 8) v!.scrollTop += m.bottom - b.top + 12;
+    }, 250);
+  });
+  useEffect(() => () => document.body.classList.remove('guide-sur-fenetre'), []);
   // De la place sous la page, pour que la bulle ne cache jamais le bas du jeu.
   useEffect(() => {
     document.body.classList.add('avec-guide');
@@ -430,7 +451,14 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
   // Grande fenêtre sans place au-dessus ni au-dessous : sur grand écran, la bulle se range à côté.
   const hauteurBulle = (bulle.current?.offsetHeight ?? 170) + 16;
   const aCote = !!rf && Math.max(rf.top, window.innerHeight - rf.bottom) < hauteurBulle && rf.left >= 250;
-  const enHaut = rf
+  // Pas de place du tout (téléphone) : la bulle reste en bas et la fenêtre défile au-dessus d'elle
+  // (voir l'effet « fenêtre couverte »). Décidé une fois par fenêtre, pour ne pas changer en défilant.
+  const voileFenetre = fenetre?.closest<HTMLElement>('.voile') ?? null;
+  if (rf && voileFenetre && !aCote && Math.max(rf.top, window.innerHeight - rf.bottom) < hauteurBulle) fenetreCouverte.current = voileFenetre;
+  const surFenetre = !!voileFenetre && fenetreCouverte.current === voileFenetre && !aCote;
+  const enHaut = surFenetre
+    ? false
+    : rf
     ? rf.top >= window.innerHeight - rf.bottom
     : modaleOuverte || (!!rc && rc.height < window.innerHeight * 0.45 && (rc.top + rc.bottom) / 2 > window.innerHeight * 0.55);
 

@@ -4048,3 +4048,7 @@ button.carte:hover:not(:disabled) {
 .sommaire-guide .btn-bloc {
   margin-top: 8px;
 }
+/* Partie guidée sur téléphone : la bulle couvre le bas d'une fenêtre, qui peut défiler au-dessus d'elle. */
+.guide-sur-fenetre .voile {
+  padding-bottom: calc(var(--hauteur-guide, 300px) + 16px);
+}

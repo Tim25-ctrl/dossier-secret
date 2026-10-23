@@ -239,7 +239,7 @@ Chaque étape se termine par des tests, et je vous montre le résultat avant de 
 4. **Rôle trouble :** le **Maître chanteur**.
 5. **Rôles des enquêteurs :** les 6 de la section 5 ; leurs utilisations se règlent par simulation.
 6. **Mobiles :** la liste de la section 4.
-7. **Partie guidée** de ce mode : plus tard, une fois le mode terminé.
+7. **Partie guidée** de ce mode : plus tard, une fois le mode terminé. *(Faite le 23/10/2026 : voir l'étape 10 de la section 14.)*
 
 ---
 
@@ -409,3 +409,12 @@ Objectifs réussis : bouc émissaire 17–18 %, témoin gênant 6–7 %, ombre 1
 - **Fin de partie** : la carte du mobile, la révélation qui raconte le pourquoi, l'objectif du complice (réussi ou non, joueur désigné), les rôles de chacun, le tableau avec ses vrais auteurs.
 - **Textes** : règles (section « Grande enquête »), conseils (3 PA, cartes annoncées), historique façon roman (« par jalousie »), journal privé des pouvoirs, « toutes les manches » au lieu de « 12 manches ».
 - **Succès** : Nuit entière, Témoin invisible, Coup de maître, Le dernier mot (18 succès en tout). « Affaire classée » ne compte plus une victoire du Maître chanteur.
+
+### Étape 10 — La partie guidée (23/10/2026) ✅
+
+Demande de l'auteur : une seule « fausse partie » où l'on **change de rôle en cours de partie** pour tout expliquer ; elle remplace les deux anciennes parties guidées (enquêteur, complice) et apprend aussi les bases ; une fois finie, on peut la **refaire en entier ou seulement un chapitre**.
+
+- **La partie** (`src/client/tutoriel/scenario.ts`) : Grande enquête au manoir, vous et 4 bots (Marple, Hercule, Sherlock, Maigret), solution et ordre du tour fixés. Marple est la complice (elle devient le Témoin quand vous prenez sa place), Sherlock le Maître chanteur, Hercule l'Inspecteur, Maigret le Journaliste. Objectif du complice : le témoin gênant. Pas de limite de temps ; le Légiste et le Profileur peuvent agir dès la manche 1 (le guide rappelle les vraies règles).
+- **Le guide** : chaque chapitre prépare son tour (les bots jouent d'un coup, « avance rapide »), pose votre rôle et, au besoin, dicte un coup à un bot (Hercule qui vous interroge, Marple qui ment à l'Inspecteur ou trafique un dossier pour l'Archiviste, Hercule qui fait l'accusation juste du final). Dans la partie guidée, les bots n'accusent pas, ne dénoncent pas et ne vous interrogent que si le guide le prévoit.
+- **11 chapitres** (`chapitres.tsx`) : 1. les bases (rôle, cartes, points d'action, hypothèse, réponse, carnet, archives, historique, discussion, être interrogé, dénonciation, accusation) ; 2. le Témoin ; 3. le tableau d'enquête ; 4. l'Inspecteur ; 5. le Légiste ; 6. l'Archiviste ; 7. le Journaliste ; 8. le Profileur ; 9. le Maître chanteur ; 10. le complice (ruses, objectifs, falsifier, mentir, empreintes, bluff) ; 11. le final (dernière chance, puis écran de fin commenté et mot sur la partie classique).
+- **Refaire** : « Apprendre à jouer » (accueil, jusqu'à ce que tous les chapitres soient faits), « Paramètres › Aide » et le profil ouvrent le sommaire : « Tout depuis le début » ou un chapitre seul (✓ sur ceux déjà faits) ; en partie, le bouton « Chapitres » de la bulle fait de même. Un chapitre joué seul propose ensuite le suivant.

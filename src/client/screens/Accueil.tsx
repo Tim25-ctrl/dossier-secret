@@ -16,7 +16,9 @@ import type { TypePartie } from '../../shared/protocole';
 import { installer, useInstallation } from '../installation';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
-import { lancerPartieGuidee, type RoleGuide } from '../tutoriel/partieLocale';
+import { lancerPartieGuidee, type DepartGuide } from '../tutoriel/partieLocale';
+import { CHAPITRES } from '../tutoriel/chapitres';
+import { ModaleChapitres } from '../tutoriel/Guide';
 import { lancerPartieHorsLigne, partieHorsLigneEnCours, reprendrePartieHorsLigne } from '../horsLigne';
 
 /**
@@ -153,9 +155,9 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [parametres, setParametres] = useState(false);
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const [choixGuide, setChoixGuide] = useState(false);
-  // Les deux parties guidées terminées : le bouton quitte l'accueil (elles restent dans Paramètres et Profil).
-  const guidesTermines = prefs.guidesTermines ?? [];
-  const guidesFinis = guidesTermines.includes('enqueteur') && guidesTermines.includes('complice');
+  // Tous les chapitres de la partie guidée faits : le bouton quitte l'accueil (elle reste dans Paramètres et Profil).
+  const chapitresFaits = CHAPITRES.filter((c) => prefs.chapitresGuide.includes(c.id)).length;
+  const guidesFinis = chapitresFaits === CHAPITRES.length;
   const revoirGuide = () => {
     setParametres(false);
     setProfil(false);
@@ -187,9 +189,10 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     setLecture(false);
     if (!r.ok) setErreurFichier(r.erreur);
   };
-  const guider = (role: RoleGuide) => {
+  const guider = (depart: DepartGuide = { chapitre: 0, seul: false }) => {
+    setChoixGuide(false);
     majPrefs({ tutorielVu: true });
-    lancerPartieGuidee((compte?.nom ?? prefs.pseudo).trim(), role);
+    lancerPartieGuidee((compte?.nom ?? prefs.pseudo).trim(), depart);
   };
   const derniere = connexion.derniereSession();
   const horsLigne = partieHorsLigneEnCours();
@@ -349,9 +352,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <button className="bouton-menu bouton-menu-discret" onClick={() => setChoixGuide(true)}>
               <span className="bouton-menu-titre">Apprendre à jouer</span>
               <span className="bouton-menu-detail">
-                {guidesTermines.length
-                  ? `Encore un rôle à découvrir : ${guidesTermines.includes('enqueteur') ? 'le complice' : "l'enquêteur"}`
-                  : 'Une partie guidée de 5 minutes'}
+                {chapitresFaits ? `Partie guidée : ${chapitresFaits} chapitre${chapitresFaits > 1 ? 's' : ''} sur ${CHAPITRES.length} faits` : 'Une partie guidée, chapitre par chapitre'}
               </span>
             </button>
           )}
@@ -466,21 +467,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           </p>
         </Modale>
       )}
-      {choixGuide && (
-        <Modale titre="Partie guidée" onFermer={() => setChoixGuide(false)}>
-          <p>Une vraie partie contre deux bots, avec un guide qui vous montre où cliquer. Quel rôle voulez-vous apprendre ?</p>
-          <div className="choix-guide">
-            <button className="btn btn-or" onClick={() => guider('enqueteur')}>
-              🔎 Enquêteur{guidesTermines.includes('enqueteur') ? ' ✓' : ''}
-              <span className="petit">Pour commencer : hypothèses, carnet, archives, accusation.</span>
-            </button>
-            <button className="btn" onClick={() => guider('complice')}>
-              🎭 Complice{guidesTermines.includes('complice') ? ' ✓' : ''}
-              <span className="petit">Ensuite : mentir, falsifier, trafiquer un dossier sans se faire démasquer.</span>
-            </button>
-          </div>
-        </Modale>
-      )}
+      {choixGuide && <ModaleChapitres faits={prefs.chapitresGuide} onChoisir={guider} onFermer={() => setChoixGuide(false)} />}
       {charger && (
         <ModaleCharger
           type={charger}
@@ -514,18 +501,19 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
               >
                 Plus tard
               </button>
-              <button className="btn btn-or" onClick={() => guider('enqueteur')}>
+              <button className="btn btn-or" onClick={() => guider()}>
                 Lancer la partie guidée
               </button>
             </>
           }
         >
           <p>
-            Apprenez à jouer en <strong>5 minutes</strong>, avec une vraie partie contre deux bots. Un guide vous montre où cliquer et explique chaque étape :
-            hypothèse, cartes montrées, carnet, archives, complice, accusation.
+            Apprenez à jouer avec une partie guidée contre quatre bots, en {CHAPITRES.length} chapitres : un guide vous montre où cliquer et explique tout, des
+            bases (hypothèse, carnet, archives, accusation) aux rôles secrets de la Grande enquête, au complice et à ses ruses. Vous pouvez la faire d'un coup ou
+            chapitre par chapitre.
           </p>
           <p className="muet petit" style={{ marginBottom: 0 }}>
-            Vous la retrouverez à tout moment avec le bouton « Apprendre à jouer » de l'accueil.
+            Vous la retrouverez avec le bouton « Apprendre à jouer » de l'accueil, et dans les Paramètres.
           </p>
         </Modale>
       )}

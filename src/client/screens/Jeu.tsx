@@ -536,6 +536,7 @@ function PanneauRole({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
         </>
       ) : grande ? (
         <>
+          {vue.moi.role === 'enqueteur' && !vue.moi.roleEnquete && <h3 style={{ marginBottom: 4 }}>Vous êtes enquêteur</h3>}
           <InfosRoleGrande vue={vue} nom={nom} />
           {vue.moi.role === 'enqueteur' && (
             <p className="petit">
@@ -608,9 +609,11 @@ function Archives({
         Consulter un dossier coûte 1 point d'action pendant votre tour. Vous seul lisez son contenu ; les autres voient seulement que vous l'avez consulté.
         Les pièces à conviction sont des cartes que personne n'a reçues : elles sont donc hors de cause.
       </p>
-      {vue.archives.map((a) =>
-        pieces.has(a.dossier) ? (
-          <Prive key={a.dossier} titre={`Pièce à conviction n° ${a.dossier} — vue par vous seul`}>
+      {vue.archives.map((a) => (
+        // data-dossier : repère du dossier (la partie guidée le met en lumière).
+        <div key={a.dossier} data-dossier={a.dossier} className="dossier-archive">
+        {pieces.has(a.dossier) ? (
+          <Prive titre={`Pièce à conviction n° ${a.dossier} — vue par vous seul`}>
             {sceau(a.dossier)}
             <div className="ligne">
               <Carte id={pieces.get(a.dossier)!} />
@@ -618,7 +621,7 @@ function Archives({
             </div>
           </Prive>
         ) : consultes.has(a.dossier) ? (
-          <Prive key={a.dossier} titre={`Dossier n° ${a.dossier} — lu par vous seul`}>
+          <Prive titre={`Dossier n° ${a.dossier} — lu par vous seul`}>
             {sceau(a.dossier)}
             <CarteIndice id={consultes.get(a.dossier)!.indice} dossier={a.dossier} categorie={consultes.get(a.dossier)!.categorie} />
             {mesTrafics.has(a.dossier) && (
@@ -628,7 +631,7 @@ function Archives({
             )}
           </Prive>
         ) : (
-          <section key={a.dossier} className="panneau ligne">
+          <section className="panneau ligne">
             <div>
               <h4 style={{ margin: 0 }}>{a.categorie === 'piece' ? 'Pièce à conviction' : 'Dossier scellé'} n° {a.dossier}</h4>
               <span className="muet petit">
@@ -668,8 +671,9 @@ function Archives({
               </>
             )}
           </section>
-        ),
-      )}
+        )}
+        </div>
+      ))}
     </div>
   );
 }

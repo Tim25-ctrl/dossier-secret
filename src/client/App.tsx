@@ -72,11 +72,12 @@ export function App() {
       {ecran}
       {c.tutoriel && c.etat?.partie && (
         <GuideTutoriel
-          onTermine={(role) =>
+          faits={prefs.chapitresGuide}
+          onChapitre={(id) =>
             majPrefs({
               tutorielVu: true,
-              conseilsVus: [...new Set([...prefs.conseilsVus, ...CONSEILS_DU_TUTORIEL])],
-              guidesTermines: [...new Set([...(prefs.guidesTermines ?? []), role])],
+              conseilsVus: [...new Set([...prefs.conseilsVus, ...(CONSEILS_DU_TUTORIEL[id] ?? [])])],
+              chapitresGuide: [...new Set([...prefs.chapitresGuide, id])],
             })
           }
         />

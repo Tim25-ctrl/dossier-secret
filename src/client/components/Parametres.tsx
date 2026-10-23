@@ -208,7 +208,7 @@ export function ModaleParametres({
         <section className="param-section">
           <h3>Aide</h3>
           <button className="btn btn-petit" onClick={onGuide}>
-            🎓 Refaire une partie guidée
+            🎓 Partie guidée : tout ou un chapitre
           </button>
         </section>
       )}

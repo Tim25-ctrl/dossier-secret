@@ -23,8 +23,8 @@ export interface Preferences {
   conseils: boolean;
   /** Conseils déjà lus (« Compris »). */
   conseilsVus: string[];
-  /** Parties guidées terminées jusqu'au bout (rôle appris). */
-  guidesTermines: ('enqueteur' | 'complice')[];
+  /** Chapitres de la partie guidée terminés (identifiants de tutoriel/chapitres.tsx). */
+  chapitresGuide: string[];
 }
 
 const CLE = 'dossier-secret:preferences';
@@ -48,7 +48,7 @@ const DEFAUT: Preferences = {
   historique: 'roman',
   conseils: true,
   conseilsVus: [],
-  guidesTermines: [],
+  chapitresGuide: [],
 };
 
 const borne = (x: number) => Math.min(1, Math.max(0, x));

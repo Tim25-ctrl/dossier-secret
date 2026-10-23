@@ -97,7 +97,7 @@ export function ModaleProfil({
       {onGuide && (
         <p style={{ margin: '12px 0 0' }}>
           <button className="btn btn-petit" onClick={onGuide}>
-            🎓 Refaire une partie guidée
+            🎓 Partie guidée : tout ou un chapitre
           </button>
         </p>
       )}

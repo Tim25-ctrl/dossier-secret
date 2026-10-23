@@ -12,8 +12,11 @@ interface Conseil {
   texte: (v: VueJoueur) => ReactNode;
 }
 
-/** Conseils déjà couverts par la partie guidée (marqués « vus » à la fin du tutoriel). */
-export const CONSEILS_DU_TUTORIEL = ['premier-tour', 'interroge', 'resultat', 'archives', 'empreinte', 'accusation'];
+/** Conseils déjà couverts par la partie guidée, selon le chapitre terminé (ils sont alors marqués « vus »). */
+export const CONSEILS_DU_TUTORIEL: Record<string, string[]> = {
+  bases: ['premier-tour', 'interroge', 'resultat', 'archives', 'accusation'],
+  complice: ['empreinte'],
+};
 
 const CONSEILS: Conseil[] = [
   {

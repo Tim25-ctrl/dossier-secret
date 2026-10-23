@@ -407,7 +407,7 @@ function objectifAtteint(etat: EtatPartie): boolean {
   }
 }
 
-function pouvoirsInitiaux(config: ConfigPartie, role: RoleEnquete): PouvoirsRole {
+export function pouvoirsInitiaux(config: ConfigPartie, role: RoleEnquete): PouvoirsRole {
   const u = config.roles!.utilisations;
   switch (role) {
     case 'inspecteur':

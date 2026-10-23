@@ -3990,3 +3990,50 @@ button.carte:hover:not(:disabled) {
 :root[data-animations='reduites'] .epingle {
   transform: none;
 }
+
+/* Partie guidée : sommaire des chapitres, fenêtres de chapitre, place sous l'écran de fin. */
+.liste-chapitres {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.liste-chapitres .btn {
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+}
+.liste-chapitres .chapitre-titre {
+  font-weight: 700;
+}
+.liste-chapitres .chapitre-fait {
+  color: var(--or-clair);
+}
+.liste-chapitres .petit {
+  font-weight: 400;
+  opacity: 0.85;
+}
+.guide-fenetre {
+  line-height: 1.5;
+}
+.guide-fenetre .guide-role {
+  margin-bottom: 12px;
+}
+.guide-texte .guide-progres + .guide-progres {
+  margin-top: 4px;
+}
+.avec-guide .page {
+  padding-bottom: 320px;
+}
+/* Bulle du guide à gauche d'une grande fenêtre (grand écran). */
+.guide.guide-cote {
+  left: 12px;
+  top: 72px;
+  bottom: auto;
+  transform: none;
+  font-size: 0.9rem;
+}

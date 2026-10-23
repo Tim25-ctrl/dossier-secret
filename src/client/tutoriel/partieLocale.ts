@@ -1,89 +1,121 @@
-// Partie guidée : une vraie partie, jouée entièrement sur cet appareil (moteur et bots du jeu),
-// sans serveur ni salon. Le scénario est préparé pour que chaque situation du tutoriel arrive :
-// vous commencez, et Hercule vous interroge à son premier tour.
-// Deux rôles : enquêteur (Marple est alors le complice) ou complice (vous, avec plus de ruses
-// que dans une vraie partie à 3 pour pouvoir toutes les essayer).
+// Partie guidée : la partie arrangée de scenario.ts, jouée entièrement sur cet appareil (moteur et
+// bots du jeu), sans serveur ni salon. Le guide la pilote : il change votre rôle, fait jouer les
+// bots d'un coup (avance rapide) ou leur impose un coup précis (coups « scénarisés »).
 
 import { PROFIL_OCCASIONNEL, decisionBot } from '../../bots/bot';
-import { appliquerAction, avancer, creerPartie, peutFalsifier, type EtatPartie } from '../../engine/partie';
-import { CONFIG_PAR_DEFAUT } from '../../engine/config';
-import { cryptoRng, seededRng } from '../../engine/rng';
+import { appliquerAction, avancer, joueurActif, peutFalsifier, type EtatPartie } from '../../engine/partie';
+import { cryptoRng } from '../../engine/rng';
 import { vuePour } from '../../engine/vue';
 import type { EtatClient, EvenementsClient, MessageChat, Reponse } from '../../shared/protocole';
-import { categorieDe, elementsDe, type ActionJeu, type ElementId, type Triplet } from '../../shared/types';
-
-const MANOIR = elementsDe('manoir');
+import type { ActionJeu } from '../../shared/types';
 import { connexion, type MoteurLocal } from '../connexion';
+import { BOTS, MOI, avanceRapide, creerPartieGuidee, poserMonRole, tourSuivant, type RoleGuide } from './scenario';
 
-export const MOI = 'vous';
-const HERCULE = 'hercule';
-const MARPLE = 'marple';
-const BOTS = [HERCULE, MARPLE];
-const SOLUTION: Triplet = { suspect: 'gabriel', lieu: 'cave', arme: 'chandelier' };
+export { MOI } from './scenario';
 
-export type RoleGuide = 'enqueteur' | 'complice';
+/** Coup imposé à un bot : l'action à jouer maintenant, ou null si le moment n'est pas venu. */
+export type CoupScenarise = (etat: EtatPartie) => ActionJeu | null;
 
-function nouvelleAffaire(nom: string, role: RoleGuide): EtatPartie {
-  const complice = role === 'complice';
-  // Première graine où vous jouez en premier (l'ordre du tour est tiré au sort).
-  for (let graine = 1; graine < 500; graine++) {
-    const etat = creerPartie({
-      id: `guide-${graine}`,
-      joueurs: [
-        { id: MOI, nom },
-        { id: HERCULE, nom: 'Hercule (bot)', bot: true },
-        { id: MARPLE, nom: 'Marple (bot)', bot: true },
-      ],
-      rng: seededRng(graine),
-      now: Date.now(),
-      // Pas de limite de temps : on lit les explications tranquillement. Complice : la fenêtre de
-      // falsification reste ouverte jusqu'à votre choix (elle se referme dès qu'il est fait, voir tic).
-      config: {
-        delaiTourMs: null,
-        delaiReponseMs: 600_000,
-        delaiFalsificationMs: complice ? 600_000 : 3_000,
-        modeComplice: 'ruse',
-        ...(complice ? { ruses: { ...CONFIG_PAR_DEFAUT.ruses, 3: 4 } } : {}),
-      },
-      imposer: { solution: SOLUTION, complice: complice ? MOI : MARPLE },
-    });
-    if (etat.ordre[0] === MOI) return etat;
-  }
-  throw new Error('Partie guidée : aucune graine ne convient.');
+/** Où commence la partie guidée : au chapitre donné ; `seul` : ce chapitre uniquement. */
+export interface DepartGuide {
+  chapitre: number;
+  seul: boolean;
 }
 
-class PartieLocale implements MoteurLocal {
+/** Actions qui « entament » votre tour (après elles, le guide ne garde plus ce tour pour un nouveau chapitre). */
+const ACTIONS_DU_TOUR = new Set<ActionJeu['type']>(['hypothese', 'consulterArchive', 'verifierReponses', 'expertiser', 'verifierDossier', 'profiler', 'denoncer']);
+
+export class PartieLocale implements MoteurLocal {
   etat: EtatPartie;
+  /** Change à chaque nouvelle partie (le guide relance alors la préparation du chapitre). */
+  generation = 0;
+  /** Nombre d'observations privées au début du chapitre : le guide regarde ce qui s'est passé depuis. */
+  journalDebut = 0;
+  /** Ce que le guide retient pour ses textes (dossier trafiqué…). */
+  memo: Record<string, number> = {};
   private messages: MessageChat[] = [];
   private boucle: ReturnType<typeof setInterval>;
   private minuteurBot: ReturnType<typeof setTimeout> | null = null;
-  private herculeAInterroge = false;
+  private coups = new Map<string, CoupScenarise>();
+  /** Votre tour où vous avez déjà agi (numéro du tour). */
+  private agiAuTour = -1;
   /** Partie figée par le guide pendant une explication : bots arrêtés, chronos décalés. */
   private gelee = false;
   private dernierTic = Date.now();
 
   constructor(
     private nom: string,
-    private role: RoleGuide,
+    readonly depart: DepartGuide,
   ) {
-    this.etat = nouvelleAffaire(nom, role);
+    this.etat = creerPartieGuidee(nom);
     this.boucle = setInterval(() => this.tic(), 250);
   }
 
-  /** Hypothèse conseillée à votre premier tour : Hercule (honnête) aura une carte à vous montrer. */
-  suggestion(): Triplet {
-    const sienne = this.etat.joueurs[HERCULE].main[0];
-    const miennes = new Set(this.etat.joueurs[MOI].main);
-    const t: Record<string, ElementId> = {};
-    t[categorieDe(sienne)!] = sienne;
-    for (const [cat, ids] of [
-      ['suspect', MANOIR.suspects],
-      ['lieu', MANOIR.lieux],
-      ['arme', MANOIR.armes],
-    ] as const)
-      t[cat] ??= ids.find((e) => !miennes.has(e) && !this.etat.joueurs[HERCULE].main.includes(e))!;
-    return t as unknown as Triplet;
+  /** Nouvelle partie (pour rejouer un chapitre seul). */
+  recommencer() {
+    if (this.minuteurBot) clearTimeout(this.minuteurBot);
+    this.minuteurBot = null;
+    this.etat = creerPartieGuidee(this.nom);
+    this.coups.clear();
+    this.agiAuTour = -1;
+    this.journalDebut = 0;
+    this.memo = {};
+    this.generation++;
+    this.publier();
   }
+
+  // ------------------------------------------------------------------
+  // Outils du guide
+  // ------------------------------------------------------------------
+
+  /** Le prochain coup de ce bot sera celui-ci (dès que `coup` renvoie une action). */
+  scenariser(id: string, coup: CoupScenarise) {
+    this.coups.set(id, coup);
+  }
+
+  /** Les bots jouent d'un coup jusqu'au tour de `jusqua` (vous par défaut). */
+  avanceRapide(jusqua = MOI) {
+    avanceRapide(this.etat, (id) => this.decision(id, true), jusqua);
+    this.publier();
+  }
+
+  /** Votre tour est-il encore intact (aucun point dépensé, aucun pouvoir utilisé) ? */
+  tourNeuf(): boolean {
+    const e = this.etat;
+    return (
+      !e.attenteDepart &&
+      e.etape === 'tour' &&
+      joueurActif(e) === MOI &&
+      e.pointsAction === e.config.pointsAction &&
+      e.hypothesesCeTour === 0 &&
+      this.agiAuTour !== this.numeroTour()
+    );
+  }
+
+  /**
+   * Début d'un chapitre : coups scénarisés oubliés, un tour neuf pour vous (les bots jouent d'abord
+   * si le vôtre est entamé ; toujours si `nouveauTour`), puis votre rôle pour ce chapitre.
+   * `avant` : réglages à faire avant que les bots jouent (coups scénarisés…) ; `apres` : une fois votre rôle posé.
+   */
+  preparer(o: { role?: RoleGuide; nouveauTour?: boolean; avant?: (p: PartieLocale) => void; apres?: (p: PartieLocale) => void } = {}) {
+    this.coups.clear();
+    if (this.etat.etape === 'terminee') this.recommencer();
+    if (this.etat.attenteDepart) appliquerAction(this.etat, MOI, { type: 'pret' }, Date.now());
+    o.avant?.(this);
+    if (o.nouveauTour || !this.tourNeuf()) tourSuivant(this.etat, (id) => this.decision(id, true));
+    if (o.role) poserMonRole(this.etat, o.role);
+    o.apres?.(this);
+    this.journalDebut = this.etat.joueurs[MOI].journal.length;
+    this.publier();
+  }
+
+  private numeroTour(): number {
+    return this.etat.historique.filter((ev) => ev.type === 'debut_tour' && ev.joueur === MOI).length;
+  }
+
+  // ------------------------------------------------------------------
+  // Moteur local
+  // ------------------------------------------------------------------
 
   etatClient(): EtatClient {
     const e = this.etat;
@@ -97,8 +129,8 @@ class PartieLocale implements MoteurLocal {
         joueurs: e.ordre.map((id) => ({ id, nom: e.joueurs[id].nom, connecte: true, bot: e.joueurs[id].bot, hote: id === MOI, parti: false })),
         messages: this.messages,
         botsAutorises: true,
-        reglages: { affaire: 'manoir', dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles' },
-        min: 3,
+        reglages: { affaire: 'manoir', dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles', mode: 'grande' },
+        min: 4,
         max: 6,
         reprise: false,
         demandes: [],
@@ -114,7 +146,9 @@ class PartieLocale implements MoteurLocal {
 
   envoyer(ev: keyof EvenementsClient, payload: unknown): Reponse<object> {
     if (ev === 'jeu:action') {
-      const r = appliquerAction(this.etat, MOI, payload as ActionJeu, Date.now());
+      const action = payload as ActionJeu;
+      const r = appliquerAction(this.etat, MOI, action, Date.now());
+      if (r.ok && ACTIONS_DU_TOUR.has(action.type)) this.agiAuTour = this.numeroTour();
       this.publier();
       return r.ok ? { ok: true } : { ok: false, erreur: r.erreur };
     }
@@ -122,12 +156,6 @@ class PartieLocale implements MoteurLocal {
       const texte = String((payload as { texte?: unknown })?.texte ?? '').trim().slice(0, 300);
       if (!texte) return { ok: false, erreur: 'Message vide.' };
       this.messages = [...this.messages, { id: this.messages.length + 1, auteur: MOI, nom: this.nom, texte, t: Date.now() }];
-      this.publier();
-      return { ok: true };
-    }
-    if (ev === 'salon:rejouer') {
-      this.etat = nouvelleAffaire(this.nom, this.role);
-      this.herculeAInterroge = false;
       this.publier();
       return { ok: true };
     }
@@ -140,22 +168,28 @@ class PartieLocale implements MoteurLocal {
     if (courante === this) courante = null;
   }
 
-  /** Décision d'un bot, avec le coup scénarisé : à son premier tour, Hercule vous interroge. */
-  private decision(id: string): ActionJeu | null {
+  /**
+   * Décision d'un bot : son coup scénarisé s'il y en a un, sinon celle du bot du jeu. Dans la partie
+   * guidée, les bots n'accusent pas, ne dénoncent pas, et ne vous interrogent que si le guide le prévoit.
+   * `jouer` : la décision sera appliquée (le coup scénarisé est alors consommé).
+   */
+  private decision(id: string, jouer: boolean): ActionJeu | null {
     const e = this.etat;
-    if (id === HERCULE && !this.herculeAInterroge && e.etape === 'tour' && e.ordre[e.indexTour] === HERCULE && e.hypothesesCeTour === 0) {
-      const mienne = e.joueurs[MOI].main[0];
-      const autres = e.joueurs[MARPLE].main;
-      const t: Record<string, ElementId> = { [categorieDe(mienne)!]: mienne };
-      for (const [cat, ids] of [
-        ['suspect', MANOIR.suspects],
-        ['lieu', MANOIR.lieux],
-        ['arme', MANOIR.armes],
-      ] as const)
-        t[cat] ??= autres.find((x) => categorieDe(x) === cat) ?? ids.find((x) => !e.joueurs[MOI].main.includes(x))!;
-      return { type: 'hypothese', suspect: t.suspect, lieu: t.lieu, arme: t.arme, interroges: [MOI] } as ActionJeu;
+    const coup = this.coups.get(id);
+    const impose = coup?.(e);
+    if (impose) {
+      if (jouer) this.coups.delete(id);
+      return impose;
     }
-    return decisionBot(vuePour(e, id), cryptoRng, PROFIL_OCCASIONNEL);
+    const a = decisionBot(vuePour(e, id), cryptoRng, PROFIL_OCCASIONNEL);
+    if (!a) return null;
+    const sonTour = e.etape === 'tour' && joueurActif(e) === id;
+    if (a.type === 'accuser' || a.type === 'denoncer') return sonTour ? { type: 'finTour' } : null;
+    if (a.type === 'hypothese' && a.interroges.includes(MOI)) {
+      const libres = BOTS.filter((b) => b !== id && !a.interroges.includes(b));
+      return { ...a, interroges: a.interroges.map((x) => (x === MOI ? libres.shift()! : x)) };
+    }
+    return a;
   }
 
   figer(gel: boolean) {
@@ -170,50 +204,54 @@ class PartieLocale implements MoteurLocal {
     const maintenant = Date.now();
     const ecoule = maintenant - this.dernierTic;
     this.dernierTic = maintenant;
+    const e = this.etat;
     if (this.gelee) {
       // Le temps ne compte pas pendant la pause : on repousse les échéances d'autant.
-      this.etat.echeanceTour += ecoule;
-      if (this.etat.hypothese) {
-        this.etat.hypothese.echeance += ecoule;
+      e.echeanceTour += ecoule;
+      if (e.designation) e.designation.echeance += ecoule;
+      if (e.hypothese) {
+        e.hypothese.echeance += ecoule;
         this.publier();
       }
       return;
     }
     // Complice : la fenêtre de falsification se referme dès que vous avez choisi (ou si vous ne pouvez pas falsifier).
-    const h = this.etat.hypothese;
-    if (this.role === 'complice' && h?.etape === 'falsification' && !peutFalsifier(this.etat, MOI)) h.echeance = Math.min(h.echeance, Date.now() + 1_500);
-    if (avancer(this.etat, Date.now(), cryptoRng)) this.publier();
-    if (this.minuteurBot || this.etat.etape === 'terminee') return;
-    const bot = BOTS.find((id) => this.decision(id));
+    const h = e.hypothese;
+    if (e.complice === MOI && h?.etape === 'falsification' && !peutFalsifier(e, MOI)) h.echeance = Math.min(h.echeance, maintenant + 1_200);
+    if (avancer(e, maintenant, cryptoRng)) this.publier();
+    if (this.minuteurBot || e.etape === 'terminee') return;
+    const bot = BOTS.find((id) => this.decision(id, false));
     if (!bot) return;
-    // Les bots prennent leur temps : on suit ce qu'ils font.
-    this.minuteurBot = setTimeout(() => {
-      this.minuteurBot = null;
-      const action = this.decision(bot);
-      if (!action) return;
-      const r = appliquerAction(this.etat, bot, action, Date.now());
-      if (r.ok && action.type === 'hypothese' && bot === HERCULE) this.herculeAInterroge = true;
-      if (!r.ok && this.etat.etape === 'tour' && this.etat.ordre[this.etat.indexTour] === bot) appliquerAction(this.etat, bot, { type: 'finTour' }, Date.now());
-      this.publier();
-    }, 2_000 + Math.floor(Math.random() * 1_000));
+    // Les bots prennent un peu leur temps : on suit ce qu'ils font.
+    this.minuteurBot = setTimeout(
+      () => {
+        this.minuteurBot = null;
+        const action = this.decision(bot, true);
+        if (!action) return;
+        const r = appliquerAction(this.etat, bot, action, Date.now());
+        if (!r.ok && this.etat.etape === 'tour' && joueurActif(this.etat) === bot) appliquerAction(this.etat, bot, { type: 'finTour' }, Date.now());
+        this.publier();
+      },
+      1_300 + Math.floor(Math.random() * 700),
+    );
   }
 }
 
 let courante: PartieLocale | null = null;
 
 /** Lance la partie guidée (remplace l'écran courant). */
-export function lancerPartieGuidee(nom: string, role: RoleGuide = 'enqueteur') {
-  const p = new PartieLocale(nom || 'Vous', role);
+export function lancerPartieGuidee(nom: string, depart: DepartGuide = { chapitre: 0, seul: false }) {
+  const p = new PartieLocale(nom || 'Vous', depart);
   courante = p;
   connexion.demarrerLocal(p, p.etatClient());
+}
+
+/** La partie guidée en cours (pour le guide). */
+export function partieGuidee(): PartieLocale | null {
+  return courante;
 }
 
 /** Fige ou relance la partie guidée (le guide la fige pendant ses explications). */
 export function figerPartieGuidee(gel: boolean) {
   courante?.figer(gel);
-}
-
-/** Hypothèse conseillée au premier tour (Hercule aura une carte à montrer). */
-export function suggestionPartieGuidee(): Triplet | null {
-  return courante?.suggestion() ?? null;
 }

@@ -15,11 +15,11 @@ Le 17 octobre, à 23 h 17, Armand de Valombre est retrouvé mort dans son manoir
 - Animations : carte qui se retourne, tampon de l'hypothèse, sceau de cire brisé, tampon « Démasqué », loupe sur les empreintes, bandeau « C'est votre tour » qui pulse, sceau apposé sur l'écran de fin (désactivables dans Paramètres)
 - Joueur déconnecté ou parti : la partie se met en pause ; les autres peuvent attendre son retour ou le remplacer par un bot (fenêtre avec la discussion)
 - Joueurs automatiques (bots) pour compléter une table ou tester seul
-- Parties guidées (tutoriels jouables contre deux bots, sur l'appareil) : enquêteur ou complice, avec voile sombre sur ce qui ne sert pas à l'étape ; conseils pendant les premières parties
+- Partie guidée (jouée sur l'appareil, contre quatre bots) : une partie arrangée de Grande enquête en 11 chapitres, où l'on change de rôle d'un chapitre à l'autre (bases, Témoin, tableau, Inspecteur, Légiste, Archiviste, Journaliste, Profileur, Maître chanteur, complice, final) ; à faire d'un coup ou chapitre par chapitre, avec voile sombre sur ce qui ne sert pas à l'étape ; conseils pendant les premières parties
 - Option « Cartes montrées anonymes » (difficile) : les cartes montrées et reçues ne sont plus rappelées après le tour
 - Deux modes de complice : **Rusé** (réserve de ruses discrètes, empreintes, dénonciation) ou **Classique**
 - Mode **« Grande enquête »** (4 à 6 joueurs, 14 manches) : le mobile du crime à trouver, des rôles secrets à pouvoirs, un objectif secret pour le complice, un Maître chanteur à 5–6 joueurs et un tableau d'enquête commun (voir [docs/GRANDE-ENQUETE.md](docs/GRANDE-ENQUETE.md))
-- 256 tests automatisés, dont des parties complètes jouées en réseau
+- 266 tests automatisés, dont des parties complètes jouées en réseau
 
 Les règles complètes sont dans le jeu (bouton « Règles du jeu »).
 
@@ -117,6 +117,8 @@ Ce que couvrent les tests (`tests/`) :
 | `grande-objectifs.test.ts` | Objectif secret du complice (témoin gênant et dernière chance, bouc émissaire, ombre), victoire volée |
 | `grande-tableau.test.ts` | Tableau d'enquête : épingles, réactions, rumeurs anonymes, révélation des auteurs |
 | `grande-bots.test.ts` | Bots de la Grande enquête : pouvoirs, tableau, Témoin qui se cache ; partie classique inchangée |
+| `depart.test.ts` | Départ de la partie : elle commence quand chacun a lu son rôle (ou au bout du temps d'attente) |
+| `tutoriel.test.ts` | Partie guidée : partie arrangée, rôles qui changent d'un chapitre à l'autre, bots qui jouent d'un coup, final (dernière chance du complice) |
 | `paquebot.test.ts` | Affaire du paquebot (l'Aurélia) : 44 indices relationnels, témoignages partiels, journal d'Édouard, génération valide pour les 216 solutions, distribution, parties complètes entre bots |
 | `solo-profil.test.ts` | Partie seul contre des bots ; profil local (parties comptées une fois, série, succès, grade) |
 | `emplacements.test.ts` | Emplacements de sauvegarde : copie et rechargement d'une partie (même code ou nouveau code si occupé), base PostgreSQL (PGlite), reprise des sauvegardes d'un ancien code joueur |
@@ -195,12 +197,12 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 - Responsive (testé à 375 px de large sans défilement horizontal), zones privées distinguées par icône, texte et style (pas seulement par la couleur).
 - Mode « Complice rusé » : Mensonge, Carte empruntée, Hypothèse falsifiée, Dossier trafiqué, empreintes et dénonciation (voir docs/EQUILIBRAGE.md).
 - **Grande enquête** (23/10/2026, conception et décisions dans [docs/GRANDE-ENQUETE.md](docs/GRANDE-ENQUETE.md)) : 6 mobiles par histoire (36 indices et 12 dessins), rôles secrets à pouvoirs, Maître chanteur, objectif secret du complice qui peut voler la victoire (dernière chance pour désigner le Témoin), tableau d'enquête (épingles, réactions, rumeurs anonymes), 3 PA par tour, bots qui jouent tout le mode ; choix du mode dans le salon et en solo (en ligne ou hors ligne), règles, fin de partie et 4 succès propres. `npm run simulate -- --mode grande` mesure son équilibre.
-- Bots et simulations d'équilibrage ; 256 tests automatisés.
+- Bots et simulations d'équilibrage ; 266 tests automatisés.
 
 ## 9. Limites connues
 
 - **Équilibrage :** après les corrections du 19/10/2026 (pièces à conviction, hypothèse à 2 PA, pouvoirs selon la taille de la table), le complice gagne environ une partie sur 8 à une sur 3 en simulation ; les enquêteurs restent favoris, surtout à 6 joueurs. Les chiffres viennent de bots et ne remplacent pas des parties entre humains : voir [docs/EQUILIBRAGE.md](docs/EQUILIBRAGE.md).
-- **Ajouter une affaire** demande d'écrire ses fiches et ses indices (`src/shared/data/`), de l'inscrire dans `ELEMENTS_PAR_AFFAIRE` (`src/shared/types.ts`) et le catalogue, et de dessiner ses 18 illustrations (`Emblemes.tsx`) ; les tests vérifient le reste. La partie guidée reste sur le manoir.
+- **Ajouter une affaire** demande d'écrire ses fiches et ses indices (`src/shared/data/`), de l'inscrire dans `ELEMENTS_PAR_AFFAIRE` (`src/shared/types.ts`) et le catalogue, et de dessiner ses 18 illustrations (`Emblemes.tsx`) ; les tests vérifient le reste. La partie guidée reste sur le manoir, en Grande enquête.
 - **Une seule instance de serveur :** l'état est en mémoire. Pour plusieurs instances, il faudrait un stockage partagé (Redis ou base de données).
 - **Sur l'offre gratuite de Render**, un redémarrage ou une mise en veille efface les salons en cours (voir section 7).
 - **Pas de comptes utilisateurs :** l'identité repose sur un jeton par salon gardé dans l'onglet. Fermer l'onglet puis revenir fonctionne via « Reprendre ma partie » sur le même navigateur, pas depuis un autre appareil.

@@ -63,7 +63,8 @@ export function Fin({ etat }: { etat: EtatClient }) {
           {r.complice === moi ? ' (vous)' : ''}.
         </p>
         <div className="ligne" style={{ justifyContent: 'center', marginTop: 12 }}>
-          {estHote ? (
+          {/* Partie guidée : le guide propose la suite (chapitres, quitter). */}
+          {etat.salon.code.startsWith('GUIDE') ? null : estHote ? (
             <button
               className="btn btn-or"
               onClick={async () => {

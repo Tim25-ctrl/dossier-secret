@@ -139,6 +139,7 @@ Toutes les valeurs ont un défaut raisonnable : **aucune configuration n'est obl
 | `RESPONSE_TIMEOUT_SECONDS` | `60` | Délai pour répondre à une interrogation (puis réponse automatique honnête) |
 | `TURN_TIMEOUT_SECONDS` | `180` | Durée maximale d'un tour |
 | `DISCONNECTED_TURN_SECONDS` | `25` | Délai réduit pour un joueur absent quand les autres ont choisi de continuer sans lui |
+| `START_WAIT_SECONDS` | `180` | Au lancement, chacun lit son rôle et clique « Je suis prêt » : la partie commence quand tous les joueurs sont prêts, ou au plus tard après ce délai |
 | `CORS_ORIGINS` | *(vide)* | Origines autorisées si le site est servi depuis un autre domaine |
 
 Les règles du jeu elles-mêmes (12 manches, 2 PA, pouvoirs, nombre d'indices…) sont dans `src/engine/config.ts`.

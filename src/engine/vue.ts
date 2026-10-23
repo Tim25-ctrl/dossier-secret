@@ -8,7 +8,7 @@ import { ceQueLIndiceEcarte, combinaisonsPossibles, tripletsDe } from '../shared
 import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
 import { avecMobile, coutRuse, nbInterroges, pouvoirsPour, rusesPour } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
-import { objectifVu, tableauVu, absentsBloquants, cartesCorrespondantes, rusesSuspendues, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
+import { joueursPasPrets, objectifVu, tableauVu, absentsBloquants, cartesCorrespondantes, rusesSuspendues, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
 
 export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
   const moi = etat.joueurs[joueurId];
@@ -54,6 +54,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
         return p ? [{ dossier, carte: p.carte }] : [];
       }),
       peutDenoncer: !!moi.peutDenoncer && !etat.compliceDemasque,
+      ...(etat.attenteDepart ? { pret: moi.bot || etat.attenteDepart.prets.includes(joueurId) } : {}),
     },
     regles: {
       mode: etat.config.mode ?? 'classique',
@@ -106,6 +107,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
     historique,
     ...(etat.etape === 'designation' && etat.designation ? { echeanceDesignation: etat.designation.echeance } : {}),
     ...(etat.config.tableau ? { tableau: tableauVu(etat, joueurId) } : {}),
+    ...(etat.attenteDepart ? { attenteDepart: { enAttente: joueursPasPrets(etat), limite: etat.attenteDepart.limite } } : {}),
     compliceDemasque: etat.compliceDemasque ? etat.complice : null,
     retourRuses: rusesSuspendues(etat) ? (etat.retourRuses ?? null) : null,
     pause: etat.pause ? { depuis: etat.pause.depuis, absents: absentsBloquants(etat).map((id) => ({ id, parti: !!etat.joueurs[id].parti })) } : null,

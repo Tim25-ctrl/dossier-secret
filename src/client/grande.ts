@@ -24,6 +24,12 @@ export const POUVOIRS_ROLES: Record<RoleEnquete, string> = {
   profileur: 'Une fois, à partir de la manche 6 : désignez deux joueurs, vous apprenez si le complice est l’un des deux.',
 };
 
+/** « le Témoin », « l'Inspecteur », « l'Archiviste »… */
+export function roleAvecArticle(r: RoleEnquete): string {
+  const nom = NOMS_ROLES[r];
+  return /^[AEIOUÉÈÊ]/.test(nom) ? `l'${nom}` : `le ${nom}`;
+}
+
 /** Nom du rôle secret affiché au joueur (« Témoin », « Complice », « Maître chanteur »…). */
 export function libelleRole(role: Role, roleEnquete?: RoleEnquete): string {
   if (role === 'complice') return 'Complice';

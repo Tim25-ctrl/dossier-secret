@@ -262,14 +262,25 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
         <div>
           <section className="panneau">
             <h3>En bref</h3>
-            <ul style={{ paddingLeft: '1.1em', margin: 0 }}>
-              <li>Trouvez le meurtrier, le lieu et l'arme.</li>
-              <li>Un joueur secret est complice : il connaît le meurtrier.</li>
-              <li>2 points d'action par tour (hypothèse : 2 PA, archive : 1 PA), 12 manches maximum.</li>
-              <li>Hypothèse : le premier joueur interrogé qui a une carte correspondante vous en montre une, en secret.</li>
-              <li>Le complice utilise des ruses discrètes… qui laissent parfois des empreintes. Démasquez-le !</li>
-              <li>Une seule accusation finale par enquêteur (le complice ne peut pas accuser).</li>
-            </ul>
+            {salon.reglages.mode === 'grande' ? (
+              <ul style={{ paddingLeft: '1.1em', margin: 0 }}>
+                <li>Trouvez le meurtrier, le lieu, l'arme et le mobile.</li>
+                <li>Chacun a un rôle secret avec un pouvoir ; un complice connaît le meurtrier et a un objectif secret.</li>
+                <li>À 5 et 6 joueurs, un Maître chanteur connaît le mobile et joue pour lui seul.</li>
+                <li>3 points d'action par tour (hypothèse : 2 PA, archive : 1 PA), 14 manches maximum.</li>
+                <li>Un tableau d'enquête commun pour épingler vos soupçons… qui peut mentir.</li>
+                <li>Une seule accusation finale par joueur (le complice ne peut pas accuser).</li>
+              </ul>
+            ) : (
+              <ul style={{ paddingLeft: '1.1em', margin: 0 }}>
+                <li>Trouvez le meurtrier, le lieu et l'arme.</li>
+                <li>Un joueur secret est complice : il connaît le meurtrier.</li>
+                <li>2 points d'action par tour (hypothèse : 2 PA, archive : 1 PA), 12 manches maximum.</li>
+                <li>Hypothèse : le premier joueur interrogé qui a une carte correspondante vous en montre une, en secret.</li>
+                <li>Le complice utilise des ruses discrètes… qui laissent parfois des empreintes. Démasquez-le !</li>
+                <li>Une seule accusation finale par enquêteur (le complice ne peut pas accuser).</li>
+              </ul>
+            )}
           </section>
           <section className="panneau">
             <h3>Discussion</h3>

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { nomElement } from '../../../shared/data/catalogue';
 import { elementsDe, type ActionJeu, type Categorie, type CibleEpingle, type ElementId, type EtiquetteEpingle, type VueJoueur } from '../../../shared/types';
 import { connexion } from '../../connexion';
-import { LIBELLES_ETIQUETTES, NOMS_OBJECTIFS, NOMS_ROLES, POUVOIRS_ROLES, texteObjectif } from '../../grande';
+import { LIBELLES_ETIQUETTES, NOMS_OBJECTIFS, NOMS_ROLES, POUVOIRS_ROLES, roleAvecArticle, texteObjectif } from '../../grande';
 import { Aide, Chrono, EntetePublic, Modale } from '../Commun';
 import { Embleme } from '../Emblemes';
 import type { Noms } from './Textes';
@@ -49,7 +49,7 @@ export function InfosRoleGrande({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
       {m.roleEnquete && (
         <>
           <h3 style={{ marginBottom: 4 }}>
-            Vous êtes le {NOMS_ROLES[m.roleEnquete]}{' '}
+            Vous êtes {roleAvecArticle(m.roleEnquete)}{' '}
             <Aide libelle={`Aide sur le rôle ${NOMS_ROLES[m.roleEnquete]}`}>{POUVOIRS_ROLES[m.roleEnquete]}</Aide>
           </h3>
           {m.roleEnquete === 'temoin' && m.lieuConnu && (

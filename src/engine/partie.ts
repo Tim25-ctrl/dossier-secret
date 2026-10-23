@@ -159,6 +159,8 @@ export interface EtatPartie {
   designation?: { vainqueur: Vainqueur; raison: RaisonFin; echeance: number; designe?: string | null; correct?: boolean };
   /** Objectif du complice réussi (connu à la fin de la partie). */
   objectifReussi?: boolean;
+  /** Avant le premier tour : joueurs qui ont confirmé avoir lu leur rôle, et départ forcé au plus tard. */
+  attenteDepart?: { prets: string[]; limite: number };
   /** « Grande enquête » : tableau d'enquête commun. */
   tableau?: EpingleInterne[];
   compteurEpingles?: number;
@@ -302,12 +304,42 @@ export function creerPartie(params: {
     denonciations: [],
     ...(objectif ? { objectif } : {}),
   };
+  // Chacun lit son rôle avant que le premier tour ne commence (les bots sont prêts d'office).
+  if (config.attenteDepartMs && joueurs.some((j) => !j.bot))
+    etat.attenteDepart = { prets: joueurs.filter((j) => j.bot).map((j) => j.id), limite: now + config.attenteDepartMs };
   publier(etat, { t: now, type: 'debut_partie', joueurs: [...ordre] });
   for (const indice of affaire.indicesPublicsDepart) publier(etat, { t: now, type: 'indice_public', indice, manche: 1 });
   publier(etat, { t: now, type: 'debut_manche', manche: 1 });
   publier(etat, { t: now, type: 'debut_tour', joueur: ordre[0], manche: 1 });
   auditer(etat, now, null, 'creation', true, `solution=${elementsDuTriplet(affaire.solution).join('/')} complice=${complice}`);
   return etat;
+}
+
+// ---------------------------------------------------------------------------
+// Départ : chacun lit son rôle avant le premier tour
+// ---------------------------------------------------------------------------
+
+/** Joueurs humains présents qui n'ont pas encore confirmé avoir lu leur rôle. */
+export function joueursPasPrets(etat: EtatPartie): string[] {
+  const a = etat.attenteDepart;
+  if (!a) return [];
+  return etat.ordre.filter((id) => !etat.joueurs[id].bot && !etat.joueurs[id].parti && !a.prets.includes(id));
+}
+
+function marquerPret(etat: EtatPartie, joueur: string, now: number): ResultatAction {
+  const a = etat.attenteDepart;
+  if (!a) return { ok: true }; // déjà commencée : rien à faire
+  if (!a.prets.includes(joueur)) a.prets.push(joueur);
+  verifierDepart(etat, now);
+  return { ok: true };
+}
+
+/** Tout le monde est prêt : le premier tour commence maintenant (son chrono aussi). */
+function verifierDepart(etat: EtatPartie, now: number, force = false) {
+  if (!etat.attenteDepart || (!force && joueursPasPrets(etat).length > 0)) return;
+  delete etat.attenteDepart;
+  etat.echeanceTour = echeanceDeTour(etat, joueurActif(etat), now);
+  publier(etat, { t: now, type: 'debut_enquete' });
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +614,8 @@ function traiter(etat: EtatPartie, joueur: string, action: ActionJeu, now: numbe
   if (!etat.joueurs[joueur]) return refus("Vous ne faites pas partie de cette partie.");
   if (action.type === 'carnet') return majCarnet(etat, joueur, action);
   if (etat.etape === 'terminee') return refus('La partie est terminée.');
+  if (action.type === 'pret') return marquerPret(etat, joueur, now);
+  if (etat.attenteDepart) return refus("La partie commence dès que chacun a pris connaissance de son rôle.");
   if (etat.pause) return refus('La partie est en pause : un joueur est absent.');
   if (action.type === 'designerTemoin') return designerTemoin(etat, joueur, action.joueur, now);
   if (etat.etape === 'designation') return refus("L'enquête est close : le complice joue sa dernière chance.");
@@ -1268,6 +1302,7 @@ function majCarnet(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, 
 
 export function prochaineEcheance(etat: EtatPartie): number | null {
   if (etat.etape === 'terminee' || etat.pause) return null;
+  if (etat.attenteDepart) return etat.attenteDepart.limite;
   if (etat.etape === 'designation') return etat.designation?.echeance ?? null;
   if (etat.etape === 'hypothese' && etat.hypothese) return etat.hypothese.echeance;
   return etat.echeanceTour;
@@ -1286,7 +1321,10 @@ export function avancer(etat: EtatPartie, now: number, rng?: Rng): boolean {
     if (echeance === null || echeance > now) break;
     change = true;
     const h = etat.hypothese;
-    if (etat.etape === 'designation') {
+    if (etat.attenteDepart) {
+      // Temps d'attente écoulé : la partie commence sans les retardataires.
+      verifierDepart(etat, etat.attenteDepart.limite, true);
+    } else if (etat.etape === 'designation') {
       // Temps écoulé sans désignation : l'enquête garde son résultat.
       finirDesignation(etat, etat.designation!.echeance, null);
     } else if (etat.etape === 'hypothese' && h) {
@@ -1317,6 +1355,10 @@ export function avancer(etat: EtatPartie, now: number, rng?: Rng): boolean {
  */
 export function recalerEcheances(etat: EtatPartie, now: number) {
   if (etat.etape === 'terminee') return;
+  if (etat.attenteDepart) {
+    etat.attenteDepart.limite = Math.max(etat.attenteDepart.limite, now + (etat.config.attenteDepartMs ?? 0));
+    return;
+  }
   if (etat.etape === 'designation' && etat.designation) {
     etat.designation.echeance = Math.max(etat.designation.echeance, now + (etat.config.objectifs?.delaiDesignationMs ?? 30_000));
     return;
@@ -1341,6 +1383,7 @@ export function abandonner(etat: EtatPartie, joueur: string, now: number) {
   j.parti = true;
   j.connecte = false;
   publier(etat, { t: now, type: 'depart', joueur });
+  verifierDepart(etat, now);
   if (etat.etape !== 'terminee') {
     const limite = now + DELAI_PARTI_MS;
     if (etat.etape === 'tour' && joueurActif(etat) === joueur) etat.echeanceTour = Math.min(etat.echeanceTour, limite);
@@ -1414,6 +1457,7 @@ export function majPause(etat: EtatPartie, now: number) {
     if (etat.echeanceTour < SANS_LIMITE) etat.echeanceTour += duree;
     if (etat.hypothese && etat.hypothese.echeance < SANS_LIMITE) etat.hypothese.echeance += duree;
     if (etat.designation) etat.designation.echeance += duree;
+    if (etat.attenteDepart) etat.attenteDepart.limite += duree;
     delete etat.pause;
   }
 }
@@ -1431,6 +1475,7 @@ export function remplacerParBot(etat: EtatPartie, joueur: string, now: number): 
   j.parti = false;
   j.absenceAcceptee = false;
   publier(etat, { t: now, type: 'remplacement', joueur });
+  verifierDepart(etat, now);
   majPause(etat, now);
   rendreDelais(etat, joueur, now);
   etat.version++;

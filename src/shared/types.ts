@@ -304,6 +304,8 @@ export type ActionJeu =
   | { type: 'denoncer'; joueur: string }
   | { type: 'accuser'; suspect: SuspectId; lieu: LieuId; arme: ArmeId; mobile?: MobileId }
   | { type: 'finTour' }
+  /** Avant le départ : « j'ai pris connaissance de mon rôle, je suis prêt ». */
+  | { type: 'pret' }
   /** « Grande enquête » : pouvoirs de rôle, tous secrets et utilisables pendant son tour. */
   | { type: 'verifierReponses' }
   | { type: 'expertiser'; categorie: Categorie }
@@ -330,6 +332,8 @@ export type RaisonFin = 'accusation_correcte' | 'manches_ecoulees' | 'plus_d_acc
 /** Événement public : visible par tous les joueurs du salon. */
 export type EvenementPublic = { t: number } & (
   | { type: 'debut_partie'; joueurs: string[] }
+  /** Tout le monde a pris connaissance de son rôle (ou le temps d'attente est écoulé) : le premier tour commence. */
+  | { type: 'debut_enquete' }
   | { type: 'debut_manche'; manche: number }
   | { type: 'debut_tour'; joueur: string; manche: number }
   | { type: 'fin_tour'; joueur: string; raison: 'volontaire' | 'temps_ecoule' | 'tour_perdu' }
@@ -461,6 +465,8 @@ export interface VueJoueur {
     /** Le Maître chanteur connaît le mobile. */
     mobileConnu?: MobileId;
     pouvoirsRole?: PouvoirsRole;
+    /** Avant le départ : ce joueur a confirmé avoir lu son rôle. */
+    pret?: boolean;
     /** Complice en « Grande enquête » : son objectif secret. */
     objectif?: ObjectifVu;
     carnet: Carnet;
@@ -508,6 +514,8 @@ export interface VueJoueur {
   echeanceDesignation?: number;
   /** « Grande enquête » : le tableau d'enquête commun. */
   tableau?: EpingleVue[];
+  /** Avant le départ : joueurs qui n'ont pas encore confirmé avoir lu leur rôle, et départ forcé au plus tard. */
+  attenteDepart?: { enAttente: string[]; limite: number };
   joueurs: JoueurPublic[];
   cartesPubliques: ElementId[];
   indicesPublics: { indice: string; manche: number }[];

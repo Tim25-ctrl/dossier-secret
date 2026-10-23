@@ -24,6 +24,7 @@ export const schemaAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('denoncer'), joueur: idJoueur }).strict(),
   z.object({ type: z.literal('accuser'), suspect, lieu, arme, mobile }).strict(),
   z.object({ type: z.literal('finTour') }).strict(),
+  z.object({ type: z.literal('pret') }).strict(),
   // « Grande enquête » : pouvoirs de rôle (le moteur vérifie le rôle, la manche et les utilisations).
   z.object({ type: z.literal('verifierReponses') }).strict(),
   z.object({ type: z.literal('expertiser'), categorie: z.enum(['suspect', 'lieu', 'arme', 'mobile']) }).strict(),

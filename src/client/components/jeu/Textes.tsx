@@ -123,6 +123,8 @@ export function texteEvenement(
       return { classe: 'important', contenu: `${nom(ev.joueur)} est de retour et reprend sa place.` };
     case 'connexion':
       return { contenu: ev.connecte ? `${nom(ev.joueur)} est de retour.` : `${nom(ev.joueur)} a perdu la connexion.` };
+    case 'debut_enquete':
+      return { classe: 'important', contenu: 'Chacun connaît son rôle : le premier tour commence.' };
     case 'derniere_chance':
       return { classe: 'important', contenu: "L'enquête a abouti… mais le complice a une dernière chance : désigner le Témoin." };
     case 'temoin_designe':

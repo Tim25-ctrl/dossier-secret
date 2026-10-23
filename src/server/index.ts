@@ -56,6 +56,8 @@ const serveur = await demarrerServeur({
     delaiReponseMs: secondes('RESPONSE_TIMEOUT_SECONDS', 60),
     delaiTourMs: secondes('TURN_TIMEOUT_SECONDS', 180),
     delaiDeconnecteMs: secondes('DISCONNECTED_TURN_SECONDS', 25),
+    // Avant le premier tour, chacun lit son rôle ; départ forcé au bout de 3 minutes.
+    attenteDepartMs: secondes('START_WAIT_SECONDS', 180),
   },
 });
 

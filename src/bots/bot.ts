@@ -54,6 +54,8 @@ export const PROFIL_OCCASIONNEL: ProfilBot = { ...PROFIL_PAR_DEFAUT, deduction: 
 
 export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL_PAR_DEFAUT): ActionJeu | null {
   if (vue.etape === 'terminee') return null;
+  // Avant le départ, les bots sont prêts d'office et attendent les joueurs.
+  if (vue.attenteDepart) return null;
   // « Grande enquête » : dernière chance du complice (objectif « Le témoin gênant »).
   if (vue.etape === 'designation') return vue.moi.role === 'complice' ? designerTemoin(vue, rng) : null;
   const moi = vue.moi.id;

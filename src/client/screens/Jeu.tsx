@@ -4,7 +4,7 @@ import { nomCourt, nomElement } from '../../shared/data/catalogue';
 import type { EtatClient } from '../../shared/protocole';
 import { SANS_LIMITE, categorieDe, type VueJoueur } from '../../shared/types';
 import { Chat } from '../components/Chat';
-import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Prive, useNotification } from '../components/Commun';
+import { Aide, Carte, CarteIndice, Chrono, EntetePublic, Modale, Prive, useNotification } from '../components/Commun';
 import { Embleme, Icone, Sceau } from '../components/Emblemes';
 import { ModaleAccusation, ModaleDenonciation, ModaleFalsification, ModaleHypothese, ModaleReponse, ResultatHypothese, SuiviHypothese } from '../components/jeu/Actions';
 import { Carnet, sourcesConnues } from '../components/jeu/Carnet';
@@ -45,9 +45,10 @@ export function Jeu({
   const noms = useMemo(() => new Map(vue.joueurs.map((j) => [j.id, j.nom])), [vue.joueurs]);
   const nom: Noms = useCallback((id: string) => noms.get(id) ?? '?', [noms]);
   const sources = useMemo(() => sourcesConnues(vue, nom), [vue, nom]);
-  const monTour = vue.joueurActif === moi && vue.etape === 'tour' && !vue.pause;
+  // Avant le départ (chacun lit son rôle), personne ne joue encore.
+  const monTour = vue.joueurActif === moi && vue.etape === 'tour' && !vue.pause && !vue.attenteDepart;
   // Les boutons d'action n'apparaissent que pendant mon tour (y compris pendant l'interrogation de mon hypothèse).
-  const actionsVisibles = vue.joueurActif === moi && vue.etape !== 'terminee' && vue.etape !== 'designation';
+  const actionsVisibles = vue.joueurActif === moi && vue.etape !== 'terminee' && vue.etape !== 'designation' && !vue.attenteDepart;
   const h = vue.hypotheseEnCours;
   const doitRepondre = !!h?.aRepondre && h.repondantActuel === moi;
   const peutFalsifier = !!h?.falsification && h.etape === 'falsification';
@@ -253,7 +254,18 @@ export function Jeu({
                 </div>
               )}
               <div className={`bandeau-tour${monTour ? ' mon-tour' : ''}`} aria-live="polite">
-                {vue.etape === 'designation' ? (
+                {vue.attenteDepart ? (
+                  <span>
+                    {vue.moi.pret ? (
+                      <>
+                        Vous êtes prêt. En attente de <strong>{vue.attenteDepart.enAttente.map(nom).join(', ')}</strong> : la partie commence dès que chacun a
+                        lu son rôle (au plus tard dans <Chrono echeance={vue.attenteDepart.limite} decalage={decalage} />).
+                      </>
+                    ) : (
+                      <>Prenez connaissance de votre rôle : la partie commence quand tout le monde est prêt.</>
+                    )}
+                  </span>
+                ) : vue.etape === 'designation' ? (
                   <strong>L'enquête a abouti… dernière chance du complice.</strong>
                 ) : monTour ? (
                   <strong>C'est votre tour : {vue.pointsAction} point(s) d'action.</strong>
@@ -389,6 +401,7 @@ export function Jeu({
       </div>
 
       {histoire && <ModaleHistoire affaire={vue.affaire} onFermer={fermerHistoire} />}
+      {!histoire && vue.attenteDepart && !vue.moi.pret && <ModaleRole vue={vue} nom={nom} onErreur={erreur} />}
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
       {modale === 'accusation' && (
         <ModaleAccusation affaire={vue.affaire} sources={sources} avecMobile={vue.regles.mode === 'grande'} onFermer={() => setModale(null)} onErreur={erreur} />
@@ -418,6 +431,32 @@ export function Jeu({
       {notification}
       {sceneAccusation}
     </div>
+  );
+}
+
+/** Au lancement, après l'histoire : votre rôle, à lire avant que la partie ne commence. */
+function ModaleRole({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onErreur: (e: string) => void }) {
+  const [envoi, setEnvoi] = useState(false);
+  const pret = async () => {
+    setEnvoi(true);
+    const r = await connexion.action({ type: 'pret' });
+    setEnvoi(false);
+    if (!r.ok) onErreur(r.erreur);
+  };
+  return (
+    <Modale
+      titre="Votre rôle"
+      pied={
+        <button className="btn btn-or" disabled={envoi} onClick={() => void pret()} autoFocus>
+          J'ai compris : je suis prêt
+        </button>
+      }
+    >
+      <PanneauRole vue={vue} nom={nom} />
+      <p className="petit muet" style={{ marginBottom: 0 }}>
+        La partie commence quand tous les joueurs sont prêts. Vous retrouverez votre rôle à tout moment dans le panneau privé.
+      </p>
+    </Modale>
   );
 }
 

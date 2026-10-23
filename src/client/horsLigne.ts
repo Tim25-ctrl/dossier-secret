@@ -78,6 +78,7 @@ function nouvellePartie(r: ReglagesHorsLigne): EtatPartie {
     config: {
       ...(r.mode === 'grande' ? CONFIG_GRANDE_ENQUETE : {}),
       affaire,
+      attenteDepartMs: 180_000,
       delaiTourMs: r.dureeTourS === null ? null : r.dureeTourS * 1000,
       modeComplice: r.modeComplice,
       historiqueCartes: r.historiqueCartes,

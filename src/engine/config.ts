@@ -75,6 +75,12 @@ export interface ConfigPartie {
   suspensionDemasque: number;
 
 
+  /**
+   * Avant le premier tour, chacun lit son rôle et confirme qu'il est prêt ; la partie commence quand
+   * tous les joueurs humains l'ont fait, ou au plus tard après ce délai. Absent ou null : pas d'attente.
+   */
+  attenteDepartMs?: number | null;
+
   /** Durée fixe de l'étape de falsification (identique pour chaque hypothèse, pour ne rien trahir). */
   delaiFalsificationMs: number;
   delaiReponseMs: number;

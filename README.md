@@ -115,7 +115,7 @@ Ce que couvrent les tests (`tests/`) :
 | `grande-enquete.test.ts` | Grande enquête : mobiles, génération pour les 1 296 solutions de chaque histoire, distribution, hypothèses et accusations à 4 éléments, indices sur les mobiles, réglages d'équilibre |
 | `grande-roles.test.ts` | Rôles secrets (Témoin, Inspecteur, Légiste, Archiviste, Journaliste, Profileur) et leurs pouvoirs, Maître chanteur |
 | `grande-objectifs.test.ts` | Objectif secret du complice (témoin gênant et dernière chance, bouc émissaire, ombre), victoire volée |
-| `grande-tableau.test.ts` | Tableau d'enquête : épingles, réactions, rumeurs anonymes, révélation des auteurs |
+| `grande-tableau.test.ts` | Tableau d'enquête : épingles anonymes sans mot (une par joueur), réactions, épingles en plus du Journaliste, révélation des auteurs |
 | `grande-bots.test.ts` | Bots de la Grande enquête : pouvoirs, tableau, Témoin qui se cache ; partie classique inchangée |
 | `depart.test.ts` | Départ de la partie : elle commence quand chacun a lu son rôle (ou au bout du temps d'attente) |
 | `tutoriel.test.ts` | Parties guidées (classique et Grande enquête) : parties arrangées, rôles qui changent d'un chapitre à l'autre, bots qui jouent d'un coup, finals (accusation juste, dernière chance du complice) |
@@ -196,7 +196,7 @@ Aucune clé secrète n'est nécessaire. Un `Dockerfile` est aussi fourni pour d'
 - Interface : accueil, tutoriel de premier lancement, règles, paramètres (taille du texte, animations), lobby, écran de jeu, interrogation, pouvoirs du complice (avec infobulles), carnet de déduction, archives, historique, discussion, écran de fin (solution, récit, indices décisifs, complice, pouvoirs utilisés, mains de chacun), « Rejouer », durée de tour réglable par l'hôte (1 à 10 min ou sans limite), bouton « Quitter » avec confirmation (le dernier joueur présent ferme le salon).
 - Responsive (testé à 375 px de large sans défilement horizontal), zones privées distinguées par icône, texte et style (pas seulement par la couleur).
 - Mode « Complice rusé » : Mensonge, Carte empruntée, Hypothèse falsifiée, Dossier trafiqué, empreintes et dénonciation (voir docs/EQUILIBRAGE.md).
-- **Grande enquête** (23/10/2026, conception et décisions dans [docs/GRANDE-ENQUETE.md](docs/GRANDE-ENQUETE.md)) : 6 mobiles par histoire (36 indices et 12 dessins), rôles secrets à pouvoirs, Maître chanteur, objectif secret du complice qui peut voler la victoire (dernière chance pour désigner le Témoin), tableau d'enquête (épingles, réactions, rumeurs anonymes), 3 PA par tour, bots qui jouent tout le mode ; choix du mode dans le salon et en solo (en ligne ou hors ligne), règles, fin de partie et 4 succès propres. `npm run simulate -- --mode grande` mesure son équilibre.
+- **Grande enquête** (23/10/2026, conception et décisions dans [docs/GRANDE-ENQUETE.md](docs/GRANDE-ENQUETE.md)) : 6 mobiles par histoire (36 indices et 12 dessins), rôles secrets à pouvoirs, Maître chanteur, objectif secret du complice qui peut voler la victoire (dernière chance pour désigner le Témoin), tableau d'enquête (épingles anonymes, une par joueur, réactions ; 3 épingles en plus pour le Journaliste), 3 PA par tour, bots qui jouent tout le mode ; choix du mode dans le salon et en solo (en ligne ou hors ligne), règles, fin de partie et 4 succès propres. `npm run simulate -- --mode grande` mesure son équilibre.
 - Bots et simulations d'équilibrage ; 269 tests automatisés.
 
 ## 9. Limites connues

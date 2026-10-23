@@ -184,7 +184,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
                   <li key={e.id}>
                     {e.cible.type === 'element' && <Embleme id={e.cible.id} taille={18} />}{' '}
                     <strong>{e.cible.type === 'element' ? nomElement(e.cible.id) : nom(e.cible.id)}</strong> — {LIBELLES_ETIQUETTES[e.etiquette]}
-                    {e.note ? ` « ${e.note} »` : ''} — {e.rumeur ? 'rumeur de ' : 'par '}
+                     — {e.rumeur ? 'épingle en plus de ' : 'par '}
                     <strong>{nom(e.auteur!)}</strong>
                     {r.roles?.[e.auteur!] ? ` (${libelleRole(r.roles[e.auteur!].role, r.roles[e.auteur!].roleEnquete)})` : ''} · 👍 {e.pour} 👎 {e.contre}
                   </li>

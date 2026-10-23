@@ -231,8 +231,8 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
         </li>
         <li>
           <strong>Le tableau d'enquête</strong>, visible par tous : épinglez un élément (« coupable ? », « innocent ? », « fausse piste ? ») ou un joueur
-          (« complice ? »), avec un petit mot. Une épingle par manche, à tout moment ; réactions 👍 / 👎. Rien n'est vérifié : le tableau peut mentir. À la fin,
-          chaque épingle est montrée avec son vrai auteur.
+          (« complice ? »). Les épingles sont anonymes et sans mot ; chacun n'en a qu'une au tableau (en poser une nouvelle, une fois par manche, remplace
+          l'ancienne) ; réactions 👍 / 👎. Rien n'est vérifié : le tableau peut mentir. À la fin, chaque épingle est montrée avec son vrai auteur.
         </li>
       </ul>
     </div>

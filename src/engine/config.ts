@@ -100,12 +100,10 @@ export interface ConfigPartie {
   objectifs?: ConfigObjectifs;
   /** « Grande enquête » : tableau d'enquête commun (absent = pas de tableau). */
   tableau?: {
-    /** Épingles signées par joueur et par manche (une rumeur compte à part). */
+    /** Épingles par joueur et par manche (les épingles en plus du Journaliste comptent à part). */
     epinglesParManche: number;
-    /** Épingles signées affichées par joueur : au-delà, la plus ancienne disparaît. */
+    /** Épingles affichées par joueur : au-delà, la plus ancienne disparaît (1 : la nouvelle remplace l'ancienne). */
     maxAffichees: number;
-    /** Longueur maximale du petit mot. */
-    noteMax: number;
   };
   nbIndicesPublicsDepart: number;
   /** Manches au début desquelles un nouvel indice est versé au dossier public. */
@@ -198,7 +196,8 @@ export const CONFIG_GRANDE_ENQUETE: Partial<ConfigPartie> = {
     accusationsBouc: { 4: 1, 5: 1, 6: 1 },
     rusesOmbre: 3,
   },
-  tableau: { epinglesParManche: 1, maxAffichees: 4, noteMax: 80 },
+  // Épingles anonymes, sans mot : une seule par joueur au tableau (décision de l'auteur, 23/10/2026).
+  tableau: { epinglesParManche: 1, maxAffichees: 1 },
 };
 
 /** La solution de cette partie comprend-elle un mobile ? */

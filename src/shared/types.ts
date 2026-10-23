@@ -250,12 +250,11 @@ export type ReactionEpingle = 'pour' | 'contre';
 /** Une épingle telle qu'un joueur la voit. Rien n'est vérifié par le jeu : le tableau peut mentir. */
 export interface EpingleVue {
   id: string;
-  /** Auteur ; null pour une rumeur du Journaliste (sauf pour lui-même, et à la fin de la partie). */
+  /** Auteur ; null pour l'épingle d'un autre joueur (anonyme), sauf à la fin de la partie. */
   auteur: string | null;
   rumeur: boolean;
   cible: CibleEpingle;
   etiquette: EtiquetteEpingle;
-  note?: string;
   manche: number;
   pour: number;
   contre: number;
@@ -314,7 +313,7 @@ export type ActionJeu =
   /** Complice (objectif « Le témoin gênant ») : à la fin, désigner le joueur qu'il croit être le Témoin. */
   | { type: 'designerTemoin'; joueur: string }
   /** Tableau d'enquête : épingler (rumeur anonyme pour le Journaliste), réagir, retirer son épingle. */
-  | { type: 'epingler'; cible: CibleEpingle; etiquette: EtiquetteEpingle; note?: string; rumeur?: boolean }
+  | { type: 'epingler'; cible: CibleEpingle; etiquette: EtiquetteEpingle; rumeur?: boolean }
   | { type: 'reagir'; epingle: string; reaction: ReactionEpingle | null }
   | { type: 'retirerEpingle'; epingle: string }
   | { type: 'carnet'; marques?: Partial<Record<ElementId, Marque>>; notes?: string };
@@ -501,7 +500,7 @@ export interface VueJoueur {
     /** « Grande enquête » : rôles qui peuvent être en jeu, et à partir de quelle manche certains pouvoirs servent. */
     roles?: { possibles: RoleEnquete[]; maitreChanteur: boolean; mancheExpertise: number; mancheProfilage: number };
     /** « Grande enquête » : règles du tableau d'enquête. */
-    tableau?: { epinglesParManche: number; maxAffichees: number; noteMax: number };
+    tableau?: { epinglesParManche: number; maxAffichees: number };
   };
   manche: number;
   joueurActif: string;

@@ -419,12 +419,12 @@ function epingleDeBot(e: EtatPartie) {
   if ((e.tableau ?? []).some((x) => x.auteur !== MOI && !x.rumeur)) return;
   for (const id of [HERCULE, MAIGRET, SHERLOCK]) {
     const carte = e.joueurs[id].main[0];
-    const r = appliquerAction(e, id, { type: 'epingler', cible: { type: 'element', id: carte }, etiquette: 'innocent', note: 'Je l’ai dans ma main.' }, Date.now());
+    const r = appliquerAction(e, id, { type: 'epingler', cible: { type: 'element', id: carte }, etiquette: 'innocent' }, Date.now());
     if (r.ok) return;
   }
 }
-// La plus récente : c'est la première affichée sur le tableau.
-const epingleBot = (v: VueJoueur) => [...(v.tableau ?? [])].reverse().find((x) => x.auteur && x.auteur !== MOI && !x.rumeur);
+// L'épingle d'un autre joueur la plus récente : c'est la première affichée sur le tableau.
+const epingleBot = (v: VueJoueur) => [...(v.tableau ?? [])].reverse().find((x) => x.auteur !== MOI);
 
 const TABLEAU: Etape[] = [
   {
@@ -433,11 +433,13 @@ const TABLEAU: Etape[] = [
     texte: () => (
       <>
         <p>
-          Dans la Grande enquête, un grand <Fort>tableau en liège</Fort> est visible par tous. Chacun peut y épingler ses soupçons : c'est <Fort>gratuit</Fort>,
-          possible <Fort>à tout moment</Fort> (même pendant le tour des autres), avec <Fort>{G.tableau!.epinglesParManche} épingle signée par manche</Fort>.
+          Dans la Grande enquête, un grand <Fort>tableau en liège</Fort> est visible par tous. Chacun peut y épingler un soupçon : c'est <Fort>gratuit</Fort> et possible{' '}
+          <Fort>à tout moment</Fort> (même pendant le tour des autres). Chacun n'a <Fort>qu'une épingle</Fort> au tableau : en poser une nouvelle (une fois par
+          manche) remplace l'ancienne.
         </p>
         <p style={{ marginBottom: 0 }}>
-          Attention : <Fort>rien n'y est vérifié</Fort>. Le complice et le Maître chanteur épinglent comme tout le monde : un tableau peut mentir.
+          Les épingles sont <Fort>anonymes</Fort>, sans aucun mot : on ne sait jamais qui les a posées. Et <Fort>rien n'y est vérifié</Fort> : le complice et le
+          Maître chanteur épinglent comme tout le monde. Un tableau peut mentir !
         </p>
       </>
     ),
@@ -452,8 +454,8 @@ const TABLEAU: Etape[] = [
         <>
           {e ? (
             <>
-              {court(vue, e.auteur!)} a épinglé <Fort>{e.cible.type === 'element' ? nomElement(e.cible.id) : court(vue, e.cible.id)}</Fort> avec l'étiquette «{' '}
-              {LIBELLES_ETIQUETTES[e.etiquette]} »{e.note ? <> et un petit mot : « {e.note} »</> : null}.
+              Quelqu'un a épinglé <Fort>{e.cible.type === 'element' ? nomElement(e.cible.id) : court(vue, e.cible.id)}</Fort> avec l'étiquette «{' '}
+              {LIBELLES_ETIQUETTES[e.etiquette]} ». Qui ? Impossible à savoir : peut-être un enquêteur sincère… ou le complice.
             </>
           ) : (
             <>Voici le tableau.</>
@@ -470,7 +472,7 @@ const TABLEAU: Etape[] = [
     texte: ({ vue }) => (
       <>
         À vous : choisissez un élément ou un joueur, une étiquette (pour un élément : Coupable ?, Innocent ?, Fausse piste ? ; pour un joueur : Complice ? ou Innocent
-        ?), un petit mot si vous voulez, puis <Fort>Épingler</Fort>. Par exemple : une de vos cartes, avec « Innocent ? ».
+        ?), puis <Fort>Épingler</Fort>. Par exemple : une de vos cartes, avec « Innocent ? ».
         {vue.moi.roleEnquete === 'temoin' && (
           <span className="guide-progres">En Témoin, vous pouvez aussi marquer un faux lieu « Fausse piste ? » : une façon discrète d'aider les autres.</span>
         )}
@@ -482,8 +484,8 @@ const TABLEAU: Etape[] = [
     cible: ['.tableau-liege'],
     texte: () => (
       <>
-        Votre épingle est au tableau. Chacun garde au plus <Fort>{G.tableau!.maxAffichees} épingles</Fort> affichées : au-delà, la plus ancienne disparaît, et vous
-        pouvez retirer les vôtres. À la <Fort>fin de la partie</Fort>, le tableau est montré avec le vrai auteur de chaque épingle : on découvre qui a menti !
+        Votre épingle est au tableau : vous seul savez qu'elle est de vous (« Votre épingle »). À la manche suivante, une nouvelle épingle la remplacera ; vous
+        pouvez aussi la retirer. À la <Fort>fin de la partie</Fort>, le tableau est montré avec le vrai auteur de chaque épingle : on découvre qui a menti !
       </>
     ),
     bouton: 'Suivant',
@@ -767,8 +769,8 @@ const JOURNALISTE: Etape[] = [
     texte: (c) => (
       <NouveauRole c={c}>
         <p style={{ marginBottom: 0 }}>
-          Le <Fort>Journaliste</Fort> publie des <Fort>rumeurs anonymes</Fort> sur le tableau d'enquête : {U.journaliste} par partie, une par manche au plus.
-          Personne ne sait qui les écrit ; l'auteur n'est révélé qu'à la fin de la partie.
+          Le <Fort>Journaliste</Fort> a <Fort>{U.journaliste} épingles en plus</Fort> à poser sur le tableau d'enquête (une par manche au plus). Elles
+          s'ajoutent à son épingle habituelle, restent au tableau et sont anonymes comme les autres : il peut lancer plus de pistes que tout le monde.
         </p>
       </NouveauRole>
     ),
@@ -779,8 +781,8 @@ const JOURNALISTE: Etape[] = [
     cible: ['.formulaire-epingle'],
     texte: () => (
       <>
-        Cochez <Fort>Rumeur anonyme</Fort>, choisissez une cible et une étiquette, puis <Fort>Épingler</Fort>. Une rumeur ne compte pas dans votre épingle signée :
-        vous pouvez faire les deux dans la même manche.
+        Cochez <Fort>Épingle en plus</Fort>, choisissez une cible et une étiquette, puis <Fort>Épingler</Fort>. Elle ne remplace pas votre épingle habituelle :
+        vous pouvez poser les deux dans la même manche.
       </>
     ),
     attendre: ({ vue }) => (vue.tableau ?? []).some((x) => x.auteur === MOI && x.rumeur),
@@ -789,8 +791,9 @@ const JOURNALISTE: Etape[] = [
     cible: ['.tableau-liege .epingle-rumeur', '.tableau-liege'],
     texte: () => (
       <>
-        La voilà, signée « Rumeur anonyme ». Les rumeurs viennent toujours du Journaliste, donc d'un <Fort>enquêteur</Fort> : le complice ne peut pas en publier.
-        Une rumeur est donc une piste sincère… même si le Journaliste peut se tromper. Pratique pour lancer une idée sans attirer l'attention sur soi.
+        La voilà : vous voyez « Votre épingle en plus », les autres voient une épingle anonyme comme les autres. Personne ne peut savoir qu'elle vient du
+        Journaliste. Avec vos épingles en plus, vous pouvez soutenir une piste plusieurs fois… ou brouiller les cartes si vous pensez que le complice lit le
+        tableau.
       </>
     ),
     bouton: 'Suivant',
@@ -1099,7 +1102,7 @@ const COMPLICE: Etape[] = [
     texte: () => (
       <>
         <Fort>Bluffez !</Fort> Sur le tableau et dans la discussion, faites-vous passer pour un enquêteur : prétendez être l'Archiviste, épinglez une fausse piste,
-        approuvez d'un 👍 une mauvaise idée… Mais un vrai Journaliste peut publier des rumeurs, et vous non : méfiez-vous de ce que vous prétendez.
+        approuvez d'un 👍 une mauvaise idée… Les épingles sont anonymes : personne ne saura qu'elles viennent de vous avant la fin de la partie.
       </>
     ),
     bouton: 'Suivant',

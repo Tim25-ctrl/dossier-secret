@@ -166,13 +166,14 @@ export interface EtatPartie {
   compteurEpingles?: number;
 }
 
-/** Épingle du tableau d'enquête (l'auteur d'une rumeur reste secret jusqu'à la fin). */
+/** Épingle du tableau d'enquête (anonyme pour les autres joueurs jusqu'à la fin de la partie). */
 export interface EpingleInterne {
   id: string;
   auteur: string;
   rumeur: boolean;
   cible: CibleEpingle;
   etiquette: EtiquetteEpingle;
+  /** Petit mot des parties d'avant le 23/10/2026 (le mot a été supprimé ; il n'est plus montré). */
   note?: string;
   manche: number;
   t: number;
@@ -1172,7 +1173,10 @@ function finirDesignation(etat: EtatPartie, t: number, cible: string | null) {
 // « Grande enquête » : tableau d'enquête
 // ---------------------------------------------------------------------------
 
-/** Épingles signées affichées par joueur, et nombre d'épingles par manche (rumeurs à part). */
+/**
+ * Épingle anonyme : chacun en a une au tableau (en poser une nouvelle, une fois par manche, remplace
+ * l'ancienne) ; le Journaliste a en plus quelques épingles (« rumeurs ») qui restent.
+ */
 function epingler(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { type: 'epingler' }>, now: number): ResultatAction {
   const regles = etat.config.tableau;
   if (!regles) return refus("Cette partie n'a pas de tableau d'enquête.");
@@ -1186,26 +1190,18 @@ function epingler(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, {
     if (!etat.joueurs[cible.id] || cible.id === joueur) return refus('Choisissez un autre joueur.');
     if (etiquette !== 'complice' && etiquette !== 'innocent') return refus('Étiquette impossible pour un joueur.');
   } else return refus('Épingle invalide.');
-  // Petit mot facultatif, nettoyé comme la discussion.
-  let note: string | undefined;
-  if (action.note !== undefined) {
-    if (typeof action.note !== 'string') return refus('Mot invalide.');
-    note = action.note.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (note.length > regles.noteMax) return refus(`Le mot est limité à ${regles.noteMax} caractères.`);
-    if (!note) note = undefined;
-  }
   const j = etat.joueurs[joueur];
   const tableau = (etat.tableau ??= []);
   const rumeur = !!action.rumeur;
   if (rumeur) {
-    // Rumeur anonyme : Journaliste seulement, une par manche au plus.
-    if (j.roleEnquete !== 'journaliste') return refus('Seul le Journaliste publie des rumeurs anonymes.');
-    if (!((j.pouvoirs?.rumeurs ?? 0) > 0)) return refus("Vous n'avez plus de rumeur à publier.");
-    if (tableau.some((e) => e.auteur === joueur && e.rumeur && e.manche === etat.manche)) return refus('Une seule rumeur par manche.');
+    // Épingle en plus : Journaliste seulement, une par manche au plus.
+    if (j.roleEnquete !== 'journaliste') return refus('Seul le Journaliste a des épingles en plus.');
+    if (!((j.pouvoirs?.rumeurs ?? 0) > 0)) return refus("Vous n'avez plus d'épingle en plus.");
+    if (tableau.some((e) => e.auteur === joueur && e.rumeur && e.manche === etat.manche)) return refus('Une seule épingle en plus par manche.');
     j.pouvoirs!.rumeurs! -= 1;
   } else {
     const cetteManche = tableau.filter((e) => e.auteur === joueur && !e.rumeur && e.manche === etat.manche).length;
-    if (cetteManche >= regles.epinglesParManche) return refus(`Vous avez déjà épinglé cette manche (${regles.epinglesParManche} par manche).`);
+    if (cetteManche >= regles.epinglesParManche) return refus('Vous avez déjà posé votre épingle cette manche.');
   }
   etat.compteurEpingles = (etat.compteurEpingles ?? 0) + 1;
   tableau.push({
@@ -1214,12 +1210,11 @@ function epingler(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, {
     rumeur,
     cible: cible.type === 'element' ? { type: 'element', id: cible.id } : { type: 'joueur', id: cible.id },
     etiquette,
-    ...(note ? { note } : {}),
     manche: etat.manche,
     t: now,
     reactions: {},
   });
-  // Au-delà du maximum, la plus ancienne épingle signée de ce joueur disparaît.
+  // Au-delà du maximum (une seule), la plus ancienne épingle de ce joueur disparaît (ses épingles en plus restent).
   const signees = tableau.filter((e) => e.auteur === joueur && !e.rumeur);
   if (signees.length > regles.maxAffichees) {
     const trop = new Set(signees.slice(0, signees.length - regles.maxAffichees));
@@ -1231,8 +1226,7 @@ function epingler(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, {
 function reagir(etat: EtatPartie, joueur: string, id: string, reaction: ReactionEpingle | null): ResultatAction {
   const e = etat.tableau?.find((x) => x.id === id);
   if (!e) return refus("Cette épingle n'est plus au tableau.");
-  // On ne réagit pas à sa propre épingle (sinon l'auteur d'une rumeur se trahirait en s'en abstenant).
-  if (e.auteur === joueur && !e.rumeur) return refus('Vous ne pouvez pas réagir à votre propre épingle.');
+  // On peut réagir à sa propre épingle : s'en abstenir trahirait son auteur.
   if (reaction === null) delete e.reactions[joueur];
   else if (reaction === 'pour' || reaction === 'contre') e.reactions[joueur] = reaction;
   else return refus('Réaction invalide.');
@@ -1247,17 +1241,17 @@ function retirerEpingle(etat: EtatPartie, joueur: string, id: string): ResultatA
   return { ok: true };
 }
 
-/** Le tableau vu par un joueur (auteurs des rumeurs cachés, sauf à leur auteur) ; `null` : tout révéler (fin de partie). */
+/** Le tableau vu par un joueur (auteurs cachés, sauf à l'auteur lui-même) ; `null` : tout révéler (fin de partie). */
 export function tableauVu(etat: EtatPartie, joueur: string | null): EpingleVue[] {
   return (etat.tableau ?? []).map((e) => {
     const r = Object.values(e.reactions);
     return {
       id: e.id,
-      auteur: e.rumeur && joueur !== null && e.auteur !== joueur ? null : e.auteur,
-      rumeur: e.rumeur,
+      auteur: joueur !== null && e.auteur !== joueur ? null : e.auteur,
+      // Une épingle en plus du Journaliste ressemble aux autres (sauf pour lui, et à la fin).
+      rumeur: e.rumeur && (joueur === null || e.auteur === joueur),
       cible: { ...e.cible },
       etiquette: e.etiquette,
-      ...(e.note ? { note: e.note } : {}),
       manche: e.manche,
       pour: r.filter((x) => x === 'pour').length,
       contre: r.filter((x) => x === 'contre').length,

@@ -164,11 +164,12 @@ Un grand tableau en liège, **visible par tous**, accessible à côté du carnet
   - « Coupable ? » ;
   - « Complice ? » (sur un joueur) ;
   - « Fausse piste ? ».
-- **Un petit mot** facultatif (80 caractères au plus).
-- Chaque épingle est **signée** par son auteur, sauf les rumeurs du Journaliste, qui sont anonymes.
-- Les autres joueurs peuvent réagir avec **👍 / 👎** (compteur affiché).
-- **Gratuit (0 PA)**, **à tout moment** (pas seulement pendant son tour, sinon une rumeur trahirait le joueur actif), **1 épingle signée par manche** pour éviter le désordre. Chaque joueur a au plus 4 épingles signées affichées : la plus ancienne disparaît. Son auteur peut retirer une épingle.
-- Les **rumeurs** du Journaliste (3 en tout, une par manche au plus) s'ajoutent à son épingle signée. Il peut réagir à ses propres rumeurs, pour ne pas se trahir en s'abstenant ; on ne réagit pas à ses épingles signées.
+- **Pas de mot**, et **toutes les épingles sont anonymes** (modifié le 23/10/2026, voir ci-dessous).
+- Tous les joueurs peuvent réagir avec **👍 / 👎** (compteur affiché), y compris à leur propre épingle (s'en abstenir trahirait son auteur).
+- **Gratuit (0 PA)**, **à tout moment** (pas seulement pendant son tour, sinon une épingle trahirait le joueur actif). **Une seule épingle par joueur au tableau** : en poser une nouvelle (une fois par manche) remplace l'ancienne. Son auteur peut la retirer.
+- Le **Journaliste** a **3 épingles en plus** (une par manche au plus), qui s'ajoutent à la sienne et restent au tableau. Pour les autres, rien ne les distingue d'une épingle ordinaire.
+
+**Modification du 23/10/2026 (proposition de l'auteur) :** avec des épingles signées, une épingle « Innocent ? — je l'ai dans ma main » posée par un joueur était une certitude dès que le complice était démasqué (et sans Maître chanteur). Désormais, les épingles sont **anonymes et sans mot**, une seule par joueur au tableau, et le Journaliste a 3 épingles en plus au lieu de rumeurs anonymes : on ne sait jamais si une épingle vient du complice. La discussion reste libre (elle est hors du jeu). Mesure (200 parties par taille, avant → après, enquêteurs gagnants) : bots experts 58/38/51 % → 56/36/51 % (4/5/6 joueurs), quasi inchangé ; bots occasionnels 68/40/57 % → 55/22/54 % : les joueurs peu attentifs profitaient du tableau, le complice y gagne à 4 et 5 joueurs. Objectifs réussis inchangés (bouc émissaire 18–19 %, témoin gênant 5–6 %, ombre 9–19 %). À revoir après les parties entre amis.
 - Le complice et le Maître chanteur épinglent **comme tout le monde**. Rien n'est vérifié par le jeu : un tableau peut mentir.
 - **À la fin de la partie**, le tableau est montré avec le vrai rôle de chaque auteur.
 

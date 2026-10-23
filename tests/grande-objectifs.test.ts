@@ -174,7 +174,7 @@ describe('Parties complètes entre bots, avec les objectifs', () => {
   it("se terminent sans action refusée ; l'objectif est révélé à la fin", () => {
     const raisons = new Set<string>();
     for (const n of [4, 5, 6]) {
-      for (let seed = 1; seed <= 12; seed++) {
+      for (let seed = 1; seed <= 20; seed++) {
         const { etat, refus } = simulerPartie({ nbJoueurs: n, seed: seed * 17 + n, config: { ...CONFIG_GRANDE_ENQUETE, affaire: 'train' } });
         expect(etat.etape).toBe('terminee');
         expect(refus).toEqual([]);

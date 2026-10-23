@@ -34,19 +34,21 @@ describe("Le tableau d'enquête", () => {
     expect(act(etat, etat.ordre[0], epingle(element('victor'), 'coupable'), 1).ok).toBe(false);
   });
 
-  it('chacun épingle à tout moment, une fois par manche ; tout le monde voit qui a épinglé quoi', () => {
+  it('chacun épingle à tout moment, une fois par manche ; les épingles sont anonymes et sans mot', () => {
     const h = new Horloge();
     const etat = partie();
-    const [a, b] = etat.ordre.filter((id) => id !== actif(etat));
-    expect(act(etat, a, epingle(element('victor'), 'coupable', { note: '  Il   ment sur  son alibi\u0007 ' }), h.avance(1)).ok).toBe(true);
+    const [a, b, c] = etat.ordre.filter((id) => id !== actif(etat));
+    expect(act(etat, a, epingle(element('victor'), 'coupable'), h.avance(1)).ok).toBe(true);
     expect(act(etat, a, epingle(element('cave'), 'innocent'), h.avance(1))).toMatchObject({ ok: false, erreur: expect.stringContaining('cette manche') });
     expect(act(etat, b, epingle(joueur(a), 'complice'), h.avance(1)).ok).toBe(true);
-    for (const id of etat.ordre) {
-      const t = vuePour(etat, id).tableau!;
-      expect(t).toHaveLength(2);
-      expect(t[0]).toMatchObject({ auteur: a, rumeur: false, cible: element('victor'), etiquette: 'coupable', note: 'Il ment sur son alibi', manche: 1, pour: 0, contre: 0 });
-      expect(t[1]).toMatchObject({ auteur: b, cible: joueur(a), etiquette: 'complice' });
-    }
+    // Chacun ne voit que l'auteur de sa propre épingle.
+    expect(vuePour(etat, a).tableau!.map((e) => e.auteur)).toEqual([a, null]);
+    expect(vuePour(etat, b).tableau!.map((e) => e.auteur)).toEqual([null, b]);
+    const t = vuePour(etat, c).tableau!;
+    expect(t[0]).toMatchObject({ auteur: null, rumeur: false, cible: element('victor'), etiquette: 'coupable', manche: 1, pour: 0, contre: 0 });
+    expect(t[1]).toMatchObject({ auteur: null, cible: joueur(a), etiquette: 'complice' });
+    expect(t.every((e) => !('note' in e))).toBe(true);
+    for (const e of t) expect([JSON.stringify(e).includes(`"auteur":"${a}"`), JSON.stringify(e).includes(`"auteur":"${b}"`)]).toEqual([false, false]);
     mancheSuivante(etat, h);
     expect(act(etat, a, epingle(element('cave'), 'innocent'), h.avance(1)).ok).toBe(true);
   });
@@ -59,45 +61,44 @@ describe("Le tableau d'enquête", () => {
     expect(act(etat, a, epingle(joueur(b), 'coupable'), 1).ok).toBe(false);
     expect(act(etat, a, epingle(joueur(a), 'innocent'), 1).ok).toBe(false); // soi-même
     expect(act(etat, a, epingle(joueur('inconnu'), 'complice'), 1).ok).toBe(false);
-    expect(act(etat, a, epingle(element('victor'), 'coupable', { note: 'x'.repeat(81) }), 1).ok).toBe(false);
     expect(act(etat, a, epingle(element('manoir_dette'), 'fausse_piste'), 1).ok).toBe(true); // un mobile
   });
 
-  it('au-delà de 4 épingles signées, la plus ancienne disparaît ; seul son auteur retire une épingle', () => {
+  it('une seule épingle par joueur au tableau : la nouvelle remplace l’ancienne ; seul son auteur la retire', () => {
     const h = new Horloge();
     const etat = partie();
     const [a, b] = etat.ordre;
-    for (const id of ['victor', 'morel', 'cave', 'serre', 'dague']) {
+    for (const id of ['victor', 'morel', 'cave']) {
       expect(act(etat, a, epingle(element(id), 'innocent'), h.avance(1)).ok).toBe(true);
       mancheSuivante(etat, h);
     }
     const t = vuePour(etat, b).tableau!;
-    expect(t.map((e) => (e.cible.type === 'element' ? e.cible.id : ''))).toEqual(['morel', 'cave', 'serre', 'dague']);
+    expect(t.map((e) => (e.cible.type === 'element' ? e.cible.id : ''))).toEqual(['cave']);
     expect(act(etat, b, { type: 'retirerEpingle', epingle: t[0].id }, h.avance(1)).ok).toBe(false);
     expect(act(etat, a, { type: 'retirerEpingle', epingle: t[0].id }, h.avance(1)).ok).toBe(true);
-    expect(vuePour(etat, b).tableau).toHaveLength(3);
+    expect(vuePour(etat, b).tableau).toHaveLength(0);
   });
 
-  it('les réactions 👍 / 👎 sont comptées ; on peut changer d’avis, pas réagir à sa propre épingle', () => {
+  it('les réactions 👍 / 👎 sont comptées ; on peut changer d’avis, et réagir à sa propre épingle', () => {
     const etat = partie();
     const [a, b, c] = etat.ordre;
     act(etat, a, epingle(element('victor'), 'coupable'), 1);
     const id = vuePour(etat, a).tableau![0].id;
-    expect(act(etat, a, { type: 'reagir', epingle: id, reaction: 'pour' }, 2).ok).toBe(false);
+    // S'abstenir de réagir à sa propre épingle trahirait son auteur.
+    expect(act(etat, a, { type: 'reagir', epingle: id, reaction: 'pour' }, 2).ok).toBe(true);
     expect(act(etat, b, { type: 'reagir', epingle: id, reaction: 'pour' }, 2).ok).toBe(true);
     expect(act(etat, c, { type: 'reagir', epingle: id, reaction: 'contre' }, 3).ok).toBe(true);
-    expect(vuePour(etat, a).tableau![0]).toMatchObject({ pour: 1, contre: 1 });
+    expect(vuePour(etat, c).tableau![0]).toMatchObject({ pour: 2, contre: 1 });
     expect(vuePour(etat, b).tableau![0].maReaction).toBe('pour');
-    expect(vuePour(etat, a).tableau![0].maReaction).toBeUndefined();
     act(etat, b, { type: 'reagir', epingle: id, reaction: null }, 4);
     act(etat, c, { type: 'reagir', epingle: id, reaction: 'pour' }, 5);
-    expect(vuePour(etat, a).tableau![0]).toMatchObject({ pour: 1, contre: 0 });
+    expect(vuePour(etat, b).tableau![0]).toMatchObject({ pour: 2, contre: 0 });
     expect(act(etat, b, { type: 'reagir', epingle: 'E99', reaction: 'pour' }, 6).ok).toBe(false);
   });
 });
 
-describe('Les rumeurs du Journaliste', () => {
-  it('sont anonymes pour les autres, comptées à part, 3 en tout et une par manche', () => {
+describe('Les épingles en plus du Journaliste', () => {
+  it('ressemblent aux autres, comptent à part (elles restent au tableau), 3 en tout et une par manche', () => {
     const h = new Horloge();
     const etat = partie();
     const j = journaliste(etat);
@@ -105,26 +106,27 @@ describe('Les rumeurs du Journaliste', () => {
     // Aucun autre Journaliste dans cette partie de test.
     for (const x of etat.ordre) if (x !== j && etat.joueurs[x].roleEnquete === 'journaliste') etat.joueurs[x].roleEnquete = 'inspecteur';
     expect(act(etat, autre, epingle(element('victor'), 'coupable', { rumeur: true }), h.avance(1)).ok).toBe(false);
-    expect(act(etat, j, epingle(joueur(autre), 'complice', { rumeur: true, note: 'On l’a vu près de la cave' }), h.avance(1)).ok).toBe(true);
-    // Elle ne compte pas dans l'épingle signée de la manche.
+    expect(act(etat, j, epingle(joueur(autre), 'complice', { rumeur: true }), h.avance(1)).ok).toBe(true);
+    // Elle ne compte pas dans l'épingle habituelle de la manche, qui ne la remplace pas.
     expect(act(etat, j, epingle(element('cave'), 'innocent'), h.avance(1)).ok).toBe(true);
     expect(act(etat, j, epingle(element('serre'), 'innocent', { rumeur: true }), h.avance(1)).ok).toBe(false);
     const vueAutre = vuePour(etat, autre).tableau!;
-    expect(vueAutre[0]).toMatchObject({ auteur: null, rumeur: true, etiquette: 'complice' });
+    expect(vueAutre).toHaveLength(2);
+    // Pour les autres, rien ne la distingue d'une épingle ordinaire.
+    expect(vueAutre[0]).toMatchObject({ auteur: null, rumeur: false, etiquette: 'complice' });
+    expect(vuePour(etat, j).tableau![0]).toMatchObject({ auteur: j, rumeur: true });
     expect(JSON.stringify(vueAutre[0])).not.toContain(`"${j}"`);
-    expect(vuePour(etat, j).tableau![0].auteur).toBe(j);
-    // Le Journaliste peut réagir à sa rumeur (s'en abstenir le trahirait).
     expect(act(etat, j, { type: 'reagir', epingle: vueAutre[0].id, reaction: 'pour' }, h.avance(1)).ok).toBe(true);
     mancheSuivante(etat, h);
     expect(act(etat, j, epingle(element('serre'), 'innocent', { rumeur: true }), h.avance(1)).ok).toBe(true);
     mancheSuivante(etat, h);
     expect(act(etat, j, epingle(element('dague'), 'innocent', { rumeur: true }), h.avance(1)).ok).toBe(true);
     mancheSuivante(etat, h);
-    expect(act(etat, j, epingle(element('bureau'), 'innocent', { rumeur: true }), h.avance(1))).toMatchObject({ ok: false, erreur: expect.stringContaining('plus de rumeur') });
+    expect(act(etat, j, epingle(element('bureau'), 'innocent', { rumeur: true }), h.avance(1))).toMatchObject({ ok: false, erreur: expect.stringContaining("plus d'épingle en plus") });
     expect(vuePour(etat, j).moi.pouvoirsRole?.rumeurs).toBe(0);
   });
 
-  it('sont révélées à la fin de la partie, avec leur auteur', () => {
+  it('sont révélées à la fin de la partie, avec leur auteur (comme toutes les épingles)', () => {
     const h = new Horloge();
     const etat = partie();
     const j = journaliste(etat);

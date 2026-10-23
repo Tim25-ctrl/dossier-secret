@@ -88,7 +88,7 @@ function PouvoirsRestants({ vue }: { vue: VueJoueur }) {
   if (p.archivesGratuites !== undefined) etiquettes.push(`Consultations gratuites : ${p.archivesGratuites}`);
   if (p.verificationsDossier !== undefined) etiquettes.push(`Vérification de dossier : ${p.verificationsDossier}`);
   if (p.profilages !== undefined) etiquettes.push(`Profilage : ${p.profilages}`);
-  if (p.rumeurs !== undefined) etiquettes.push(`Rumeurs : ${p.rumeurs}`);
+  if (p.rumeurs !== undefined) etiquettes.push(`Épingles en plus : ${p.rumeurs}`);
   if (!etiquettes.length) return null;
   return (
     <div className="ligne petit" style={{ marginBottom: 8 }}>
@@ -252,7 +252,6 @@ function ModaleVerifDossier({ vue, onFermer, onAgir }: { vue: VueJoueur; onFerme
 
 export function TableauEnquete({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onErreur: (e: string) => void }) {
   const tableau = vue.tableau ?? [];
-  const regles = vue.regles.tableau!;
   const moi = vue.moi.id;
   const dejaCetteManche = tableau.some((e) => e.auteur === moi && !e.rumeur && e.manche === vue.manche);
   const rumeursRestantes = vue.moi.roleEnquete === 'journaliste' ? (vue.moi.pouvoirsRole?.rumeurs ?? 0) : 0;
@@ -267,8 +266,9 @@ export function TableauEnquete({ vue, nom, onErreur }: { vue: VueJoueur; nom: No
     <section className="panneau tableau-enquete">
       <EntetePublic>Tableau d'enquête — visible par tous</EntetePublic>
       <p className="muet petit" style={{ marginTop: 0 }}>
-        Épinglez vos soupçons ({regles.epinglesParManche} épingle par manche, gratuite, à tout moment). <strong>Rien n'est vérifié</strong> : le complice et le Maître
-        chanteur épinglent comme tout le monde. À la fin de la partie, le tableau est montré avec le vrai auteur de chaque épingle.
+        Épinglez un soupçon : gratuit, à tout moment. Chacun n'a <strong>qu'une épingle</strong> au tableau : en poser une nouvelle (une par manche) remplace
+        l'ancienne. Toutes les épingles sont <strong>anonymes</strong> et rien n'est vérifié : le complice et le Maître chanteur épinglent comme tout le monde. À
+        la fin de la partie, le tableau est montré avec le vrai auteur de chaque épingle.
       </p>
       {enCours && (
         <FormulaireEpingle vue={vue} nom={nom} peutSigner={!dejaCetteManche} peutRumeur={rumeursRestantes > 0 && !rumeurCetteManche} rumeurs={rumeursRestantes} onAgir={agir} />
@@ -287,15 +287,14 @@ export function TableauEnquete({ vue, nom, onErreur }: { vue: VueJoueur; nom: No
                   <span className={`etiquette etiquette-${e.etiquette === 'innocent' ? 'or' : 'rouge'}`}>{LIBELLES_ETIQUETTES[e.etiquette]}</span>
                 </div>
               </div>
-              {e.note && <p className="epingle-note">« {e.note} »</p>}
               <p className="petit muet epingle-auteur">
-                {e.rumeur ? (e.auteur === moi ? 'Votre rumeur anonyme' : 'Rumeur anonyme') : e.auteur === moi ? 'Vous' : `Par ${nom(e.auteur!)}`} · manche {e.manche}
+                {e.auteur === moi ? (e.rumeur ? 'Votre épingle en plus (Journaliste)' : 'Votre épingle') : 'Anonyme'} · manche {e.manche}
               </p>
               <div className="ligne epingle-reactions">
                 <button
                   className={`btn btn-petit ${e.maReaction === 'pour' ? 'btn-or' : 'btn-discret'}`}
                   aria-pressed={e.maReaction === 'pour'}
-                  disabled={!enCours || (e.auteur === moi && !e.rumeur)}
+                  disabled={!enCours}
                   onClick={() => void agir({ type: 'reagir', epingle: e.id, reaction: e.maReaction === 'pour' ? null : 'pour' })}
                   aria-label={`D'accord (${e.pour})`}
                 >
@@ -304,7 +303,7 @@ export function TableauEnquete({ vue, nom, onErreur }: { vue: VueJoueur; nom: No
                 <button
                   className={`btn btn-petit ${e.maReaction === 'contre' ? 'btn-or' : 'btn-discret'}`}
                   aria-pressed={e.maReaction === 'contre'}
-                  disabled={!enCours || (e.auteur === moi && !e.rumeur)}
+                  disabled={!enCours}
                   onClick={() => void agir({ type: 'reagir', epingle: e.id, reaction: e.maReaction === 'contre' ? null : 'contre' })}
                   aria-label={`Pas d'accord (${e.contre})`}
                 >
@@ -341,24 +340,23 @@ function FormulaireEpingle({
 }) {
   const [cible, setCible] = useState('');
   const [etiquette, setEtiquette] = useState<EtiquetteEpingle>('coupable');
-  const [note, setNote] = useState('');
   const [rumeur, setRumeur] = useState(false);
-  const regles = vue.regles.tableau!;
   const estJoueur = cible.startsWith('joueur:');
   const etiquettes: EtiquetteEpingle[] = estJoueur ? ['complice', 'innocent'] : ['coupable', 'innocent', 'fausse_piste'];
   const etiquetteValide = etiquettes.includes(etiquette) ? etiquette : etiquettes[0];
+  const tableau = vue.tableau ?? [];
   const possible = rumeur ? peutRumeur : peutSigner;
   const epingler = async () => {
     if (!cible) return;
     const c: CibleEpingle = estJoueur ? { type: 'joueur', id: cible.slice(7) } : { type: 'element', id: cible as ElementId };
-    const ok = await onAgir({ type: 'epingler', cible: c, etiquette: etiquetteValide, ...(note.trim() ? { note: note.trim() } : {}), ...(rumeur ? { rumeur: true } : {}) });
+    const ok = await onAgir({ type: 'epingler', cible: c, etiquette: etiquetteValide, ...(rumeur ? { rumeur: true } : {}) });
     if (ok) {
       setCible('');
-      setNote('');
       setRumeur(false);
     }
   };
-  if (!peutSigner && !peutRumeur) return <p className="petit muet">Vous avez déjà épinglé cette manche : revenez à la manche suivante.</p>;
+  if (!peutSigner && !peutRumeur)
+    return <p className="petit muet">Vous avez déjà posé votre épingle cette manche : à la manche suivante, une nouvelle remplacera celle-ci.</p>;
   return (
     <div className="formulaire-epingle">
       <div className="ligne">
@@ -395,24 +393,19 @@ function FormulaireEpingle({
         </select>
       </div>
       <div className="ligne">
-        <input
-          aria-label="Petit mot (facultatif)"
-          placeholder="Petit mot (facultatif)"
-          maxLength={regles.noteMax}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          style={{ flex: 1, minWidth: 0 }}
-        />
         {rumeurs > 0 && (
           <label className="petit">
-            <input type="checkbox" checked={rumeur} disabled={!peutRumeur} onChange={(e) => setRumeur(e.target.checked)} /> Rumeur anonyme ({rumeurs})
+            <input type="checkbox" checked={rumeur} disabled={!peutRumeur} onChange={(e) => setRumeur(e.target.checked)} /> Épingle en plus (Journaliste : {rumeurs})
           </label>
         )}
         <button className="btn btn-or" disabled={!cible || !possible} onClick={() => void epingler()}>
           📌 Épingler
         </button>
       </div>
-      {!peutSigner && !rumeur && <p className="petit muet">Épingle signée déjà utilisée cette manche{peutRumeur ? ' — il vous reste une rumeur.' : '.'}</p>}
+      {!peutSigner && !rumeur && <p className="petit muet">Épingle déjà posée cette manche{peutRumeur ? ' — il vous reste une épingle en plus.' : '.'}</p>}
+      {peutSigner && !rumeur && tableau.some((e) => e.auteur === vue.moi.id && !e.rumeur) && (
+        <p className="petit muet">Votre nouvelle épingle remplacera celle qui est au tableau.</p>
+      )}
     </div>
   );
 }

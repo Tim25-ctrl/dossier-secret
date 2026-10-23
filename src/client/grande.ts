@@ -20,7 +20,7 @@ export const POUVOIRS_ROLES: Record<RoleEnquete, string> = {
   inspecteur: 'Deux fois par partie, juste après votre hypothèse (pendant le même tour), vous apprenez si les réponses reçues étaient honnêtes ou si le complice a triché.',
   legiste: 'Une fois, à partir de la manche 3 : choisissez une catégorie, vous apprenez deux éléments innocents.',
   archiviste: "Deux consultations d'archives gratuites (sans point d'action), et une fois, savoir si un dossier a été trafiqué.",
-  journaliste: "Trois rumeurs anonymes à publier sur le tableau d'enquête (une par manche au plus) : personne ne sait qui les a écrites.",
+  journaliste: "Trois épingles en plus sur le tableau d'enquête (une par manche au plus), qui restent au tableau : vous pouvez lancer plus de pistes que les autres.",
   profileur: 'Une fois, à partir de la manche 6 : désignez deux joueurs, vous apprenez si le complice est l’un des deux.',
 };
 

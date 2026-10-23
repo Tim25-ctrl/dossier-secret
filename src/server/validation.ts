@@ -39,7 +39,6 @@ export const schemaAction = z.discriminatedUnion('type', [
         z.object({ type: z.literal('joueur'), id: idJoueur }).strict(),
       ]),
       etiquette: z.enum(['innocent', 'coupable', 'fausse_piste', 'complice']),
-      note: z.string().max(200).optional(),
       rumeur: z.boolean().optional(),
     })
     .strict(),

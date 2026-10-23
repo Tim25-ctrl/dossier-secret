@@ -10,7 +10,8 @@ import { appliquerAction, avancer, creerPartie, type EtatPartie } from '../engin
 import { cryptoRng } from '../engine/rng';
 import { vuePour } from '../engine/vue';
 import type { EtatClient, EvenementsClient, MessageChat, Reponse } from '../shared/protocole';
-import { AFFAIRES_IDS, SANS_LIMITE, type ActionJeu, type AffaireId, type ChoixAffaire, type HistoriqueCartes, type ModeComplice } from '../shared/types';
+import { AFFAIRES_IDS, SANS_LIMITE, type ActionJeu, type AffaireId, type ChoixAffaire, type HistoriqueCartes, type ModeComplice, type ModeJeu } from '../shared/types';
+import { CONFIG_GRANDE_ENQUETE } from '../engine/config';
 import { connexion, type MoteurLocal } from './connexion';
 
 export const CODE_HORS_LIGNE = 'HORS-LIGNE';
@@ -25,6 +26,8 @@ export interface ReglagesHorsLigne {
   modeComplice: ModeComplice;
   affaire: ChoixAffaire;
   historiqueCartes: HistoriqueCartes;
+  /** Partie classique ou « Grande enquête » (absent dans les sauvegardes d'avant : classique). */
+  mode?: ModeJeu;
 }
 
 interface Sauvegarde {
@@ -73,6 +76,7 @@ function nouvellePartie(r: ReglagesHorsLigne): EtatPartie {
     rng: cryptoRng,
     now: Date.now(),
     config: {
+      ...(r.mode === 'grande' ? CONFIG_GRANDE_ENQUETE : {}),
       affaire,
       delaiTourMs: r.dureeTourS === null ? null : r.dureeTourS * 1000,
       modeComplice: r.modeComplice,
@@ -112,8 +116,9 @@ class PartieHorsLigne implements MoteurLocal {
           dureeTourS: this.reglages.dureeTourS,
           modeComplice: this.reglages.modeComplice,
           historiqueCartes: this.reglages.historiqueCartes,
+          mode: this.reglages.mode ?? 'classique',
         },
-        min: 3,
+        min: this.reglages.mode === 'grande' ? 4 : 3,
         max: 6,
         reprise: false,
         demandes: [],

@@ -1,4 +1,4 @@
-// Simulations d'équilibrage : npm run simulate [-- --parties 400] [-- --variante 0] [-- --affaire train]
+// Simulations d'équilibrage : npm run simulate [-- --parties 400] [-- --variante 0] [-- --affaire train] [-- --mode grande]
 //
 // ATTENTION : les bots sont des approximations grossières de joueurs humains
 // (ils ne discutent pas, ne bluffent pas en dehors des pouvoirs, ne soupçonnent
@@ -7,15 +7,26 @@
 
 import { simulerPartie } from '../src/bots/simulation';
 import { PROFIL_OCCASIONNEL, PROFIL_PAR_DEFAUT, type ProfilBot } from '../src/bots/bot';
-import { CONFIG_PAR_DEFAUT, REGLES_INITIALES, type ConfigPartie } from '../src/engine/config';
+import { CONFIG_GRANDE_ENQUETE, CONFIG_PAR_DEFAUT, REGLES_INITIALES, type ConfigPartie } from '../src/engine/config';
 
 const argParties = process.argv.indexOf('--parties');
 const N = argParties > 0 ? Number(process.argv[argParties + 1]) : 300;
 const argAffaire = process.argv.indexOf('--affaire');
-const AFFAIRE: Partial<ConfigPartie> = argAffaire > 0 ? { affaire: process.argv[argAffaire + 1] as ConfigPartie['affaire'] } : {};
+// « --mode grande » : la Grande enquête (avec le mobile), de 4 à 6 joueurs.
+const argMode = process.argv.indexOf('--mode');
+const GRANDE = argMode > 0 && process.argv[argMode + 1] === 'grande';
+const AFFAIRE: Partial<ConfigPartie> = {
+  ...(GRANDE ? CONFIG_GRANDE_ENQUETE : {}),
+  ...(argAffaire > 0 ? { affaire: process.argv[argAffaire + 1] as ConfigPartie['affaire'] } : {}),
+};
+const TAILLES = GRANDE ? [4, 5, 6] : [3, 4, 5, 6];
 
 interface Stat {
   victoiresEnqueteurs: number;
+  /** « Grande enquête » : victoires du Maître chanteur (5 et 6 joueurs). */
+  victoiresMaitreChanteur: number;
+  /** « Grande enquête » : victoires du complice grâce à son objectif secret (victoire volée). */
+  victoiresObjectif: number;
   mancheMoyenne: number;
   ruses: number;
   demasque: number;
@@ -25,10 +36,12 @@ interface Stat {
 }
 
 function campagne(nbJoueurs: number, config: Partial<ConfigPartie>, profil: ProfilBot): Stat {
-  const s: Stat = { victoiresEnqueteurs: 0, mancheMoyenne: 0, ruses: 0, demasque: 0, denonciationsFausses: 0, mauvaisesAccusations: 0, refus: 0 };
+  const s: Stat = { victoiresEnqueteurs: 0, victoiresMaitreChanteur: 0, victoiresObjectif: 0, mancheMoyenne: 0, ruses: 0, demasque: 0, denonciationsFausses: 0, mauvaisesAccusations: 0, refus: 0 };
   for (let seed = 1; seed <= N; seed++) {
     const { etat, refus } = simulerPartie({ nbJoueurs, seed: seed * 7919 + nbJoueurs, config: { ...AFFAIRE, ...config }, profil });
     if (etat.resultat?.vainqueur === 'enqueteurs') s.victoiresEnqueteurs++;
+    if (etat.resultat?.vainqueur === 'maitre_chanteur') s.victoiresMaitreChanteur++;
+    if (etat.resultat?.raison === 'objectif_complice') s.victoiresObjectif++;
     s.mancheMoyenne += etat.manche;
     s.ruses +=
       etat.hypotheses.filter((h) => h.reponses.some((r) => r.resultat === 'mensonge' || r.resultat === 'emprunt')).length +
@@ -41,6 +54,8 @@ function campagne(nbJoueurs: number, config: Partial<ConfigPartie>, profil: Prof
   }
   return {
     victoiresEnqueteurs: s.victoiresEnqueteurs / N,
+    victoiresMaitreChanteur: s.victoiresMaitreChanteur / N,
+    victoiresObjectif: s.victoiresObjectif / N,
     mancheMoyenne: s.mancheMoyenne / N,
     ruses: s.ruses / N,
     demasque: s.demasque / N,
@@ -54,13 +69,13 @@ const pct = (x: number) => `${(x * 100).toFixed(0).padStart(3)} %`;
 const f1 = (x: number) => x.toFixed(1).padStart(5);
 
 function tableau(titre: string, config: Partial<ConfigPartie>, profil: ProfilBot) {
-  console.log(`\n=== ${titre} — ${N} parties par taille ===`);
-  console.log('Joueurs | Enquêteurs gagnent | (sans pouvoirs) | Manche moy. | Pouvoirs utilisés | Complice démasqué | Dénonc. fausses | Mauvaises acc. | Refus');
-  for (const n of [3, 4, 5, 6]) {
+  console.log(`\n=== ${GRANDE ? 'GRANDE ENQUÊTE — ' : ''}${titre} — ${N} parties par taille ===`);
+  console.log((GRANDE ? 'Joueurs | Maître chanteur | Objectif complice ' : 'Joueurs ') + '| Enquêteurs gagnent | (sans pouvoirs) | Manche moy. | Pouvoirs utilisés | Complice démasqué | Dénonc. fausses | Mauvaises acc. | Refus');
+  for (const n of TAILLES) {
     const a = campagne(n, config, profil);
     const b = campagne(n, config, { ...profil, pouvoirs: false });
     console.log(
-      `   ${n}    |       ${pct(a.victoiresEnqueteurs)}        |     ${pct(b.victoiresEnqueteurs)}       |    ${f1(a.mancheMoyenne)}    |       ${f1(a.ruses)}       |       ${pct(a.demasque)}       |     ${f1(a.denonciationsFausses)}     |     ${f1(a.mauvaisesAccusations)}      | ${a.refus}`,
+      `   ${n}    ${GRANDE ? `|     ${pct(a.victoiresMaitreChanteur)}      |       ${pct(a.victoiresObjectif)}         ` : ''}|       ${pct(a.victoiresEnqueteurs)}        |     ${pct(b.victoiresEnqueteurs)}       |    ${f1(a.mancheMoyenne)}    |       ${f1(a.ruses)}       |       ${pct(a.demasque)}       |     ${f1(a.denonciationsFausses)}     |     ${f1(a.mauvaisesAccusations)}      | ${a.refus}`,
     );
   }
 }

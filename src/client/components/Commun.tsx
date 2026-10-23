@@ -6,7 +6,7 @@ import { ceQueLIndiceEcarte, precision } from '../../shared/logique';
 import { categorieDe, type CarteIndice as CarteIndiceType, type CategorieIndice, type ElementId, type Triplet } from '../../shared/types';
 import { Embleme, Icone } from './Emblemes';
 
-export const LIBELLE_CATEGORIE = { suspect: 'Suspect', lieu: 'Lieu', arme: 'Arme' } as const;
+export const LIBELLE_CATEGORIE = { suspect: 'Suspect', lieu: 'Lieu', arme: 'Arme', mobile: 'Mobile' } as const;
 
 export function Carte({
   id,
@@ -60,12 +60,13 @@ export function TripletVue({ t }: { t: Triplet }) {
       <Carte id={t.suspect} taille="mini" />
       <Carte id={t.lieu} taille="mini" />
       <Carte id={t.arme} taille="mini" />
+      {t.mobile && <Carte id={t.mobile} taille="mini" />}
     </span>
   );
 }
 
 export function texteTriplet(t: Triplet) {
-  return `${nomElement(t.suspect)} · ${nomElement(t.lieu)} · ${nomElement(t.arme)}`;
+  return [t.suspect, t.lieu, t.arme, t.mobile].filter((x) => x !== undefined).map((x) => nomElement(x!)).join(' · ');
 }
 
 /**

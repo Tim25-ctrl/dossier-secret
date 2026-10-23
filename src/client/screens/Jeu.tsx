@@ -20,8 +20,10 @@ import { AmbianceEnPartie, ambianceDe } from '../components/Ambiance';
 import { phaseNuit, useAmbianceSonore } from '../nuit';
 import { useSceneAccusation } from '../components/jeu/Scenes';
 import { ModaleDemandesPlace } from './Reprise';
+import { BoutonsPouvoirs, InfosRoleGrande, ModaleDerniereChance, TableauEnquete } from '../components/jeu/GrandeEnquete';
+import { libelleRole } from '../grande';
 
-type Onglet = 'enquete' | 'archives' | 'carnet' | 'discussion';
+type Onglet = 'enquete' | 'archives' | 'tableau' | 'carnet' | 'discussion';
 
 export function Jeu({
   etat,
@@ -45,7 +47,7 @@ export function Jeu({
   const sources = useMemo(() => sourcesConnues(vue, nom), [vue, nom]);
   const monTour = vue.joueurActif === moi && vue.etape === 'tour' && !vue.pause;
   // Les boutons d'action n'apparaissent que pendant mon tour (y compris pendant l'interrogation de mon hypothèse).
-  const actionsVisibles = vue.joueurActif === moi && vue.etape !== 'terminee';
+  const actionsVisibles = vue.joueurActif === moi && vue.etape !== 'terminee' && vue.etape !== 'designation';
   const h = vue.hypotheseEnCours;
   const doitRepondre = !!h?.aRepondre && h.repondantActuel === moi;
   const peutFalsifier = !!h?.falsification && h.etape === 'falsification';
@@ -127,13 +129,17 @@ export function Jeu({
         ? 'Une seule hypothèse par tour.'
         : null;
   const dossiersDispo = vue.archives.filter((a) => a.disponible && !a.consulte);
-  const raisonArchive = !monTour ? null : vue.pointsAction < 1 ? 'Plus de point d’action.' : dossiersDispo.length === 0 ? 'Aucun dossier disponible.' : null;
+  // Archiviste (« Grande enquête ») : quelques consultations sans point d'action.
+  const gratuites = vue.moi.roleEnquete === 'archiviste' ? (vue.moi.pouvoirsRole?.archivesGratuites ?? 0) : 0;
+  const raisonArchive = !monTour ? null : vue.pointsAction < 1 && gratuites === 0 ? 'Plus de point d’action.' : dossiersDispo.length === 0 ? 'Aucun dossier disponible.' : null;
+  const roleAffiche = libelleRole(vue.moi.role, vue.moi.roleEnquete);
 
   // Sur téléphone, ces onglets forment une barre fixe en bas de l'écran.
   const onglets: { id: Onglet; libelle: string; icone: Parameters<typeof Icone>[0]['nom']; classe?: string; badge?: number }[] = [
     { id: 'enquete', libelle: 'Enquête', icone: 'loupe' },
     // Pastille seulement pendant mon tour : hors de mon tour, je ne peux rien consulter.
     { id: 'archives', libelle: 'Archives', icone: 'dossier', badge: monTour && vue.pointsAction >= 1 && dossiersDispo.length ? dossiersDispo.length : undefined },
+    ...(vue.tableau ? [{ id: 'tableau' as const, libelle: 'Tableau', icone: 'oeil' as const }] : []),
     { id: 'carnet', libelle: 'Carnet', icone: 'plume' },
     { id: 'discussion', libelle: 'Discussion', icone: 'bulle', classe: 'onglet-chat', badge: onglet !== 'discussion' && nonLus ? nonLus : undefined },
   ];
@@ -189,8 +195,8 @@ export function Jeu({
         )}
         </div>
         <span className="espace" />
-        <span className={`etiquette role-entete ${vue.moi.role === 'complice' ? 'etiquette-rouge' : 'etiquette-or'}`} title="Visible par vous seul">
-          <Icone nom="cadenas" taille={12} /> {vue.moi.role === 'complice' ? 'Complice' : 'Enquêteur'}
+        <span className={`etiquette role-entete ${vue.moi.role === 'enqueteur' ? 'etiquette-or' : 'etiquette-rouge'}`} title="Visible par vous seul">
+          <Icone nom="cadenas" taille={12} /> {roleAffiche}
         </span>
         <button
           className="btn btn-discret btn-petit"
@@ -207,7 +213,7 @@ export function Jeu({
 
       <div className="disposition">
         <aside className="colonne-gauche" aria-label="Joueurs et cartes">
-          <PanneauRole vue={vue} />
+          <PanneauRole vue={vue} nom={nom} />
           <PanneauJoueurs vue={vue} nom={nom} />
         </aside>
 
@@ -247,7 +253,9 @@ export function Jeu({
                 </div>
               )}
               <div className={`bandeau-tour${monTour ? ' mon-tour' : ''}`} aria-live="polite">
-                {monTour ? (
+                {vue.etape === 'designation' ? (
+                  <strong>L'enquête a abouti… dernière chance du complice.</strong>
+                ) : monTour ? (
                   <strong>C'est votre tour : {vue.pointsAction} point(s) d'action.</strong>
                 ) : vue.etape === 'hypothese' ? (
                   <span>Interrogation en cours…</span>
@@ -276,7 +284,7 @@ export function Jeu({
                     <Icone nom="loupe" /> Hypothèse ({vue.regles.coutHypothese} PA)
                   </button>
                   <button className="btn" disabled={!monTour || !!raisonArchive} onClick={() => setOnglet('archives')}>
-                    <Icone nom="livre" /> Consulter les archives (1 PA)
+                    <Icone nom="livre" /> Consulter les archives ({gratuites > 0 ? 'gratuit' : '1 PA'})
                   </button>
                   {/* Le complice ne peut pas accuser : le bouton n'existe que sur l'écran des enquêteurs. */}
                   {vue.moi.role !== 'complice' && (
@@ -299,6 +307,7 @@ export function Jeu({
                   </button>
                 </div>
               )}
+              {actionsVisibles && <BoutonsPouvoirs vue={vue} nom={nom} monTour={monTour} onErreur={erreur} />}
               {monTour && (raisonHypothese || raisonArchive) && (
                 <p className="raison">{[raisonHypothese && `Hypothèse : ${raisonHypothese}`, raisonArchive && `Archives : ${raisonArchive}`].filter(Boolean).join(' · ')}</p>
               )}
@@ -350,7 +359,7 @@ export function Jeu({
               <details className="panneau mobile-seulement">
                 <summary>Mon rôle et les joueurs</summary>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
-                  <PanneauRole vue={vue} />
+                  <PanneauRole vue={vue} nom={nom} />
                   <PanneauJoueurs vue={vue} nom={nom} />
                 </div>
               </details>
@@ -358,6 +367,8 @@ export function Jeu({
           )}
 
           {onglet === 'archives' && <Archives vue={vue} monTour={monTour} onAgir={agir} />}
+
+          {onglet === 'tableau' && vue.tableau && <TableauEnquete vue={vue} nom={nom} onErreur={erreur} />}
 
           {onglet === 'carnet' && <Carnet vue={vue} nom={nom} onErreur={erreur} />}
 
@@ -379,7 +390,10 @@ export function Jeu({
 
       {histoire && <ModaleHistoire affaire={vue.affaire} onFermer={fermerHistoire} />}
       {modale === 'hypothese' && <ModaleHypothese vue={vue} nom={nom} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
-      {modale === 'accusation' && <ModaleAccusation affaire={vue.affaire} sources={sources} onFermer={() => setModale(null)} onErreur={erreur} />}
+      {modale === 'accusation' && (
+        <ModaleAccusation affaire={vue.affaire} sources={sources} avecMobile={vue.regles.mode === 'grande'} onFermer={() => setModale(null)} onErreur={erreur} />
+      )}
+      {vue.etape === 'designation' && !vue.pause && <ModaleDerniereChance vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {modale === 'denonciation' && <ModaleDenonciation vue={vue} nom={nom} onFermer={() => setModale(null)} onErreur={erreur} />}
       {doitRepondre && !vue.pause && <ModaleReponse key={h!.id} vue={vue} nom={nom} decalage={decalage} onErreur={erreur} />}
       {fenetrePause && (
@@ -412,7 +426,7 @@ function BandeMesCartes({ vue }: { vue: VueJoueur }) {
   return (
     <div className="bande-cartes" aria-label="Mon rôle et mes cartes, visibles par vous seul">
       <Icone nom="cadenas" taille={12} />
-      <span className={`puce-carte puce-role${vue.moi.role === 'complice' ? ' puce-meurtrier' : ''}`}>{vue.moi.role === 'complice' ? 'Complice' : 'Enquêteur'}</span>
+      <span className={`puce-carte puce-role${vue.moi.role !== 'enqueteur' ? ' puce-meurtrier' : ''}`}>{libelleRole(vue.moi.role, vue.moi.roleEnquete)}</span>
       {vue.moi.role === 'complice' && (
         <span className="puce-carte puce-meurtrier" title="Le meurtrier (vous seul le savez)">
           🎭 {nomCourt(vue.moi.meurtrier!)}
@@ -428,16 +442,18 @@ function BandeMesCartes({ vue }: { vue: VueJoueur }) {
   );
 }
 
-function PanneauRole({ vue }: { vue: VueJoueur }) {
+function PanneauRole({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
+  const grande = vue.regles.mode === 'grande';
   return (
     <Prive titre="Votre rôle et vos cartes — privé">
       {vue.moi.role === 'complice' ? (
         <>
           <h3 style={{ color: 'var(--rouge)', marginBottom: 4 }}>Vous êtes le complice</h3>
           <p className="petit" style={{ marginBottom: 6 }}>
-            Le meurtrier est <strong>{nomElement(vue.moi.meurtrier!)}</strong>. Vous ignorez le lieu et l'arme. Empêchez les enquêteurs de trouver avant la fin de la 12ᵉ
-            manche.
+            Le meurtrier est <strong>{nomElement(vue.moi.meurtrier!)}</strong>. Vous ignorez le lieu{grande ? ", l'arme et le mobile" : " et l'arme"}. Empêchez les enquêteurs
+            de trouver avant la fin de la {vue.regles.manchesMax}ᵉ manche.
           </p>
+          {grande && <InfosRoleGrande vue={vue} nom={nom} />}
           {vue.regles.modeComplice === 'ruse' ? (
             <div className="petit" style={{ marginBottom: 8 }}>
               <div className="ligne" style={{ marginBottom: 6 }}>
@@ -477,6 +493,15 @@ function PanneauRole({ vue }: { vue: VueJoueur }) {
                 prévenu.
               </Aide>
             </div>
+          )}
+        </>
+      ) : grande ? (
+        <>
+          <InfosRoleGrande vue={vue} nom={nom} />
+          {vue.moi.role === 'enqueteur' && (
+            <p className="petit">
+              Trouvez le meurtrier, {vue.moi.lieuConnu ? '' : 'le lieu, '}l'arme et le mobile. Méfiez-vous : un complice se cache parmi les joueurs.
+            </p>
           )}
         </>
       ) : (
@@ -521,7 +546,16 @@ function PanneauJoueurs({ vue, nom }: { vue: VueJoueur; nom: Noms }) {
   );
 }
 
-function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; onAgir: (a: { type: 'consulterArchive'; dossier: number; trafiquer?: boolean }) => Promise<void> }) {
+function Archives({
+  vue,
+  monTour,
+  onAgir,
+}: {
+  vue: VueJoueur;
+  monTour: boolean;
+  onAgir: (a: { type: 'consulterArchive'; dossier: number; trafiquer?: boolean; gratuit?: boolean }) => Promise<void>;
+}) {
+  const gratuites = vue.moi.roleEnquete === 'archiviste' ? (vue.moi.pouvoirsRole?.archivesGratuites ?? 0) : 0;
   const consultes = new Map(vue.moi.indicesConsultes.map((i) => [i.dossier, i]));
   const mesTrafics = new Map(vue.moi.journal.flatMap((e) => (e.type === 'ruse' && e.ruse === 'trafic' ? [[e.dossier!, e.indiceFaux!] as const] : [])));
   const peutTrafiquer = vue.regles.modeComplice === 'ruse' && vue.retourRuses === null && (vue.moi.rusesRestantes ?? 0) >= vue.regles.coutRuses.trafic;
@@ -573,6 +607,15 @@ function Archives({ vue, monTour, onAgir }: { vue: VueJoueur; monTour: boolean; 
                 >
                   Consulter (1 PA)
                 </button>
+                {gratuites > 0 && (
+                  <button
+                    className="btn btn-petit btn-consulter"
+                    onClick={() => void onAgir({ type: 'consulterArchive', dossier: a.dossier, gratuit: true })}
+                    title="Pouvoir de l'Archiviste : sans point d'action."
+                  >
+                    🗂 Consulter gratuitement ({gratuites})
+                  </button>
+                )}
                 {peutTrafiquer && a.categorie !== 'piece' && (
                   <button
                     className="btn btn-danger btn-petit btn-trafiquer"

@@ -14,21 +14,31 @@ import {
   memeTriplet,
   type ActionJeu,
   type Carnet,
+  type Categorie,
+  type CibleEpingle,
+  type EtiquetteEpingle,
+  type ReactionEpingle,
+  type PouvoirsRole,
+  type RoleEnquete,
   type CarteIndice,
   type ChampTriplet,
   type ElementId,
   type EntreePrivee,
+  type EpingleVue,
   type EvenementPublic,
   type Marque,
+  type ObjectifComplice,
+  type ObjectifVu,
   type RaisonFin,
+  type SuspectId,
   type Role,
   type Triplet,
   type TypeRuse,
   type Vainqueur,
 } from '../shared/types';
-import { INDICES_PAR_ID, fauxIndicesDe, indicesDe } from '../shared/data/catalogue';
+import { INDICES_PAR_ID, fauxIndicesDe, indicesDuMode } from '../shared/data/catalogue';
 import { estRelationnel, indiceValide } from '../shared/logique';
-import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, coutRuse, nbInterroges, pouvoirsPour, rusesPour, type ConfigPartie } from './config';
+import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, avecMobile, coutRuse, joueursMin, nbInterroges, pouvoirsPour, rusesPour, type ConfigPartie } from './config';
 import {
   choisirComplice,
   distribuerCartes,
@@ -62,6 +72,9 @@ export interface EtatJoueur {
   tourPerdu?: boolean;
   /** Joueur humain absent remplacé par un bot (il peut reprendre sa place en revenant). */
   remplaceParBot?: boolean;
+  /** « Grande enquête » : rôle secret d'enquête et utilisations restantes de son pouvoir. */
+  roleEnquete?: RoleEnquete;
+  pouvoirs?: PouvoirsRole;
   /** Les autres ont choisi de continuer sans lui : son absence ne met plus la partie en pause. */
   absenceAcceptee?: boolean;
 }
@@ -116,7 +129,8 @@ export interface EtatPartie {
   pointsAction: number;
   hypothesesCeTour: number;
   echeanceTour: number;
-  etape: 'tour' | 'hypothese' | 'terminee';
+  /** « designation » : l'enquête a abouti, le complice a une dernière chance de désigner le Témoin. */
+  etape: 'tour' | 'hypothese' | 'designation' | 'terminee';
   hypothese?: HypotheseInterne;
   hypotheses: HypotheseInterne[];
   accusations: { joueur: string; triplet: Triplet; correcte: boolean; manche: number }[];
@@ -139,6 +153,28 @@ export interface EtatPartie {
   retourRuses?: number;
   /** Partie suspendue : un joueur humain est absent (déconnecté ou parti) et n'a pas été remplacé. */
   pause?: { depuis: number };
+  /** « Grande enquête » : objectif secret du complice. */
+  objectif?: { type: ObjectifComplice; suspect?: SuspectId };
+  /** Objectif « Le témoin gênant » : résultat de l'enquête en attente de la dernière chance du complice. */
+  designation?: { vainqueur: Vainqueur; raison: RaisonFin; echeance: number; designe?: string | null; correct?: boolean };
+  /** Objectif du complice réussi (connu à la fin de la partie). */
+  objectifReussi?: boolean;
+  /** « Grande enquête » : tableau d'enquête commun. */
+  tableau?: EpingleInterne[];
+  compteurEpingles?: number;
+}
+
+/** Épingle du tableau d'enquête (l'auteur d'une rumeur reste secret jusqu'à la fin). */
+export interface EpingleInterne {
+  id: string;
+  auteur: string;
+  rumeur: boolean;
+  cible: CibleEpingle;
+  etiquette: EtiquetteEpingle;
+  note?: string;
+  manche: number;
+  t: number;
+  reactions: Record<string, ReactionEpingle>;
 }
 
 export type ResultatAction = { ok: true } | { ok: false; erreur: string };
@@ -164,8 +200,8 @@ export function creerPartie(params: {
 }): EtatPartie {
   const config: ConfigPartie = { ...CONFIG_PAR_DEFAUT, ...params.config };
   const { joueurs, rng, now } = params;
-  if (joueurs.length < JOUEURS_MIN || joueurs.length > JOUEURS_MAX)
-    throw new Error(`Une partie se joue de ${JOUEURS_MIN} à ${JOUEURS_MAX} joueurs.`);
+  const min = joueursMin(config);
+  if (joueurs.length < min || joueurs.length > JOUEURS_MAX) throw new Error(`Une partie se joue de ${min} à ${JOUEURS_MAX} joueurs.`);
   const ids = joueurs.map((j) => j.id);
   if (new Set(ids).size !== ids.length) throw new Error('Identifiants de joueurs en double.');
 
@@ -202,10 +238,20 @@ export function creerPartie(params: {
     .forEach((d, i) => (d.dossier = i + 1));
   const pouvoirs = pouvoirsPour(config, joueurs.length);
   const modeRuse = config.modeComplice === 'ruse';
+  // « Grande enquête » : Maître chanteur (5–6 joueurs), Témoin et rôles d'enquête (tirés après la
+  // distribution : une partie classique garde exactement le même tirage).
+  const secrets = config.roles ? attribuerRoles(rng, config, ordre, complice) : new Map<string, RoleSecret>();
+  const objectif = config.objectifs ? tirerObjectif(rng, config, affaire.solution.suspect) : undefined;
 
   const etatJoueurs: Record<string, EtatJoueur> = {};
   for (const j of joueurs) {
-    const role: Role = j.id === complice ? 'complice' : 'enqueteur';
+    const secret = secrets.get(j.id);
+    const role: Role = j.id === complice ? 'complice' : (secret?.role ?? 'enqueteur');
+    const entreeRole: EntreePrivee = { t: now, type: 'role', role };
+    if (role === 'complice') entreeRole.meurtrier = affaire.solution.suspect;
+    if (role === 'maitre_chanteur') entreeRole.mobile = affaire.solution.mobile;
+    if (secret?.roleEnquete) entreeRole.roleEnquete = secret.roleEnquete;
+    if (secret?.roleEnquete === 'temoin') entreeRole.lieu = affaire.solution.lieu;
     etatJoueurs[j.id] = {
       id: j.id,
       nom: j.nom,
@@ -218,14 +264,10 @@ export function creerPartie(params: {
       rusesRestantes: role === 'complice' && modeRuse ? rusesPour(config, joueurs.length) : 0,
       peutDenoncer: modeRuse,
       carnet: { marques: {}, notes: '' },
-      journal: [
-        role === 'complice'
-          ? { t: now, type: 'role', role, meurtrier: affaire.solution.suspect }
-          : { t: now, type: 'role', role },
-        { t: now, type: 'main', cartes: [...distribution.mains[j.id]] },
-      ],
+      journal: [entreeRole, { t: now, type: 'main', cartes: [...distribution.mains[j.id]] }],
       dossiersConsultes: [],
       connecte: true,
+      ...(secret?.roleEnquete ? { roleEnquete: secret.roleEnquete, pouvoirs: pouvoirsInitiaux(config, secret.roleEnquete) } : {}),
     };
   }
 
@@ -258,13 +300,97 @@ export function creerPartie(params: {
     empreintesPrevues: [],
     trafics: [],
     denonciations: [],
+    ...(objectif ? { objectif } : {}),
   };
   publier(etat, { t: now, type: 'debut_partie', joueurs: [...ordre] });
   for (const indice of affaire.indicesPublicsDepart) publier(etat, { t: now, type: 'indice_public', indice, manche: 1 });
   publier(etat, { t: now, type: 'debut_manche', manche: 1 });
   publier(etat, { t: now, type: 'debut_tour', joueur: ordre[0], manche: 1 });
-  auditer(etat, now, null, 'creation', true, `solution=${affaire.solution.suspect}/${affaire.solution.lieu}/${affaire.solution.arme} complice=${complice}`);
+  auditer(etat, now, null, 'creation', true, `solution=${elementsDuTriplet(affaire.solution).join('/')} complice=${complice}`);
   return etat;
+}
+
+// ---------------------------------------------------------------------------
+// « Grande enquête » : rôles secrets
+// ---------------------------------------------------------------------------
+
+interface RoleSecret {
+  role: Role;
+  roleEnquete?: RoleEnquete;
+}
+
+/**
+ * Tirage des rôles : à 5 et 6 joueurs, un Maître chanteur parmi les non-complices ; parmi les
+ * enquêteurs, un Témoin (toujours), puis des rôles tirés sans doublon.
+ */
+function attribuerRoles(rng: Rng, config: ConfigPartie, ordre: string[], complice: string): Map<string, RoleSecret> {
+  const r = config.roles!;
+  const secrets = new Map<string, RoleSecret>();
+  const autres = shuffle(
+    rng,
+    ordre.filter((id) => id !== complice),
+  );
+  if (ordre.length >= r.maitreChanteurDes) secrets.set(autres.shift()!, { role: 'maitre_chanteur' });
+  const tires: RoleEnquete[] = ['temoin', ...shuffle(rng, r.tirables.filter((x) => x !== 'temoin'))];
+  autres.forEach((id, i) => secrets.set(id, { role: 'enqueteur', roleEnquete: tires[i] }));
+  return secrets;
+}
+
+/** Objectif secret du complice ; pour le bouc émissaire, un suspect innocent tiré au sort. */
+function tirerObjectif(rng: Rng, config: ConfigPartie, meurtrier: SuspectId): EtatPartie['objectif'] {
+  const type = pick(rng, config.objectifs!.tirables);
+  if (type !== 'bouc_emissaire') return { type };
+  return { type, suspect: pick(rng, elementsDe(config.affaire).suspects.filter((s) => s !== meurtrier)) };
+}
+
+/** L'objectif du complice tel qu'il le voit : ce qu'il doit faire, avec les seuils de la table. */
+export function objectifVu(etat: EtatPartie): ObjectifVu | undefined {
+  const o = etat.objectif;
+  const c = etat.config.objectifs;
+  if (!o || !c) return undefined;
+  if (o.type === 'bouc_emissaire') return { type: o.type, suspect: o.suspect, accusations: c.accusationsBouc[etat.ordre.length] ?? 1 };
+  if (o.type === 'ombre') return { type: o.type, ruses: c.rusesOmbre };
+  return { type: o.type };
+}
+
+/** Nombre de ruses utilisées par le complice (mensonges, cartes empruntées, falsifications, dossiers trafiqués). */
+export function rusesUtilisees(etat: EtatPartie): number {
+  return (
+    etat.hypotheses.reduce((n, h) => n + h.reponses.filter((r) => r.resultat === 'mensonge' || r.resultat === 'emprunt').length + (h.falsification ? 1 : 0), 0) +
+    (etat.trafics?.length ?? 0)
+  );
+}
+
+/** L'objectif du complice est-il atteint ? (le témoin gênant se décide à la désignation) */
+function objectifAtteint(etat: EtatPartie): boolean {
+  const o = objectifVu(etat);
+  if (!o) return false;
+  switch (o.type) {
+    case 'bouc_emissaire':
+      return etat.accusations.filter((a) => a.triplet.suspect === o.suspect).length >= (o.accusations ?? 1);
+    case 'ombre':
+      return !(etat.denonciations ?? []).some((d) => d.cible === etat.complice) && rusesUtilisees(etat) >= (o.ruses ?? 3);
+    case 'temoin_genant':
+      return etat.designation?.correct === true;
+  }
+}
+
+function pouvoirsInitiaux(config: ConfigPartie, role: RoleEnquete): PouvoirsRole {
+  const u = config.roles!.utilisations;
+  switch (role) {
+    case 'inspecteur':
+      return { verifications: u.inspecteur };
+    case 'legiste':
+      return { expertises: u.legiste };
+    case 'archiviste':
+      return { archivesGratuites: u.archivesGratuites, verificationsDossier: u.verificationsDossier };
+    case 'profileur':
+      return { profilages: u.profileur };
+    case 'journaliste':
+      return { rumeurs: u.journaliste };
+    default:
+      return {};
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -297,14 +423,33 @@ export function cartesCorrespondantes(etat: EtatPartie, joueur: string, t: Tripl
   return etat.joueurs[joueur].main.filter((c) => elements.includes(c));
 }
 
-/** Un triplet de l'affaire jouée (pas d'élément d'une autre histoire). */
-function tripletValide(etat: EtatPartie, t: { suspect: unknown; lieu: unknown; arme: unknown }): t is Triplet {
+/**
+ * Un triplet de l'affaire jouée (pas d'élément d'une autre histoire). En « Grande enquête »,
+ * le mobile est obligatoire ; dans une partie classique, il est interdit.
+ */
+function tripletValide(etat: EtatPartie, t: { suspect: unknown; lieu: unknown; arme: unknown; mobile?: unknown }): t is Triplet {
   const e = elementsDe(etat.config.affaire);
+  const mobileOk = avecMobile(etat.config) ? (e.mobiles as readonly unknown[]).includes(t.mobile) : t.mobile === undefined;
   return (
     (e.suspects as readonly unknown[]).includes(t.suspect) &&
     (e.lieux as readonly unknown[]).includes(t.lieu) &&
-    (e.armes as readonly unknown[]).includes(t.arme)
+    (e.armes as readonly unknown[]).includes(t.arme) &&
+    mobileOk
   );
+}
+
+/** Le triplet d'une hypothèse ou d'une accusation (le mobile n'est gardé que s'il a été donné). */
+function tripletDeLAction(a: { suspect: Triplet['suspect']; lieu: Triplet['lieu']; arme: Triplet['arme']; mobile?: Triplet['mobile'] }): Triplet {
+  const t: Triplet = { suspect: a.suspect, lieu: a.lieu, arme: a.arme };
+  if (a.mobile !== undefined) t.mobile = a.mobile;
+  return t;
+}
+
+/** Message de refus d'un triplet incomplet, selon le mode. */
+function messageTriplet(etat: EtatPartie, quoi: 'Hypothèse' | 'Accusation'): string {
+  return avecMobile(etat.config)
+    ? `${quoi} invalide : choisissez un suspect, un lieu, une arme et un mobile.`
+    : `${quoi} invalide : choisissez un suspect, un lieu et une arme.`;
 }
 
 /** Un joueur qui a quitté la partie voit ses tours et ses réponses passés presque immédiatement. */
@@ -394,8 +539,9 @@ export function cartesEmpruntables(etat: EtatPartie, joueur: string): ElementId[
   return elementsDuTriplet(h.original).filter((e) => !main.includes(e) && e !== etat.affaire.solution.suspect);
 }
 
+/** Joueurs qui peuvent encore accuser : les enquêteurs, et le Maître chanteur (« Grande enquête »). */
 export function enqueteursPouvantAccuser(etat: EtatPartie): string[] {
-  return etat.ordre.filter((id) => etat.joueurs[id].role === 'enqueteur' && etat.joueurs[id].peutAccuser);
+  return etat.ordre.filter((id) => etat.joueurs[id].role !== 'complice' && etat.joueurs[id].peutAccuser);
 }
 
 // ---------------------------------------------------------------------------
@@ -418,9 +564,9 @@ export function appliquerAction(etat: EtatPartie, joueur: string, action: Action
 function resumeAction(a: ActionJeu): string | undefined {
   switch (a.type) {
     case 'hypothese':
-      return `${a.suspect}/${a.lieu}/${a.arme} -> ${a.interroges.join(',')}`;
+      return `${elementsDuTriplet(tripletDeLAction(a)).join('/')} -> ${a.interroges.join(',')}`;
     case 'accuser':
-      return `${a.suspect}/${a.lieu}/${a.arme}`;
+      return elementsDuTriplet(tripletDeLAction(a)).join('/');
     case 'falsifier':
       return `${a.champ}=${a.valeur}`;
     case 'repondre':
@@ -437,6 +583,12 @@ function traiter(etat: EtatPartie, joueur: string, action: ActionJeu, now: numbe
   if (action.type === 'carnet') return majCarnet(etat, joueur, action);
   if (etat.etape === 'terminee') return refus('La partie est terminée.');
   if (etat.pause) return refus('La partie est en pause : un joueur est absent.');
+  if (action.type === 'designerTemoin') return designerTemoin(etat, joueur, action.joueur, now);
+  if (etat.etape === 'designation') return refus("L'enquête est close : le complice joue sa dernière chance.");
+  // Tableau d'enquête : à tout moment de la partie, pas seulement pendant son tour.
+  if (action.type === 'epingler') return epingler(etat, joueur, action, now);
+  if (action.type === 'reagir') return reagir(etat, joueur, action.epingle, action.reaction);
+  if (action.type === 'retirerEpingle') return retirerEpingle(etat, joueur, action.epingle);
 
   switch (action.type) {
     case 'hypothese':
@@ -449,7 +601,15 @@ function traiter(etat: EtatPartie, joueur: string, action: ActionJeu, now: numbe
     case 'emprunter':
       return repondre(etat, joueur, action, now);
     case 'consulterArchive':
-      return consulterArchive(etat, joueur, action.dossier, now, !!action.trafiquer);
+      return consulterArchive(etat, joueur, action.dossier, now, !!action.trafiquer, !!action.gratuit);
+    case 'verifierReponses':
+      return verifierReponses(etat, joueur, now);
+    case 'expertiser':
+      return expertiser(etat, joueur, action.categorie, now);
+    case 'verifierDossier':
+      return verifierDossier(etat, joueur, action.dossier, now);
+    case 'profiler':
+      return profiler(etat, joueur, action.joueurs, now);
     case 'denoncer':
       return denoncer(etat, joueur, action.joueur, now);
     case 'accuser':
@@ -486,8 +646,8 @@ function formulerHypothese(
     return refus(`Une hypothèse coûte ${etat.config.coutHypothese} points d'action : il ne vous en reste que ${etat.pointsAction}.`);
   if (etat.hypothesesCeTour >= etat.config.hypothesesMaxParTour)
     return refus(`Vous ne pouvez formuler que ${etat.config.hypothesesMaxParTour} hypothèse(s) par tour.`);
-  const triplet = { suspect: action.suspect, lieu: action.lieu, arme: action.arme };
-  if (!tripletValide(etat, triplet)) return refus('Hypothèse invalide : choisissez un suspect, un lieu et une arme.');
+  const triplet = tripletDeLAction(action);
+  if (!tripletValide(etat, triplet)) return refus(messageTriplet(etat, 'Hypothèse'));
 
   const attendu = nbInterroges(etat.ordre.length);
   const interroges = action.interroges;
@@ -551,7 +711,7 @@ function decisionFalsification(
   if (action.type === 'passerFalsification') return { ok: true };
 
   const champ = action.champ;
-  if (champ !== 'suspect' && champ !== 'lieu' && champ !== 'arme') {
+  if (champ !== 'suspect' && champ !== 'lieu' && champ !== 'arme' && !(champ === 'mobile' && avecMobile(etat.config))) {
     h.decisionFalsificationPrise = false;
     return refus('Élément à falsifier invalide.');
   }
@@ -565,9 +725,9 @@ function decisionFalsification(
   }
   const publique = { ...h.original, [champ]: action.valeur } as Triplet;
   h.publique = publique;
-  h.falsification = { par: joueur, champ, de: h.original[champ], vers: action.valeur };
+  h.falsification = { par: joueur, champ, de: h.original[champ]!, vers: action.valeur };
   const restants = consommerRuse(etat, joueur, 'falsification');
-  noter(etat, joueur, { t: now, type: 'falsification', hypothese: h.id, champ, de: h.original[champ], vers: action.valeur });
+  noter(etat, joueur, { t: now, type: 'falsification', hypothese: h.id, champ, de: h.original[champ]!, vers: action.valeur });
   if (modeRuse(etat)) noter(etat, joueur, { t: now, type: 'ruse', ruse: 'falsification', restants, hypothese: h.id });
   return { ok: true };
 }
@@ -682,7 +842,7 @@ function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
     ...(etat.trafics ?? []).map((t) => t.indiceFaux),
   ]);
   const estFaux = (c: CarteIndice) => !dansAffaire.has(c.id) && !indiceValide(c, etat.affaire.solution);
-  const tousFaux = indicesDe(etat.config.affaire).filter(estFaux);
+  const tousFaux = indicesDuMode(etat.config.affaire, avecMobile(etat.config)).filter(estFaux);
   // Un faux indice doit ressembler aux vrais : relationnel lui aussi. À défaut d'indice rédigé
   // utilisable, on prend un modèle « pas X avec Y » sur une paire de la solution (toujours faux).
   const relationnels = tousFaux.filter((c) => !etat.config.indicesRelationnels || estRelationnel(c));
@@ -697,10 +857,14 @@ function choisirFauxIndice(etat: EtatPartie, indiceVrai: string): string {
   return choix[alea(etat, choix.length)].id;
 }
 
-function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now: number, trafiquer = false): ResultatAction {
+function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now: number, trafiquer = false, gratuit = false): ResultatAction {
   const e = verifierTourActif(etat, joueur);
   if (e) return e;
-  if (etat.pointsAction < 1) return refus("Vous n'avez plus de point d'action.");
+  // Archiviste : quelques consultations sans payer de point d'action.
+  const pouvoirs = etat.joueurs[joueur].pouvoirs;
+  if (gratuit && (etat.joueurs[joueur].roleEnquete !== 'archiviste' || !((pouvoirs?.archivesGratuites ?? 0) > 0)))
+    return refus("Vous n'avez pas de consultation gratuite.");
+  if (!gratuit && etat.pointsAction < 1) return refus("Vous n'avez plus de point d'action.");
   const d = etat.affaire.archives.find((a) => a.dossier === dossier);
   const piece = (etat.pieces ?? []).find((p) => p.dossier === dossier);
   const ouverture = d?.disponibleDesManche ?? piece?.disponibleDesManche;
@@ -714,7 +878,8 @@ function consulterArchive(etat: EtatPartie, joueur: string, dossier: number, now
     if (trafic) return refus('Ce dossier a déjà été trafiqué.');
     if (!modeRuse(etat) || !rusePossible(etat, joueur, 'trafic')) return refus('Vous ne pouvez pas trafiquer ce dossier.');
   }
-  etat.pointsAction -= 1;
+  if (gratuit) pouvoirs!.archivesGratuites! -= 1;
+  else etat.pointsAction -= 1;
   j.dossiersConsultes.push(dossier);
   if (d) {
     // Un dossier trafiqué montre le faux indice à tous ceux qui le lisent APRÈS le trafic.
@@ -773,8 +938,8 @@ function accuser(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { 
   // reste « vrai » dans les données publiques pour ne pas trahir son rôle.
   if (j.role === 'complice') return refus('Le complice ne peut pas formuler d’accusation finale.');
   if (!j.peutAccuser) return refus('Vous avez déjà formulé une accusation finale.');
-  const triplet = { suspect: action.suspect, lieu: action.lieu, arme: action.arme };
-  if (!tripletValide(etat, triplet)) return refus('Accusation invalide : choisissez un suspect, un lieu et une arme.');
+  const triplet = tripletDeLAction(action);
+  if (!tripletValide(etat, triplet)) return refus(messageTriplet(etat, 'Accusation'));
 
   // Le serveur seul décide du résultat. L'accusation n'est jamais falsifiable.
   const correcte = memeTriplet(triplet, etat.affaire.solution);
@@ -783,10 +948,100 @@ function accuser(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { 
   noter(etat, joueur, { t: now, type: 'accusation', triplet: { ...triplet }, correcte });
   publier(etat, { t: now, type: 'accusation', joueur, triplet: { ...triplet }, correcte });
   if (correcte) {
-    terminerPartie(etat, now, 'enqueteurs', 'accusation_correcte');
+    // Le Maître chanteur qui trouve gagne seul ; un enquêteur qui trouve fait gagner les enquêteurs.
+    terminerPartie(etat, now, j.role === 'maitre_chanteur' ? 'maitre_chanteur' : 'enqueteurs', 'accusation_correcte');
   } else if (enqueteursPouvantAccuser(etat).length === 0) {
     terminerPartie(etat, now, 'complice', 'plus_d_accusateur');
   }
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// « Grande enquête » : pouvoirs de rôle (secrets, pendant son tour, sans point d'action)
+// ---------------------------------------------------------------------------
+
+function verifierPouvoir(etat: EtatPartie, joueur: string, role: RoleEnquete, cle: keyof PouvoirsRole): ResultatAction | null {
+  const e = verifierTourActif(etat, joueur);
+  if (e) return e;
+  const j = etat.joueurs[joueur];
+  if (j.roleEnquete !== role) return refus('Votre rôle ne donne pas ce pouvoir.');
+  if (!((j.pouvoirs?.[cle] ?? 0) > 0)) return refus('Vous avez déjà utilisé ce pouvoir.');
+  return null;
+}
+
+/** Inspecteur : juste après son hypothèse (pendant le même tour), savoir si les réponses reçues étaient honnêtes. */
+function verifierReponses(etat: EtatPartie, joueur: string, now: number): ResultatAction {
+  const e = verifierPouvoir(etat, joueur, 'inspecteur', 'verifications');
+  if (e) return e;
+  const h = [...etat.hypotheses].reverse().find((x) => x.auteur === joueur);
+  if (!h || h.etape !== 'terminee' || h.manche !== etat.manche || etat.hypothesesCeTour === 0)
+    return refus('Ce pouvoir sert juste après votre hypothèse, pendant le même tour.');
+  if (h.reponses.length === 0) return refus("Personne n'a répondu à votre hypothèse.");
+  const j = etat.joueurs[joueur];
+  if (j.journal.some((x) => x.type === 'verification' && x.hypothese === h.id)) return refus('Vous avez déjà vérifié cette hypothèse.');
+  j.pouvoirs!.verifications! -= 1;
+  // Une ruse du complice (mensonge, carte empruntée) rend la réponse malhonnête. La falsification ne
+  // change rien pour l'auteur : les réponses sont toujours calculées sur sa vraie hypothèse.
+  const honnete = !h.reponses.some((r) => r.resultat === 'mensonge' || r.resultat === 'emprunt');
+  noter(etat, joueur, { t: now, type: 'verification', hypothese: h.id, honnete });
+  return { ok: true };
+}
+
+/** Légiste : deux éléments innocents d'une catégorie (ceux de sa main en dernier recours). */
+function expertiser(etat: EtatPartie, joueur: string, categorie: Categorie, now: number): ResultatAction {
+  const e = verifierPouvoir(etat, joueur, 'legiste', 'expertises');
+  if (e) return e;
+  const debut = etat.config.roles?.mancheExpertise ?? 1;
+  if (etat.manche < debut) return refus("Ce pouvoir ne sert qu'à partir de la manche " + debut + ".");
+  const el = elementsDe(etat.config.affaire);
+  const parCategorie: Record<Categorie, readonly ElementId[]> = {
+    suspect: el.suspects,
+    lieu: el.lieux,
+    arme: el.armes,
+    mobile: avecMobile(etat.config) ? el.mobiles : [],
+  };
+  const liste = parCategorie[categorie];
+  if (!liste?.length) return refus('Catégorie inconnue.');
+  const solution = elementsDuTriplet(etat.affaire.solution);
+  const j = etat.joueurs[joueur];
+  const innocents = liste.filter((x) => !solution.includes(x));
+  const melanger = (l: ElementId[]) => {
+    const copie = [...l];
+    for (let i = copie.length - 1; i > 0; i--) {
+      const k = alea(etat, i + 1);
+      [copie[i], copie[k]] = [copie[k], copie[i]];
+    }
+    return copie;
+  };
+  const choix = [...melanger(innocents.filter((x) => !j.main.includes(x))), ...melanger(innocents.filter((x) => j.main.includes(x)))].slice(0, 2);
+  j.pouvoirs!.expertises! -= 1;
+  noter(etat, joueur, { t: now, type: 'expertise', categorie, innocents: choix });
+  return { ok: true };
+}
+
+/** Archiviste : savoir si un dossier d'indice a été trafiqué (jusqu'à maintenant). */
+function verifierDossier(etat: EtatPartie, joueur: string, dossier: number, now: number): ResultatAction {
+  const e = verifierPouvoir(etat, joueur, 'archiviste', 'verificationsDossier');
+  if (e) return e;
+  const d = etat.affaire.archives.find((a) => a.dossier === dossier);
+  if (!d) return refus("Choisissez un dossier d'indice (une pièce à conviction ne peut pas être trafiquée).");
+  if (d.disponibleDesManche > etat.manche) return refus("Ce dossier n'est pas encore ouvert.");
+  etat.joueurs[joueur].pouvoirs!.verificationsDossier! -= 1;
+  const trafique = (etat.trafics ?? []).some((x) => x.dossier === dossier);
+  noter(etat, joueur, { t: now, type: 'dossier_verifie', dossier, trafique });
+  return { ok: true };
+}
+
+/** Profileur : le complice est-il l'un de ces deux joueurs ? */
+function profiler(etat: EtatPartie, joueur: string, joueurs: string[], now: number): ResultatAction {
+  const e = verifierPouvoir(etat, joueur, 'profileur', 'profilages');
+  if (e) return e;
+  const debut = etat.config.roles?.mancheProfilage ?? 1;
+  if (etat.manche < debut) return refus("Ce pouvoir ne sert qu'à partir de la manche " + debut + ".");
+  if (!Array.isArray(joueurs) || joueurs.length !== 2 || joueurs[0] === joueurs[1] || joueurs.some((id) => id === joueur || !etat.joueurs[id]))
+    return refus('Désignez deux autres joueurs.');
+  etat.joueurs[joueur].pouvoirs!.profilages! -= 1;
+  noter(etat, joueur, { t: now, type: 'profilage', joueurs: [...joueurs], complicePresent: joueurs.includes(etat.complice) });
   return { ok: true };
 }
 
@@ -835,11 +1090,146 @@ function terminerTour(etat: EtatPartie, now: number, raison: 'volontaire' | 'tem
 }
 
 function terminerPartie(etat: EtatPartie, now: number, vainqueur: Vainqueur, raison: RaisonFin) {
+  // « Grande enquête » : si l'enquête a abouti, l'objectif secret du complice peut lui voler la victoire.
+  if (etat.objectif && vainqueur !== 'complice' && etat.etape !== 'designation') {
+    if (etat.objectif.type === 'temoin_genant' && etat.ordre.some((id) => etat.joueurs[id].roleEnquete === 'temoin')) {
+      // Dernière chance : le complice désigne celui qu'il croit être le Témoin.
+      etat.etape = 'designation';
+      etat.hypothese = undefined;
+      const echeance = now + (etat.config.objectifs?.delaiDesignationMs ?? 30_000);
+      etat.designation = { vainqueur, raison, echeance };
+      publier(etat, { t: now, type: 'derniere_chance', echeance });
+      auditer(etat, now, null, 'derniere_chance', true, `${vainqueur} (${raison})`);
+      return;
+    }
+    if (objectifAtteint(etat)) {
+      vainqueur = 'complice';
+      raison = 'objectif_complice';
+    }
+  }
+  if (etat.objectif) etat.objectifReussi = objectifAtteint(etat);
+  delete etat.pause;
   etat.etape = 'terminee';
   etat.hypothese = undefined;
   etat.resultat = { vainqueur, raison, t: now };
   publier(etat, { t: now, type: 'fin_partie', vainqueur, raison });
   auditer(etat, now, null, 'fin_partie', true, `${vainqueur} (${raison})`);
+}
+
+/** Objectif « Le témoin gênant » : le complice désigne un joueur ; si c'est le Témoin, il vole la victoire. */
+function designerTemoin(etat: EtatPartie, joueur: string, cible: string, now: number): ResultatAction {
+  if (etat.etape !== 'designation' || !etat.designation) return refus("Ce n'est pas le moment de désigner le Témoin.");
+  if (joueur !== etat.complice) return refus('Seul le complice désigne le Témoin.');
+  if (!etat.joueurs[cible] || cible === joueur) return refus('Désignez un autre joueur.');
+  finirDesignation(etat, now, cible);
+  return { ok: true };
+}
+
+/** Fin de la dernière chance (désignation ou temps écoulé) : la partie se termine. */
+function finirDesignation(etat: EtatPartie, t: number, cible: string | null) {
+  const d = etat.designation!;
+  d.designe = cible;
+  d.correct = cible !== null && etat.joueurs[cible]?.roleEnquete === 'temoin';
+  publier(etat, { t, type: 'temoin_designe', joueur: cible, correct: d.correct });
+  terminerPartie(etat, t, d.correct ? 'complice' : d.vainqueur, d.correct ? 'objectif_complice' : d.raison);
+}
+
+// ---------------------------------------------------------------------------
+// « Grande enquête » : tableau d'enquête
+// ---------------------------------------------------------------------------
+
+/** Épingles signées affichées par joueur, et nombre d'épingles par manche (rumeurs à part). */
+function epingler(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, { type: 'epingler' }>, now: number): ResultatAction {
+  const regles = etat.config.tableau;
+  if (!regles) return refus("Cette partie n'a pas de tableau d'enquête.");
+  const { cible, etiquette } = action;
+  // La cible : un élément de cette affaire (le mobile seulement s'il existe), ou un autre joueur.
+  if (cible?.type === 'element') {
+    const cat = categorieDe(cible.id);
+    if (!cat || affaireDe(cible.id) !== etat.config.affaire || (cat === 'mobile' && !avecMobile(etat.config))) return refus('Élément inconnu.');
+    if (etiquette !== 'innocent' && etiquette !== 'coupable' && etiquette !== 'fausse_piste') return refus('Étiquette impossible pour un élément.');
+  } else if (cible?.type === 'joueur') {
+    if (!etat.joueurs[cible.id] || cible.id === joueur) return refus('Choisissez un autre joueur.');
+    if (etiquette !== 'complice' && etiquette !== 'innocent') return refus('Étiquette impossible pour un joueur.');
+  } else return refus('Épingle invalide.');
+  // Petit mot facultatif, nettoyé comme la discussion.
+  let note: string | undefined;
+  if (action.note !== undefined) {
+    if (typeof action.note !== 'string') return refus('Mot invalide.');
+    note = action.note.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (note.length > regles.noteMax) return refus(`Le mot est limité à ${regles.noteMax} caractères.`);
+    if (!note) note = undefined;
+  }
+  const j = etat.joueurs[joueur];
+  const tableau = (etat.tableau ??= []);
+  const rumeur = !!action.rumeur;
+  if (rumeur) {
+    // Rumeur anonyme : Journaliste seulement, une par manche au plus.
+    if (j.roleEnquete !== 'journaliste') return refus('Seul le Journaliste publie des rumeurs anonymes.');
+    if (!((j.pouvoirs?.rumeurs ?? 0) > 0)) return refus("Vous n'avez plus de rumeur à publier.");
+    if (tableau.some((e) => e.auteur === joueur && e.rumeur && e.manche === etat.manche)) return refus('Une seule rumeur par manche.');
+    j.pouvoirs!.rumeurs! -= 1;
+  } else {
+    const cetteManche = tableau.filter((e) => e.auteur === joueur && !e.rumeur && e.manche === etat.manche).length;
+    if (cetteManche >= regles.epinglesParManche) return refus(`Vous avez déjà épinglé cette manche (${regles.epinglesParManche} par manche).`);
+  }
+  etat.compteurEpingles = (etat.compteurEpingles ?? 0) + 1;
+  tableau.push({
+    id: `E${etat.compteurEpingles}`,
+    auteur: joueur,
+    rumeur,
+    cible: cible.type === 'element' ? { type: 'element', id: cible.id } : { type: 'joueur', id: cible.id },
+    etiquette,
+    ...(note ? { note } : {}),
+    manche: etat.manche,
+    t: now,
+    reactions: {},
+  });
+  // Au-delà du maximum, la plus ancienne épingle signée de ce joueur disparaît.
+  const signees = tableau.filter((e) => e.auteur === joueur && !e.rumeur);
+  if (signees.length > regles.maxAffichees) {
+    const trop = new Set(signees.slice(0, signees.length - regles.maxAffichees));
+    etat.tableau = tableau.filter((e) => !trop.has(e));
+  }
+  return { ok: true };
+}
+
+function reagir(etat: EtatPartie, joueur: string, id: string, reaction: ReactionEpingle | null): ResultatAction {
+  const e = etat.tableau?.find((x) => x.id === id);
+  if (!e) return refus("Cette épingle n'est plus au tableau.");
+  // On ne réagit pas à sa propre épingle (sinon l'auteur d'une rumeur se trahirait en s'en abstenant).
+  if (e.auteur === joueur && !e.rumeur) return refus('Vous ne pouvez pas réagir à votre propre épingle.');
+  if (reaction === null) delete e.reactions[joueur];
+  else if (reaction === 'pour' || reaction === 'contre') e.reactions[joueur] = reaction;
+  else return refus('Réaction invalide.');
+  return { ok: true };
+}
+
+function retirerEpingle(etat: EtatPartie, joueur: string, id: string): ResultatAction {
+  const e = etat.tableau?.find((x) => x.id === id);
+  if (!e) return refus("Cette épingle n'est plus au tableau.");
+  if (e.auteur !== joueur) return refus('Seul son auteur peut retirer une épingle.');
+  etat.tableau = etat.tableau!.filter((x) => x !== e);
+  return { ok: true };
+}
+
+/** Le tableau vu par un joueur (auteurs des rumeurs cachés, sauf à leur auteur) ; `null` : tout révéler (fin de partie). */
+export function tableauVu(etat: EtatPartie, joueur: string | null): EpingleVue[] {
+  return (etat.tableau ?? []).map((e) => {
+    const r = Object.values(e.reactions);
+    return {
+      id: e.id,
+      auteur: e.rumeur && joueur !== null && e.auteur !== joueur ? null : e.auteur,
+      rumeur: e.rumeur,
+      cible: { ...e.cible },
+      etiquette: e.etiquette,
+      ...(e.note ? { note: e.note } : {}),
+      manche: e.manche,
+      pour: r.filter((x) => x === 'pour').length,
+      contre: r.filter((x) => x === 'contre').length,
+      ...(joueur && e.reactions[joueur] ? { maReaction: e.reactions[joueur] } : {}),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -878,6 +1268,7 @@ function majCarnet(etat: EtatPartie, joueur: string, action: Extract<ActionJeu, 
 
 export function prochaineEcheance(etat: EtatPartie): number | null {
   if (etat.etape === 'terminee' || etat.pause) return null;
+  if (etat.etape === 'designation') return etat.designation?.echeance ?? null;
   if (etat.etape === 'hypothese' && etat.hypothese) return etat.hypothese.echeance;
   return etat.echeanceTour;
 }
@@ -895,7 +1286,10 @@ export function avancer(etat: EtatPartie, now: number, rng?: Rng): boolean {
     if (echeance === null || echeance > now) break;
     change = true;
     const h = etat.hypothese;
-    if (etat.etape === 'hypothese' && h) {
+    if (etat.etape === 'designation') {
+      // Temps écoulé sans désignation : l'enquête garde son résultat.
+      finirDesignation(etat, etat.designation!.echeance, null);
+    } else if (etat.etape === 'hypothese' && h) {
       if (h.etape === 'falsification') {
         publierHypothese(etat, h, h.echeance);
       } else if (h.etape === 'interrogation') {
@@ -923,6 +1317,10 @@ export function avancer(etat: EtatPartie, now: number, rng?: Rng): boolean {
  */
 export function recalerEcheances(etat: EtatPartie, now: number) {
   if (etat.etape === 'terminee') return;
+  if (etat.etape === 'designation' && etat.designation) {
+    etat.designation.echeance = Math.max(etat.designation.echeance, now + (etat.config.objectifs?.delaiDesignationMs ?? 30_000));
+    return;
+  }
   // Tour sans limite : le joueur actif dispose de 2 minutes pour revenir, puis la partie continue.
   etat.echeanceTour =
     etat.config.delaiTourMs === null ? Math.min(etat.echeanceTour, now + 120_000) : Math.max(etat.echeanceTour, now + etat.config.delaiTourMs);
@@ -1015,6 +1413,7 @@ export function majPause(etat: EtatPartie, now: number) {
     const duree = Math.max(0, now - etat.pause.depuis);
     if (etat.echeanceTour < SANS_LIMITE) etat.echeanceTour += duree;
     if (etat.hypothese && etat.hypothese.echeance < SANS_LIMITE) etat.hypothese.echeance += duree;
+    if (etat.designation) etat.designation.echeance += duree;
     delete etat.pause;
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, PERSONNAGES } from '../../../shared/data/catalogue';
+import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, MOBILES_FICHES, PERSONNAGES } from '../../../shared/data/catalogue';
 import { categorieDe, elementsDe, type AffaireId, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../../shared/types';
 import { Modale } from '../Commun';
 import { Embleme } from '../Emblemes';
@@ -13,8 +13,16 @@ interface Fiche {
   rubriques: [string, string][];
 }
 
-export function ficheDe(id: ElementId): Fiche {
+/**
+ * @param grande « Grande enquête » : la rubrique « mobile » d'un suspect devient « raison d'en vouloir
+ *        à la victime », car le vrai mobile est une carte à part, qui peut être un autre.
+ */
+export function ficheDe(id: ElementId, grande = false): Fiche {
   const cat = categorieDe(id);
+  if (cat === 'mobile') {
+    const m = MOBILES_FICHES[id];
+    return { nom: m.nom, categorie: 'Mobile', accroche: m.description, rubriques: [['Si c’est le mobile', `Le crime a été commis ${m.article}.`]] };
+  }
   if (cat === 'suspect') {
     const p = PERSONNAGES[id as SuspectId];
     return {
@@ -24,7 +32,7 @@ export function ficheDe(id: ElementId): Fiche {
       rubriques: [
         ['Histoire', p.histoire],
         ['Relation', p.relation],
-        ['Mobile possible', p.mobile],
+        [grande ? 'Raison d’en vouloir à la victime' : 'Mobile possible', p.mobile],
         ['Secret', p.secret],
         ['Alibi déclaré', p.alibi],
         ["Ce qu'il sait", p.connaissances],
@@ -39,8 +47,8 @@ export function ficheDe(id: ElementId): Fiche {
   return { nom: a.nom, categorie: 'Arme', accroche: a.description, rubriques: [['Caractéristiques', a.caracteristiques.join(' · ')]] };
 }
 
-function FicheDossier({ id }: { id: ElementId }) {
-  const f = ficheDe(id);
+function FicheDossier({ id, grande = false }: { id: ElementId; grande?: boolean }) {
+  const f = ficheDe(id, grande);
   return (
     <article className="panneau fiche">
       <Embleme id={id} taille={96} />
@@ -63,8 +71,8 @@ function FicheDossier({ id }: { id: ElementId }) {
 }
 
 /** La même fiche, présentée comme une carte à jouer (carnet : carte affichée en grand). */
-export function CarteDeJeu({ id }: { id: ElementId }) {
-  const f = ficheDe(id);
+export function CarteDeJeu({ id, grande = false }: { id: ElementId; grande?: boolean }) {
+  const f = ficheDe(id, grande);
   return (
     <article className={`carte-jeu carte-jeu-${categorieDe(id)}`} aria-label={`Carte ${f.categorie.toLowerCase()} : ${f.nom}`}>
       <span className="carte-jeu-coin haut" aria-hidden="true">
@@ -151,16 +159,19 @@ export function ModaleHistoire({ affaire, onFermer }: { affaire: AffaireId; onFe
   );
 }
 
-export function Dossier({ affaire }: { affaire: AffaireId }) {
-  const [section, setSection] = useState<'histoire' | 'suspects' | 'lieux' | 'armes'>('histoire');
+/** @param grande « Grande enquête » : ajoute les six mobiles. */
+export function Dossier({ affaire, grande = false }: { affaire: AffaireId; grande?: boolean }) {
+  const [section, setSection] = useState<'histoire' | 'suspects' | 'lieux' | 'armes' | 'mobiles'>('histoire');
   const e = elementsDe(affaire);
-  const ids: readonly ElementId[] = section === 'suspects' ? e.suspects : section === 'lieux' ? e.lieux : e.armes;
+  const ids: readonly ElementId[] = section === 'suspects' ? e.suspects : section === 'lieux' ? e.lieux : section === 'mobiles' ? e.mobiles : e.armes;
+  const sections = grande ? (['histoire', 'suspects', 'lieux', 'armes', 'mobiles'] as const) : (['histoire', 'suspects', 'lieux', 'armes'] as const);
+  const titres = { histoire: "L'histoire", suspects: 'Les six suspects', lieux: 'Les six lieux', armes: 'Les six armes', mobiles: 'Les six mobiles' };
   return (
     <div>
       <div className="ligne" role="tablist" aria-label="Sections du dossier" style={{ marginBottom: 12 }}>
-        {(['histoire', 'suspects', 'lieux', 'armes'] as const).map((s) => (
+        {sections.map((s) => (
           <button key={s} role="tab" aria-selected={section === s} className={`btn btn-petit ${section === s ? 'btn-or' : ''}`} onClick={() => setSection(s)}>
-            {s === 'histoire' ? "L'histoire" : s === 'suspects' ? 'Les six suspects' : s === 'lieux' ? 'Les six lieux' : 'Les six armes'}
+            {titres[s]}
           </button>
         ))}
       </div>
@@ -169,7 +180,7 @@ export function Dossier({ affaire }: { affaire: AffaireId }) {
       ) : (
         <div className="indices">
           {ids.map((id) => (
-            <FicheDossier key={id} id={id} />
+            <FicheDossier key={id} id={id} grande={grande} />
           ))}
         </div>
       )}

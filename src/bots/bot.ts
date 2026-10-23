@@ -4,7 +4,18 @@
 
 import { pick, shuffle, type Rng } from '../engine/rng';
 import { elementsDe, elementsDuTriplet, type ActionJeu, type SuspectId, type Triplet, type VueJoueur } from '../shared/types';
-import { candidatsComplice, deduireRobuste, deduireSimple, type Connaissance } from './deduction';
+import { avecMobileVue, candidatsComplice, deduireRobuste, deduireSimple, type Connaissance } from './deduction';
+import {
+  actionTableau,
+  avecTableau,
+  cacherLeLieu,
+  choixSelonTableau,
+  consultationGratuite,
+  falsificationBouc,
+  pouvoirDuTour,
+  reponseBouc,
+  suspectParContradiction,
+} from './grande';
 
 export interface ProfilBot {
   /** Probabilité de mentir quand c'est possible et utile. */
@@ -43,6 +54,8 @@ export const PROFIL_OCCASIONNEL: ProfilBot = { ...PROFIL_PAR_DEFAUT, deduction: 
 
 export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL_PAR_DEFAUT): ActionJeu | null {
   if (vue.etape === 'terminee') return null;
+  // « Grande enquête » : dernière chance du complice (objectif « Le témoin gênant »).
+  if (vue.etape === 'designation') return vue.moi.role === 'complice' ? designerTemoin(vue, rng) : null;
   const moi = vue.moi.id;
   const h = vue.hypotheseEnCours;
 
@@ -57,6 +70,11 @@ export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL
     if (cartes.length === 0 && empruntables.length > 0 && profil.pouvoirs && rng.int(1000) < profil.emprunt * 1000)
       return { type: 'emprunter', carte: pick(rng, empruntables) };
     if (cartes.length === 0) return { type: 'repondre', carte: null };
+    // « Grande enquête » : le complice protège son bouc émissaire.
+    if (profil.pouvoirs && vue.moi.role === 'complice') {
+      const r = reponseBouc(vue, cartes, h.aRepondre.peutMentir);
+      if (r) return r;
+    }
     if (h.aRepondre.peutMentir && profil.pouvoirs && vue.moi.meurtrier) {
       const t = h.triplet!;
       if (t.suspect !== vue.moi.meurtrier && rng.int(1000) < profil.mensonge * 1000) return { type: 'mentir' };
@@ -67,9 +85,35 @@ export function decisionBot(vue: VueJoueur, rng: Rng, profil: ProfilBot = PROFIL
     return { type: 'repondre', carte: deja ?? pick(rng, cartes) };
   }
 
+  // « Grande enquête » : épingles et rumeurs sur le tableau, à tout moment.
+  const epingle = actionTableau(vue, rng);
+  if (epingle) return epingle;
+
   // 3. Mon tour.
   if (vue.etape !== 'tour' || vue.joueurActif !== moi) return null;
   return vue.moi.role === 'complice' ? tourComplice(vue, rng, profil) : tourEnqueteur(vue, rng, profil);
+}
+
+/**
+ * Le Témoin connaissait le lieu dès le début : la bonne accusation révèle ce lieu, et le complice
+ * désigne le joueur dont les hypothèses l'ont visé le plus souvent (surtout les premières).
+ */
+function designerTemoin(vue: VueJoueur, rng: Rng): ActionJeu {
+  const juste = vue.historique.find((e) => e.type === 'accusation' && e.correcte);
+  const lieu = juste?.type === 'accusation' ? juste.triplet.lieu : null;
+  const autres = shuffle(
+    rng,
+    vue.joueurs.map((j) => j.id).filter((id) => id !== vue.moi.id),
+  );
+  const score = (id: string) => {
+    const hyps = vue.historique.flatMap((e) => (e.type === 'hypothese' && e.auteur === id ? [e.triplet] : []));
+    if (!lieu || hyps.length === 0) return 0;
+    // Les premières hypothèses comptent plus : le Témoin savait avant tout le monde.
+    const poids = hyps.map((_, i) => 1 / (i + 1));
+    return hyps.reduce((s, h, i) => s + (h.lieu === lieu ? poids[i] : 0), 0) / poids.reduce((a, b) => a + b, 0);
+  };
+  const choix = autres.reduce((meilleur, id) => (score(id) > score(meilleur) ? id : meilleur), autres[0]);
+  return { type: 'designerTemoin', joueur: choix };
 }
 
 function decisionFalsification(vue: VueJoueur, original: Triplet, rng: Rng, profil: ProfilBot): ActionJeu {
@@ -77,6 +121,9 @@ function decisionFalsification(vue: VueJoueur, original: Triplet, rng: Rng, prof
   if (!profil.pouvoirs) return { type: 'passerFalsification' };
   const SUSPECTS = elementsDe(vue.affaire).suspects;
   const innocents = SUSPECTS.filter((s) => s !== meurtrier && s !== original.suspect);
+  // « Grande enquête » : glisser le bouc émissaire dans l'hypothèse publique.
+  const bouc = falsificationBouc(vue, original, rng);
+  if (bouc) return bouc;
   if (original.suspect === meurtrier) return { type: 'falsifier', champ: 'suspect', valeur: pick(rng, innocents) };
   if (rng.int(1000) < profil.falsificationOpportuniste * 1000)
     return { type: 'falsifier', champ: 'suspect', valeur: pick(rng, innocents.length ? innocents : SUSPECTS.filter((s) => s !== original.suspect)) };
@@ -112,21 +159,30 @@ function tourEnqueteur(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
   const derniereManche = vue.manche >= vue.regles.manchesMax;
 
   if (vue.moi.peutAccuser && k.combinaisons.length === 1) return { type: 'accuser', ...k.combinaisons[0] };
+  const grande = avecTableau(vue);
   // Mode « rusé » : dénoncer dès qu'un seul joueur peut être le complice.
   if (profil.denonce && vue.moi.peutDenoncer && vue.pointsAction >= 1 && !vue.compliceDemasque) {
     const suspects = candidatsComplice(vue);
     if (suspects.length === 1) return { type: 'denoncer', joueur: suspects[0] };
+    // « Grande enquête » : on dénonce aussi celui dont les réponses contredisent tout le reste.
+    const menteur = grande ? suspectParContradiction(vue) : null;
+    if (menteur) return { type: 'denoncer', joueur: menteur };
   }
+  // « Grande enquête » : pouvoirs de rôle (gratuits).
+  const pouvoir = grande ? pouvoirDuTour(vue, k, rng) : null;
+  if (pouvoir) return pouvoir;
 
   const peutHypothese = vue.pointsAction >= vue.regles.coutHypothese && vue.hypothesesCeTour < vue.regles.hypothesesMaxParTour;
   if (peutHypothese && k.combinaisons.length > 0 && !preferArchives(vue, rng)) {
-    const t = choisirHypothese(k, rng);
+    const t = cacherLeLieu(vue, choisirHypothese(k, rng), rng);
     return { type: 'hypothese', ...t, interroges: choisirInterroges(vue, t, k, rng) };
   }
   const dossier = dossierDisponible(vue);
+  // L'Archiviste consulte gratuitement, même sans point d'action.
+  if (dossier !== null && consultationGratuite(vue)) return { type: 'consulterArchive', dossier, gratuit: true };
   if (vue.pointsAction >= 1 && dossier !== null) return { type: 'consulterArchive', dossier };
-  // Dernière manche : rien à perdre, on tente sa meilleure piste avant de passer.
-  if (vue.moi.peutAccuser && derniereManche && k.combinaisons.length > 0) return { type: 'accuser', ...pick(rng, k.combinaisons) };
+  // Dernière manche : rien à perdre, on tente sa meilleure piste avant de passer (selon le tableau en Grande enquête).
+  if (vue.moi.peutAccuser && derniereManche && k.combinaisons.length > 0) return { type: 'accuser', ...choixSelonTableau(vue, k.combinaisons, rng) };
   return { type: 'finTour' };
 }
 
@@ -143,7 +199,14 @@ function tourComplice(vue: VueJoueur, rng: Rng, profil: ProfilBot): ActionJeu {
     const k = deduireRobuste(vue);
     const e = elementsDe(vue.affaire);
     const suspects = e.suspects.filter((s) => s !== meurtrier) as SuspectId[];
-    const base = k.combinaisons.length ? pick(rng, k.combinaisons) : ({ suspect: meurtrier, lieu: pick(rng, e.lieux), arme: pick(rng, e.armes) } as Triplet);
+    const base: Triplet = k.combinaisons.length
+      ? pick(rng, k.combinaisons)
+      : {
+          suspect: meurtrier,
+          lieu: pick(rng, e.lieux),
+          arme: pick(rng, e.armes),
+          ...(avecMobileVue(vue) ? { mobile: pick(rng, e.mobiles) } : {}),
+        };
     const t: Triplet = { ...base, suspect: pick(rng, suspects) };
     return { type: 'hypothese', ...t, interroges: choisirInterroges(vue, t, null, rng) };
   }

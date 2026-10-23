@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { arreterAmbiance, demarrerAmbiance } from '../ambianceSonore';
 import { AFFAIRES, nomChoixAffaire } from '../../shared/data/catalogue';
-import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, CHOIX_AFFAIRES, elementsDe, type AffaireId, type ChoixAffaire } from '../../shared/types';
+import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, CHOIX_AFFAIRES, elementsDe, type AffaireId, type ChoixAffaire, type ModeJeu } from '../../shared/types';
 import { grade, lireProfil } from '../profil';
 import { DUREES_TOUR, PSEUDO_MAX } from '../../shared/protocole';
 import { ModaleProfil } from '../components/Profil';
@@ -551,8 +551,15 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [mode, setMode] = useState<'ruse' | 'classique'>('ruse');
   const [cartes, setCartes] = useState<'visibles' | 'anonymes'>('visibles');
   const [affaire, setAffaire] = useState<ChoixAffaire>(AFFAIRE_PAR_DEFAUT);
+  const [modeJeu, setModeJeu] = useState<ModeJeu>('classique');
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
+  // La Grande enquête se joue à 4 joueurs au moins : 3 bots au minimum.
+  const minBots = modeJeu === 'grande' ? 3 : 2;
+  const choisirMode = (m: ModeJeu) => {
+    setModeJeu(m);
+    if (m === 'grande' && bots < 3) setBots(3);
+  };
   const lancer = async (e: FormEvent) => {
     e.preventDefault();
     const nom = compte?.nom ?? pseudo;
@@ -563,10 +570,10 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     if (statut === 'deconnecte') {
       // Pas de connexion : la partie se joue entièrement sur cet appareil.
       setEnvoi(false);
-      lancerPartieHorsLigne({ nom: nom.trim(), bots, dureeTourS: duree, modeComplice: mode, affaire, historiqueCartes: cartes });
+      lancerPartieHorsLigne({ nom: nom.trim(), bots, dureeTourS: duree, modeComplice: mode, affaire, historiqueCartes: cartes, mode: modeJeu });
       return;
     }
-    const r = await connexion.solo(nom, bots, duree, mode, affaire, cartes);
+    const r = await connexion.solo(nom, bots, duree, mode, affaire, cartes, modeJeu);
     setEnvoi(false);
     if (!r.ok) setErreur(r.erreur);
   };
@@ -581,6 +588,18 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           </div>
         )}
         <div className="champ">
+          <label htmlFor="mode-jeu-solo">Mode de jeu</label>
+          <select id="mode-jeu-solo" value={modeJeu} onChange={(e) => choisirMode(e.target.value as ModeJeu)}>
+            <option value="classique">Partie classique</option>
+            <option value="grande">Grande enquête (plus longue)</option>
+          </select>
+          {modeJeu === 'grande' && (
+            <p className="petit muet" style={{ margin: '6px 0 0' }}>
+              La Grande enquête dure plus longtemps (14 manches, 4 joueurs au moins) : on cherche aussi le mobile, chacun reçoit un rôle secret avec un pouvoir, le complice a un objectif secret, un tableau d'enquête est partagé, et on a 3 points d'action par tour. À 5 et 6 joueurs, un Maître chanteur joue pour lui seul.
+            </p>
+          )}
+        </div>
+        <div className="champ">
           <label htmlFor="affaire-solo">Affaire</label>
           <select id="affaire-solo" value={affaire} onChange={(e) => setAffaire(e.target.value as ChoixAffaire)}>
             {CHOIX_AFFAIRES.map((a) => (
@@ -593,7 +612,7 @@ function FormulaireSolo({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
         <div className="champ">
           <label htmlFor="nb-bots">Adversaires</label>
           <select id="nb-bots" value={bots} onChange={(e) => setBots(Number(e.target.value))}>
-            {[2, 3, 4, 5].map((n) => (
+            {[2, 3, 4, 5].filter((n) => n >= minBots).map((n) => (
               <option key={n} value={n}>
                 {n} bots ({n + 1} joueurs){n === 3 ? ' (conseillé)' : ''}
               </option>

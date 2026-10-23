@@ -1,7 +1,7 @@
 // Profil du joueur : statistiques, grade et succès, gardés sur cet appareil uniquement.
 // Une partie est comptée une seule fois (identifiant de partie), à l'écran de fin.
 
-import type { VueJoueur } from '../shared/types';
+import { aGagne, type VueJoueur } from '../shared/types';
 
 export interface Profil {
   parties: number;
@@ -174,7 +174,7 @@ const monAccusationJuste = (c: Contexte) => !!c.vue.resultat?.accusations.some((
 
 export const SUCCES: Succes[] = [
   { id: 'premiere', icone: '🗂️', titre: 'Première enquête', description: 'Terminer une partie.', test: () => true },
-  { id: 'resolue', icone: '⚖️', titre: 'Affaire classée', description: 'Gagner en tant qu’enquêteur.', test: (c) => !estComplice(c) && c.gagne },
+  { id: 'resolue', icone: '⚖️', titre: 'Affaire classée', description: 'Gagner en tant qu’enquêteur.', test: (c) => c.vue.moi.role === 'enqueteur' && c.gagne },
   { id: 'limier', icone: '🔎', titre: 'Fin limier', description: 'Résoudre soi-même l’affaire par une accusation juste.', test: monAccusationJuste },
   {
     id: 'eclair',
@@ -230,6 +230,23 @@ export const SUCCES: Succes[] = [
     description: 'Gagner une partie à bord du paquebot.',
     test: (c) => c.vue.affaire === 'paquebot' && c.gagne,
   },
+  // « Grande enquête »
+  { id: 'nuit_entiere', icone: '🌕', titre: 'Nuit entière', description: 'Gagner une Grande enquête.', test: (c) => c.vue.regles?.mode === 'grande' && c.gagne },
+  {
+    id: 'temoin_invisible',
+    icone: '👁️',
+    titre: 'Témoin invisible',
+    description: 'Gagner en tant que Témoin sans être démasqué par le complice.',
+    test: (c) => c.vue.moi.roleEnquete === 'temoin' && c.gagne && c.vue.resultat?.objectifComplice?.designe !== c.vue.moi.id,
+  },
+  { id: 'coup_de_maitre', icone: '💼', titre: 'Coup de maître', description: 'Gagner en tant que Maître chanteur.', test: (c) => c.vue.moi.role === 'maitre_chanteur' && c.gagne },
+  {
+    id: 'dernier_mot',
+    icone: '🗝️',
+    titre: 'Le dernier mot',
+    description: 'En complice, voler la victoire grâce à son objectif secret.',
+    test: (c) => estComplice(c) && c.vue.resultat?.raison === 'objectif_complice',
+  },
   { id: 'habitue', icone: '🎩', titre: 'Habitué des lieux', description: 'Terminer 10 parties.', test: (c) => c.profil.parties >= 10 },
   { id: 'veteran', icone: '🏛️', titre: 'Vétéran', description: 'Terminer 50 parties.', test: (c) => c.profil.parties >= 50 },
 ];
@@ -242,7 +259,7 @@ export function enregistrerPartie(vue: VueJoueur): { profil: Profil; nouveaux: S
   const avant = lireProfil();
   if (!vue.resultat || avant.comptees.includes(vue.partieId)) return { profil: avant, nouveaux: [], compteeIci: false };
   const role = vue.moi.role === 'complice' ? 'complice' : 'enqueteur';
-  const gagne = (vue.resultat.vainqueur === 'complice') === (role === 'complice');
+  const gagne = aGagne(vue.moi.role, vue.resultat.vainqueur);
   const serie = gagne ? avant.serie + 1 : 0;
   const profil: Profil = {
     ...avant,

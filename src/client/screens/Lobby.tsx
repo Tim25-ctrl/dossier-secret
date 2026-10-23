@@ -8,7 +8,7 @@ import { Icone, Sceau } from '../components/Emblemes';
 import { ModaleQr, partageDisponible, partagerInvitation } from '../components/Invitation';
 import { connexion } from '../connexion';
 import { AFFAIRES, nomChoixAffaire } from '../../shared/data/catalogue';
-import { CHOIX_AFFAIRES, type ChoixAffaire } from '../../shared/types';
+import { CHOIX_AFFAIRES, type ChoixAffaire, type ModeJeu } from '../../shared/types';
 import { MenuPrincipal } from '../components/Menu';
 import type { Preferences } from '../preferences';
 
@@ -138,6 +138,18 @@ export function Lobby({ etat, prefs, majPrefs }: { etat: EtatClient; prefs: Pref
             </ul>
             <div className="reglages-partie">
               <h4>Réglages de la partie</h4>
+              <div className="reglage">
+                <label htmlFor="mode-jeu">Mode de jeu</label>
+                {estHote ? (
+                  <select id="mode-jeu" value={salon.reglages.mode ?? 'classique'} onChange={(e) => void agir(() => connexion.reglerMode(e.target.value as ModeJeu))}>
+                    <option value="classique">Partie classique</option>
+                    <option value="grande">Grande enquête (4 à 6 joueurs)</option>
+                  </select>
+                ) : (
+                  <strong id="mode-jeu">{salon.reglages.mode === 'grande' ? 'Grande enquête' : 'Partie classique'}</strong>
+                )}
+                <Aide libelle="Aide sur le mode de jeu">La Grande enquête dure plus longtemps (14 manches, 4 joueurs au moins) : on cherche aussi le mobile, chacun reçoit un rôle secret avec un pouvoir, le complice a un objectif secret, un tableau d'enquête est partagé, et on a 3 points d'action par tour. À 5 et 6 joueurs, un Maître chanteur joue pour lui seul.</Aide>
+              </div>
               <div className="reglage">
                 <label htmlFor="affaire">Affaire</label>
                 {estHote ? (

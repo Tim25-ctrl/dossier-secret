@@ -7,6 +7,7 @@ import {
   type ChampTriplet,
   type ElementId,
   type LieuId,
+  type MobileId,
   type SuspectId,
   type Triplet,
   type VueJoueur,
@@ -23,6 +24,7 @@ const COURT: Record<string, string> = {
   'pièce à conviction': 'pièce',
   'écarté par un indice': 'indice',
   'le meurtrier (secret)': 'meurtrier',
+  'innocent (Légiste)': 'légiste',
 };
 const marqueurSource = (s?: string) => (s ? (COURT[s] ?? 'vue') : undefined);
 
@@ -41,23 +43,33 @@ function Selecteur<T extends ElementId>({ titre, ids, valeur, choisir, sources }
   );
 }
 
-function useTriplet() {
+/** Suspect, lieu, arme — et mobile en « Grande enquête ». */
+function useTriplet(avecMobile = false) {
   const [suspect, setSuspect] = useState<SuspectId | null>(null);
   const [lieu, setLieu] = useState<LieuId | null>(null);
   const [arme, setArme] = useState<ArmeId | null>(null);
-  const complet = suspect && lieu && arme ? ({ suspect, lieu, arme } as Triplet) : null;
-  return { suspect, lieu, arme, setSuspect, setLieu, setArme, complet };
+  const [mobile, setMobile] = useState<MobileId | null>(null);
+  const complet =
+    suspect && lieu && arme && (!avecMobile || mobile) ? ({ suspect, lieu, arme, ...(avecMobile && mobile ? { mobile } : {}) } as Triplet) : null;
+  return { suspect, lieu, arme, mobile, setSuspect, setLieu, setArme, setMobile, complet };
 }
 
 export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue: VueJoueur; nom: Noms; sources: Sources; onFermer: () => void; onErreur: (e: string) => void }) {
-  const t = useTriplet();
+  const grande = vue.regles.mode === 'grande';
+  const t = useTriplet(grande);
   const [interroges, setInterroges] = useState<string[]>([]);
   const [envoi, setEnvoi] = useState(false);
   const k = vue.regles.nbInterroges;
   const autres = vue.joueurs.filter((j) => j.id !== vue.moi.id);
 
   const basculer = (id: string) => setInterroges((l) => (l.includes(id) ? l.filter((x) => x !== id) : l.length < k ? [...l, id] : l));
-  const raison = !t.complet ? 'Choisissez un suspect, un lieu et une arme.' : interroges.length !== k ? `Choisissez ${k} joueur(s) à interroger (${interroges.length}/${k}).` : null;
+  const raison = !t.complet
+    ? grande
+      ? 'Choisissez un suspect, un lieu, une arme et un mobile.'
+      : 'Choisissez un suspect, un lieu et une arme.'
+    : interroges.length !== k
+      ? `Choisissez ${k} joueur(s) à interroger (${interroges.length}/${k}).`
+      : null;
 
   const envoyer = async () => {
     if (!t.complet) return;
@@ -91,6 +103,7 @@ export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue
       <Selecteur titre="Le meurtrier présumé" ids={elementsDe(vue.affaire).suspects} valeur={t.suspect} choisir={t.setSuspect} sources={sources} />
       <Selecteur titre="Le lieu du crime" ids={elementsDe(vue.affaire).lieux} valeur={t.lieu} choisir={t.setLieu} sources={sources} />
       <Selecteur titre="L'arme" ids={elementsDe(vue.affaire).armes} valeur={t.arme} choisir={t.setArme} sources={sources} />
+      {grande && <Selecteur titre="Le mobile" ids={elementsDe(vue.affaire).mobiles} valeur={t.mobile} choisir={t.setMobile} sources={sources} />}
       <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
         <legend style={{ fontWeight: 600, marginBottom: 6 }}>
           Joueurs à interroger, dans l'ordre ({interroges.length}/{k})
@@ -114,9 +127,23 @@ export function ModaleHypothese({ vue, nom, sources, onFermer, onErreur }: { vue
   );
 }
 
-export function ModaleAccusation({ affaire, sources, onFermer, onErreur }: { affaire: AffaireId; sources: Sources; onFermer: () => void; onErreur: (e: string) => void }) {
-  const { suspects: SUSPECTS, lieux: LIEUX, armes: ARMES } = elementsDe(affaire);
-  const t = useTriplet();
+export function ModaleAccusation({
+  affaire,
+  sources,
+  avecMobile = false,
+  onFermer,
+  onErreur,
+}: {
+  affaire: AffaireId;
+  sources: Sources;
+  /** « Grande enquête » : l'accusation nomme aussi le mobile. */
+  avecMobile?: boolean;
+  onFermer: () => void;
+  onErreur: (e: string) => void;
+}) {
+  const { suspects: SUSPECTS, lieux: LIEUX, armes: ARMES, mobiles: MOBILES } = elementsDe(affaire);
+  const t = useTriplet(avecMobile);
+  const nbElements = avecMobile ? 'quatre' : 'trois';
   const [confirmation, setConfirmation] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const envoyer = async () => {
@@ -146,7 +173,7 @@ export function ModaleAccusation({ affaire, sources, onFermer, onErreur }: { aff
         <p>Vous accusez :</p>
         <TripletVue t={t.complet} />
         <div className="erreur" style={{ marginTop: 14 }}>
-          <strong>Attention :</strong> si un seul des trois éléments est faux, vous ne pourrez plus jamais accuser pendant cette partie. Vous ne saurez pas lequel était
+          <strong>Attention :</strong> si un seul des {nbElements} éléments est faux, vous ne pourrez plus jamais accuser pendant cette partie. Vous ne saurez pas lequel était
           faux. Votre accusation sera annoncée à tous.
         </div>
       </Modale>
@@ -166,10 +193,11 @@ export function ModaleAccusation({ affaire, sources, onFermer, onErreur }: { aff
         </>
       }
     >
-      <p className="muet petit">Gratuite, mais une seule par joueur et par partie. Les trois éléments doivent être justes.</p>
+      <p className="muet petit">Gratuite, mais une seule par joueur et par partie. Les {nbElements} éléments doivent être justes.</p>
       <Selecteur titre="Le meurtrier" ids={SUSPECTS} valeur={t.suspect} choisir={t.setSuspect} sources={sources} />
       <Selecteur titre="Le lieu du crime" ids={LIEUX} valeur={t.lieu} choisir={t.setLieu} sources={sources} />
       <Selecteur titre="L'arme" ids={ARMES} valeur={t.arme} choisir={t.setArme} sources={sources} />
+      {avecMobile && <Selecteur titre="Le mobile" ids={MOBILES} valeur={t.mobile} choisir={t.setMobile} sources={sources} />}
     </Modale>
   );
 }
@@ -417,7 +445,7 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
   const [envoi, setEnvoi] = useState(false);
   const options = useMemo(() => {
     const e = elementsDe(vue.affaire);
-    return (champ === 'suspect' ? e.suspects : champ === 'lieu' ? e.lieux : e.armes).filter((x) => x !== f.original[champ]) as ElementId[];
+    return (champ === 'suspect' ? e.suspects : champ === 'lieu' ? e.lieux : champ === 'arme' ? e.armes : e.mobiles).filter((x) => x !== f.original[champ]) as ElementId[];
   }, [champ, f.original, vue.affaire]);
 
   const envoyer = async (action: Parameters<typeof connexion.action>[0]) => {
@@ -450,13 +478,13 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
             </p>
             <h4 className="titre-reponse">1. L'élément à changer</h4>
             <div className="ligne" role="radiogroup" aria-label="Élément à modifier">
-              {(['suspect', 'lieu', 'arme'] as const).map((c) => (
+              {(vue.regles.mode === 'grande' ? (['suspect', 'lieu', 'arme', 'mobile'] as const) : (['suspect', 'lieu', 'arme'] as const)).map((c) => (
                 <button key={c} className={`btn btn-petit ${champ === c ? 'btn-or' : ''}`} aria-pressed={champ === c} onClick={() => (setChamp(c), setValeur(null))}>
-                  {c === 'suspect' ? 'Le suspect' : c === 'lieu' ? 'Le lieu' : "L'arme"}
+                  {c === 'suspect' ? 'Le suspect' : c === 'lieu' ? 'Le lieu' : c === 'arme' ? "L'arme" : 'Le mobile'}
                 </button>
               ))}
             </div>
-            <h4 className="titre-reponse">2. Ce que les autres verront à la place de « {nomElement(f.original[champ])} »</h4>
+            <h4 className="titre-reponse">2. Ce que les autres verront à la place de « {nomElement(f.original[champ] ?? '')} »</h4>
             <div className="cartes">
               {options.map((o) => (
                 <Carte key={o} id={o} onClick={() => setValeur(o)} presse={valeur === o} />
@@ -467,7 +495,7 @@ export function ModaleFalsification({ vue, nom, decalage, delai, onErreur }: { v
                 Ne rien changer
               </button>
               <button className="btn btn-danger" disabled={!valeur || envoi} onClick={() => valeur && void envoyer({ type: 'falsifier', champ, valeur })}>
-                Falsifier ({nomElement(f.original[champ])} → {valeur ? nomElement(valeur) : '…'})
+                Falsifier ({nomElement(f.original[champ] ?? '')} → {valeur ? nomElement(valeur) : '…'})
               </button>
             </div>
           </>

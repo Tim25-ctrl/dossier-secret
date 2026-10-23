@@ -7,12 +7,42 @@ import { combinaisonsPossibles } from '../shared/logique';
 import {
   elementsDe,
   elementsDuTriplet,
+  memeTriplet,
   type ElementId,
   type Triplet,
   type VueJoueur,
 } from '../shared/types';
 
 type Possession = Map<string, boolean | undefined>;
+
+/** « Grande enquête » : hypothèses dont l'Inspecteur sait qu'une réponse était une ruse. */
+function hypothesesDouteuses(vue: VueJoueur): Set<string> {
+  return new Set(vue.moi.journal.flatMap((e) => (e.type === 'verification' && !e.honnete ? [e.hypothese] : [])));
+}
+
+/** « Grande enquête » : éléments innocents appris par le pouvoir du Légiste. */
+function innocentsConnus(vue: VueJoueur): ElementId[] {
+  return vue.moi.journal.flatMap((e) => (e.type === 'expertise' ? e.innocents : []));
+}
+
+/** « Grande enquête » : ce que le rôle apprend de la solution (lieu du Témoin, mobile du Maître chanteur). */
+function filtrerParRole(vue: VueJoueur, combinaisons: Triplet[]): Triplet[] {
+  let c = combinaisons;
+  if (vue.moi.lieuConnu) c = c.filter((t) => t.lieu === vue.moi.lieuConnu);
+  if (vue.moi.mobileConnu) c = c.filter((t) => t.mobile === vue.moi.mobileConnu);
+  return c;
+}
+
+/** « Grande enquête » : dossiers dont l'Archiviste sait qu'ils ont été trafiqués. */
+function dossiersTrafiquesConnus(vue: VueJoueur): Set<string> {
+  const trafiques = new Set(vue.moi.journal.flatMap((e) => (e.type === 'dossier_verifie' && e.trafique ? [e.dossier] : [])));
+  return new Set(vue.moi.indicesConsultes.filter((i) => trafiques.has(i.dossier)).map((i) => i.indice));
+}
+
+/** La partie vue par ce joueur a-t-elle un mobile (« Grande enquête ») ? */
+export function avecMobileVue(vue: VueJoueur): boolean {
+  return vue.regles.mode === 'grande';
+}
 
 export interface Connaissance {
   /** possession.get(carte).get(joueur) : true = détient, false = ne détient pas, undefined = inconnu */
@@ -35,7 +65,7 @@ interface Contrainte {
  *        sont ignorées (utile quand un mensonge a rendu les déductions incohérentes).
  */
 /** Hachage déterministe : la même information est toujours « retenue » ou « oubliée » par un bot donné. */
-function retenu(cle: string, attention: number): boolean {
+export function retenu(cle: string, attention: number): boolean {
   if (attention >= 1) return true;
   let h = 2166136261;
   for (let i = 0; i < cle.length; i++) h = Math.imul(h ^ cle.charCodeAt(i), 16777619);
@@ -68,6 +98,20 @@ export function candidatsComplice(vue: VueJoueur): string[] {
     if (e.type === 'empreinte' && e.innocente) candidats = candidats.filter((c) => c !== e.innocente);
     if (e.type === 'denonciation' && !e.correcte) candidats = candidats.filter((c) => c !== e.cible);
   }
+  // « Grande enquête » : ce que les pouvoirs ont appris.
+  for (const e of vue.moi.journal) {
+    // Inspecteur : une réponse malhonnête vient forcément d'un des joueurs qui ont répondu.
+    if (e.type === 'verification' && !e.honnete) {
+      const repondants = new Set(vue.historique.flatMap((x) => (x.type === 'reponse' && x.hypothese === e.hypothese ? [x.joueur] : [])));
+      const restent = candidats.filter((c) => repondants.has(c));
+      if (restent.length) candidats = restent;
+    }
+    // Profileur : le complice est (ou n'est pas) l'un des deux joueurs désignés.
+    if (e.type === 'profilage') {
+      const restent = candidats.filter((c) => e.joueurs.includes(c) === e.complicePresent);
+      if (restent.length) candidats = restent;
+    }
+  }
   return candidats;
 }
 
@@ -77,10 +121,11 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   const moi = vue.moi.id;
   const joueurs = vue.joueurs.map((j) => j.id);
   const tailles = new Map(vue.joueurs.map((j) => [j.id, j.nbCartes]));
-  // Seules les cartes de l'affaire jouée existent dans cette partie.
-  const e = elementsDe(vue.affaire);
+  // Seules les cartes de l'affaire jouée existent dans cette partie (mobiles compris en « Grande enquête »).
+  const mobile = avecMobileVue(vue);
+  const e = elementsDe(vue.affaire, mobile);
   const TOUS_ELEMENTS = e.tous;
-  const CATEGORIES: (readonly ElementId[])[] = [e.suspects, e.lieux, e.armes];
+  const CATEGORIES: (readonly ElementId[])[] = mobile ? [e.suspects, e.lieux, e.armes, e.mobiles] : [e.suspects, e.lieux, e.armes];
   const possession = new Map<ElementId, Possession>();
   for (const c of TOUS_ELEMENTS) possession.set(c, new Map(joueurs.map((j) => [j, undefined])));
   let coherent = true;
@@ -108,9 +153,10 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   const piecesInconnues = vue.archives.filter((a) => a.categorie === 'piece').length - piecesLues.length;
 
   const auMoinsUne: Contrainte[] = [];
+  const douteuses = hypothesesDouteuses(vue);
   // Cartes vues directement.
   for (const e of vue.moi.journal) {
-    if (e.type === 'carte_vue' && !ignorer.has(e.de)) fixer(e.carte, e.de, true);
+    if (e.type === 'carte_vue' && !ignorer.has(e.de) && !douteuses.has(e.hypothese)) fixer(e.carte, e.de, true);
   }
   // Hypothèses publiques et leurs réponses (pour mes propres hypothèses, je vois l'original).
   const hypotheses = new Map<string, Triplet>();
@@ -123,7 +169,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
     }
   }
   for (const ev of vue.historique) {
-    if (ev.type !== 'reponse' || ev.joueur === moi || ignorer.has(ev.joueur)) continue;
+    if (ev.type !== 'reponse' || ev.joueur === moi || ignorer.has(ev.joueur) || douteuses.has(ev.hypothese)) continue;
     const t = hypotheses.get(ev.hypothese);
     if (!t) continue;
     const auteur = vue.historique.find((x) => x.type === 'hypothese' && x.id === ev.hypothese);
@@ -137,7 +183,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
   }
 
   // Propagation jusqu'à stabilité.
-  const horsSolution = new Set<ElementId>(nonDistribuees);
+  const horsSolution = new Set<ElementId>([...nonDistribuees, ...innocentsConnus(vue)]);
   for (let tour = 0; tour < 50 && coherent; tour++) {
     let change = false;
     for (const c of TOUS_ELEMENTS) {
@@ -188,16 +234,18 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
     if (!change) break;
   }
 
+  const trafiques = dossiersTrafiquesConnus(vue);
   const indices = [
     ...vue.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]),
-    ...vue.moi.indicesConsultes.filter((i) => !options.indicesExclus?.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
+    ...vue.moi.indicesConsultes.filter((i) => !options.indicesExclus?.has(i.indice) && !trafiques.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
   ];
   // Une accusation publique incorrecte élimine sa combinaison.
   const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
-  let combinaisons = combinaisonsPossibles(indices, horsSolution, vue.affaire).filter(
-    (t) => !faussesAccusations.some((f) => f.suspect === t.suspect && f.lieu === t.lieu && f.arme === t.arme),
+  let combinaisons = combinaisonsPossibles(indices, horsSolution, vue.affaire, mobile).filter(
+    (t) => !faussesAccusations.some((f) => memeTriplet(f, t)),
   );
   if (vue.moi.meurtrier) combinaisons = combinaisons.filter((t) => t.suspect === vue.moi.meurtrier);
+  combinaisons = filtrerParRole(vue, combinaisons);
   if (combinaisons.length === 0) coherent = false;
   return { possession, horsSolution, combinaisons, coherent };
 }
@@ -214,7 +262,7 @@ export function deduire(vue: VueJoueur, confianceAucuneCarte = true, attention =
  */
 export function optionsMefiance(vue: VueJoueur): OptionsDeduction {
   const suspects = candidatsComplice(vue);
-  if (vue.moi.role !== 'enqueteur' || suspects.length !== 1) return {};
+  if (vue.moi.role === 'complice' || suspects.length !== 1) return {};
   const complice = suspects[0];
   const exclus = new Set<string>();
   for (const lu of vue.moi.indicesConsultes) {
@@ -229,15 +277,23 @@ export function optionsMefiance(vue: VueJoueur): OptionsDeduction {
 export function deduireSimple(vue: VueJoueur): Triplet[] {
   const base: OptionsDeduction = {};
   const essai = (o: OptionsDeduction) => {
-    const connues = new Set<ElementId>([...vue.moi.main, ...vue.cartesPubliques, ...vue.moi.piecesConsultees.map((p) => p.carte)]);
-    for (const e of vue.moi.journal) if (e.type === 'carte_vue' && !o.ignorer?.has(e.de)) connues.add(e.carte);
+    const connues = new Set<ElementId>([
+      ...vue.moi.main,
+      ...vue.cartesPubliques,
+      ...vue.moi.piecesConsultees.map((p) => p.carte),
+      ...innocentsConnus(vue),
+    ]);
+    const trafiques = dossiersTrafiquesConnus(vue);
+    const douteuses = hypothesesDouteuses(vue);
+    for (const e of vue.moi.journal) if (e.type === 'carte_vue' && !o.ignorer?.has(e.de) && !douteuses.has(e.hypothese)) connues.add(e.carte);
     const indices = [
       ...vue.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]),
-      ...vue.moi.indicesConsultes.filter((i) => !o.indicesExclus?.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
+      ...vue.moi.indicesConsultes.filter((i) => !o.indicesExclus?.has(i.indice) && !trafiques.has(i.indice)).map((i) => INDICES_PAR_ID[i.indice]),
     ];
     const faussesAccusations = vue.historique.flatMap((e) => (e.type === 'accusation' && !e.correcte ? [e.triplet] : []));
-    return combinaisonsPossibles(indices, connues, vue.affaire).filter(
-      (t) => !faussesAccusations.some((f) => f.suspect === t.suspect && f.lieu === t.lieu && f.arme === t.arme),
+    return filtrerParRole(
+      vue,
+      combinaisonsPossibles(indices, connues, vue.affaire, avecMobileVue(vue)).filter((t) => !faussesAccusations.some((f) => memeTriplet(f, t))),
     );
   };
   // Si les informations se contredisent (ruse du complice), on écarte la source douteuse.

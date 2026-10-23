@@ -428,8 +428,14 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
     socket.on(
       'salon:solo',
       gerer('salon:solo', (p: unknown) => {
-        const { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes } = schemaSolo.parse(p);
-        const { salon, joueur, jeton } = gestionnaire.creerSolo(nom, bots, { dureeTourS, modeComplice, affaire, historiqueCartes: historiqueCartes ?? 'visibles' });
+        const { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes, mode } = schemaSolo.parse(p);
+        const { salon, joueur, jeton } = gestionnaire.creerSolo(nom, bots, {
+          dureeTourS,
+          modeComplice,
+          affaire,
+          historiqueCartes: historiqueCartes ?? 'visibles',
+          mode: mode ?? 'classique',
+        });
         attacher(socket, salon.code, joueur.id);
         log(`Salon ${salon.code} : partie seul contre ${bots} bots.`);
         diffuser(salon.code);
@@ -540,6 +546,7 @@ export async function demarrerServeur(o: OptionsServeur = {}) {
       if (r.modeComplice !== undefined) gestionnaire.reglerModeComplice(code, id, r.modeComplice);
       if (r.historiqueCartes !== undefined) gestionnaire.reglerHistoriqueCartes(code, id, r.historiqueCartes);
       if (r.affaire !== undefined) gestionnaire.reglerAffaire(code, id, r.affaire);
+      if (r.mode !== undefined) gestionnaire.reglerMode(code, id, r.mode);
     });
     actionSalon('jeu:action', (code, id, p) => gestionnaire.action(code, id, lireAction(p)));
 

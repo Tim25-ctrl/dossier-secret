@@ -6,7 +6,7 @@ import { jourDuJournal } from '../../shared/data/indices';
 import { indiceValide } from '../../shared/logique';
 import { nomElement } from '../../shared/data/catalogue';
 import type { EtatClient } from '../../shared/protocole';
-import type { VueJoueur } from '../../shared/types';
+import { aGagne, type VueJoueur } from '../../shared/types';
 import { Carte, CarteIndice, TripletVue, useNotification } from '../components/Commun';
 import { Sceau } from '../components/Emblemes';
 import { texteEvenement } from '../components/jeu/Textes';
@@ -14,11 +14,14 @@ import { connexion } from '../connexion';
 import { BoutonQuitter } from '../components/Quitter';
 import { Grade } from '../components/Profil';
 import { bilanPartie } from '../profil';
+import { Embleme } from '../components/Emblemes';
+import { LIBELLES_ETIQUETTES, NOMS_OBJECTIFS, libelleRole, texteObjectif } from '../grande';
 
 const RAISONS = {
   accusation_correcte: 'Une accusation juste a résolu l’affaire.',
-  manches_ecoulees: 'Les 12 manches se sont écoulées sans accusation juste.',
+  manches_ecoulees: 'Toutes les manches se sont écoulées sans accusation juste.',
   plus_d_accusateur: 'Tous les enquêteurs se sont trompés dans leur accusation.',
+  objectif_complice: 'Le complice a réussi son objectif secret : il rafle la victoire.',
 } as const;
 
 export function Fin({ etat }: { etat: EtatClient }) {
@@ -29,7 +32,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
   const nom = useCallback((id: string) => noms.get(id) ?? '?', [noms]);
   const estHote = etat.salon.hote === moi;
   const { afficher, vue: notification } = useNotification();
-  const gagne = (r.vainqueur === 'complice') === (vue.moi.role === 'complice');
+  const gagne = aGagne(vue.moi.role, r.vainqueur);
   const gagnant = r.accusations.find((a) => a.correcte);
   // Profil : la partie est comptée une fois (pas les parties guidées).
   const bilan = etat.salon.code.startsWith('GUIDE') ? null : bilanPartie(vue);
@@ -51,7 +54,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
         <span className="sceau-appose">
           <Sceau taille={70} />
         </span>
-        <h1>{r.vainqueur === 'enqueteurs' ? 'Affaire résolue !' : 'Le complice triomphe'}</h1>
+        <h1>{r.vainqueur === 'enqueteurs' ? 'Affaire résolue !' : r.vainqueur === 'maitre_chanteur' ? 'Le Maître chanteur rafle tout' : 'Le complice triomphe'}</h1>
         <p style={{ fontSize: '1.15em' }}>
           {RAISONS[r.raison]} {gagnant && `${nom(gagnant.joueur)} a démasqué le coupable.`}
         </p>
@@ -106,6 +109,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
               <Carte id={r.solution.suspect} />
               <Carte id={r.solution.lieu} />
               <Carte id={r.solution.arme} />
+              {r.solution.mobile && <Carte id={r.solution.mobile} />}
             </div>
             {r.explication.map((p) => (
               <p key={p}>{p}</p>
@@ -147,9 +151,46 @@ export function Fin({ etat }: { etat: EtatClient }) {
                 {r.denonciations.some((d) => d.correcte) ? ' Il a été démasqué en cours de partie.' : " Il n'a pas été démasqué."}
               </p>
             )}
+            {r.objectifComplice && (
+              <p>
+                🎯 Son objectif secret : <strong>{NOMS_OBJECTIFS[r.objectifComplice.type]}</strong> — {texteObjectif(r.objectifComplice, true)}{' '}
+                <strong>{r.objectifComplice.reussi ? 'Réussi !' : 'Raté.'}</strong>
+                {r.objectifComplice.designe !== undefined &&
+                  (r.objectifComplice.designe === null ? " Il n'a désigné personne." : ` Il a désigné ${nom(r.objectifComplice.designe)}.`)}
+              </p>
+            )}
             <h4>Ses ruses, manche par manche</h4>
             <FriseComplice vue={vue} nom={nom} />
           </section>
+          {r.roles && (
+            <section className="panneau">
+              <h2>Les rôles secrets</h2>
+              <ul className="journal">
+                {vue.joueurs.map((j) => (
+                  <li key={j.id}>
+                    <strong>{j.nom}</strong>
+                    {j.id === moi ? ' (vous)' : ''} : {libelleRole(r.roles![j.id].role, r.roles![j.id].roleEnquete)}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {r.tableau && r.tableau.length > 0 && (
+            <section className="panneau">
+              <h2>Le tableau d'enquête, auteurs révélés</h2>
+              <ul className="journal">
+                {r.tableau.map((e) => (
+                  <li key={e.id}>
+                    {e.cible.type === 'element' && <Embleme id={e.cible.id} taille={18} />}{' '}
+                    <strong>{e.cible.type === 'element' ? nomElement(e.cible.id) : nom(e.cible.id)}</strong> — {LIBELLES_ETIQUETTES[e.etiquette]}
+                    {e.note ? ` « ${e.note} »` : ''} — {e.rumeur ? 'rumeur de ' : 'par '}
+                    <strong>{nom(e.auteur!)}</strong>
+                    {r.roles?.[e.auteur!] ? ` (${libelleRole(r.roles[e.auteur!].role, r.roles[e.auteur!].roleEnquete)})` : ''} · 👍 {e.pour} 👎 {e.contre}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="panneau">
             <h2>Accusations</h2>
             {r.accusations.length === 0 && <p className="muet">Aucune accusation.</p>}
@@ -167,7 +208,7 @@ export function Fin({ etat }: { etat: EtatClient }) {
               <div key={j.id} style={{ marginBottom: 8 }}>
                 <strong>
                   {j.nom}
-                  {j.id === r.complice ? ' — complice' : ''}
+                  {r.roles ? ` — ${libelleRole(r.roles[j.id].role, r.roles[j.id].roleEnquete)}` : j.id === r.complice ? ' — complice' : ''}
                 </strong>
                 <div className="ligne">
                   {(r.mains[j.id] ?? []).map((c) => (

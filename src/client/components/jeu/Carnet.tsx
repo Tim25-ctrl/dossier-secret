@@ -21,10 +21,13 @@ const MARQUES: { m: Marque; court: string; long: string }[] = [
 export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementId, string>> {
   const s: Partial<Record<ElementId, string>> = {};
   const indices = [...v.indicesPublics.map((i) => INDICES_PAR_ID[i.indice]), ...v.moi.indicesConsultes.map((i) => INDICES_PAR_ID[i.indice])];
-  const possibles = combinaisonsPossibles(indices, [], v.affaire);
-  for (const e of elementsDe(v.affaire).tous) {
-    if (!possibles.some((t) => t.suspect === e || t.lieu === e || t.arme === e)) s[e] = 'écarté par un indice';
+  const grande = v.regles.mode === 'grande';
+  const possibles = combinaisonsPossibles(indices, [], v.affaire, grande);
+  for (const e of elementsDe(v.affaire, grande).tous) {
+    if (!possibles.some((t) => t.suspect === e || t.lieu === e || t.arme === e || t.mobile === e)) s[e] = 'écarté par un indice';
   }
+  // « Grande enquête » : éléments innocents appris par le Légiste.
+  for (const j of v.moi.journal) if (j.type === 'expertise') for (const e of j.innocents) s[e] = 'innocent (Légiste)';
   for (const e of v.cartesPubliques) s[e] = 'carte publique';
   for (const p of v.moi.piecesConsultees) s[p.carte] = 'pièce à conviction';
   // Mode difficile : les cartes reçues ne sont pas rappelées (à retenir de mémoire).
@@ -38,7 +41,7 @@ export function sourcesConnues(v: VueJoueur, nom: Noms): Partial<Record<ElementI
  * Carte affichée en grand, seule sur un voile sombre, quand on touche son icône dans le carnet.
  * Fermeture : la croix sur la carte, Échap, ou un clic à côté de la carte.
  */
-function ModaleCarte({ id, onFermer }: { id: ElementId; onFermer: () => void }) {
+function ModaleCarte({ id, grande, onFermer }: { id: ElementId; grande: boolean; onFermer: () => void }) {
   const croix = useRef<HTMLButtonElement>(null);
   const fermer = useRef(onFermer);
   fermer.current = onFermer;
@@ -57,7 +60,7 @@ function ModaleCarte({ id, onFermer }: { id: ElementId; onFermer: () => void }) 
   return createPortal(
     <div className="voile voile-carte" onMouseDown={(e) => e.target === e.currentTarget && onFermer()}>
       <div role="dialog" aria-modal="true" aria-label={`Carte : ${nomElement(id)}`} className="carte-seule">
-        <CarteDeJeu id={id} />
+        <CarteDeJeu id={id} grande={grande} />
         <button ref={croix} type="button" className="carte-jeu-fermer" onClick={onFermer} aria-label="Fermer la carte">
           ✕
         </button>
@@ -156,6 +159,7 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
         {colonne('Suspects', elementsDe(vue.affaire).suspects)}
         {colonne('Lieux', elementsDe(vue.affaire).lieux)}
         {colonne('Armes', elementsDe(vue.affaire).armes)}
+        {vue.regles.mode === 'grande' && colonne('Mobiles', elementsDe(vue.affaire).mobiles)}
       </div>
       <div className="champ" style={{ marginTop: 14 }}>
         <label htmlFor="notes">
@@ -170,7 +174,7 @@ export function Carnet({ vue, nom, onErreur }: { vue: VueJoueur; nom: Noms; onEr
         ))}
       </ul>
       </div>
-      {enGrand && <ModaleCarte id={enGrand} onFermer={() => setEnGrand(null)} />}
+      {enGrand && <ModaleCarte id={enGrand} grande={vue.regles.mode === 'grande'} onFermer={() => setEnGrand(null)} />}
     </section>
   );
 }

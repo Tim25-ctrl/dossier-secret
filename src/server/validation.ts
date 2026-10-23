@@ -2,30 +2,52 @@
 // conformes sont rejetées avant même d'atteindre le moteur de règles.
 
 import { z } from 'zod';
-import { ARMES, CHOIX_AFFAIRES, LIEUX, SUSPECTS, TOUS_ELEMENTS, type ActionJeu, type ChoixAffaire } from '../shared/types';
+import { ARMES, CHOIX_AFFAIRES, LIEUX, MOBILES, SUSPECTS, TOUS_ELEMENTS, type ActionJeu, type ChoixAffaire } from '../shared/types';
 
 const suspect = z.enum(SUSPECTS);
 const lieu = z.enum(LIEUX);
 const arme = z.enum(ARMES);
+/** Mobile : seulement en « Grande enquête » (le moteur le refuse dans une partie classique). */
+const mobile = z.enum(MOBILES).optional();
 const element = z.enum(TOUS_ELEMENTS as [string, ...string[]]);
 const idJoueur = z.string().min(1).max(40);
 const marque = z.enum(['inconnu', 'ecarte', 'probable', 'certain']);
 
 export const schemaAction = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('hypothese'), suspect, lieu, arme, interroges: z.array(idJoueur).min(1).max(5) }).strict(),
-  z.object({ type: z.literal('falsifier'), champ: z.enum(['suspect', 'lieu', 'arme']), valeur: element }).strict(),
+  z.object({ type: z.literal('hypothese'), suspect, lieu, arme, mobile, interroges: z.array(idJoueur).min(1).max(5) }).strict(),
+  z.object({ type: z.literal('falsifier'), champ: z.enum(['suspect', 'lieu', 'arme', 'mobile']), valeur: element }).strict(),
   z.object({ type: z.literal('passerFalsification') }).strict(),
   z.object({ type: z.literal('repondre'), carte: element.nullable() }).strict(),
   z.object({ type: z.literal('mentir') }).strict(),
-  z.object({ type: z.literal('consulterArchive'), dossier: z.number().int().min(1).max(20), trafiquer: z.boolean().optional() }).strict(),
+  z.object({ type: z.literal('consulterArchive'), dossier: z.number().int().min(1).max(20), trafiquer: z.boolean().optional(), gratuit: z.boolean().optional() }).strict(),
   z.object({ type: z.literal('emprunter'), carte: element }).strict(),
   z.object({ type: z.literal('denoncer'), joueur: idJoueur }).strict(),
-  z.object({ type: z.literal('accuser'), suspect, lieu, arme }).strict(),
+  z.object({ type: z.literal('accuser'), suspect, lieu, arme, mobile }).strict(),
   z.object({ type: z.literal('finTour') }).strict(),
+  // « Grande enquête » : pouvoirs de rôle (le moteur vérifie le rôle, la manche et les utilisations).
+  z.object({ type: z.literal('verifierReponses') }).strict(),
+  z.object({ type: z.literal('expertiser'), categorie: z.enum(['suspect', 'lieu', 'arme', 'mobile']) }).strict(),
+  z.object({ type: z.literal('verifierDossier'), dossier: z.number().int().min(1).max(20) }).strict(),
+  z.object({ type: z.literal('profiler'), joueurs: z.array(idJoueur).length(2) }).strict(),
+  z.object({ type: z.literal('designerTemoin'), joueur: idJoueur }).strict(),
+  z
+    .object({
+      type: z.literal('epingler'),
+      cible: z.discriminatedUnion('type', [
+        z.object({ type: z.literal('element'), id: element }).strict(),
+        z.object({ type: z.literal('joueur'), id: idJoueur }).strict(),
+      ]),
+      etiquette: z.enum(['innocent', 'coupable', 'fausse_piste', 'complice']),
+      note: z.string().max(200).optional(),
+      rumeur: z.boolean().optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal('reagir'), epingle: z.string().min(1).max(20), reaction: z.enum(['pour', 'contre']).nullable() }).strict(),
+  z.object({ type: z.literal('retirerEpingle'), epingle: z.string().min(1).max(20) }).strict(),
   z
     .object({
       type: z.literal('carnet'),
-      // partialRecord : seuls les éléments modifiés sont envoyés (z.record exigerait les 18 clés).
+      // partialRecord : seuls les éléments modifiés sont envoyés (z.record exigerait toutes les clés).
       marques: z.partialRecord(element, marque).optional(),
       notes: z.string().max(4000).optional(),
     })
@@ -41,6 +63,7 @@ export const schemaSolo = z
     modeComplice: z.enum(['classique', 'ruse']),
     affaire: z.enum(CHOIX_AFFAIRES as [ChoixAffaire, ...ChoixAffaire[]]),
     historiqueCartes: z.enum(['visibles', 'anonymes']).optional(),
+    mode: z.enum(['classique', 'grande']).optional(),
   })
   .strict();
 export const schemaRejoindre = z.object({ code: z.string().max(20), nom: z.string().max(60) });
@@ -83,6 +106,7 @@ export const schemaReglages = z
     modeComplice: z.enum(['classique', 'ruse']).optional(),
     historiqueCartes: z.enum(['visibles', 'anonymes']).optional(),
     affaire: z.enum(CHOIX_AFFAIRES as [ChoixAffaire, ...ChoixAffaire[]]).optional(),
+    mode: z.enum(['classique', 'grande']).optional(),
   })
   .strict();
 

@@ -21,7 +21,7 @@ const CONSEILS: Conseil[] = [
     quand: (v) => v.moi.role === 'complice',
     texte: (v) => (
       <>
-        <strong>Vous êtes le complice !</strong> Le meurtrier est {v.moi.meurtrier ? nomElement(v.moi.meurtrier) : '…'} ; vous ignorez le lieu et l'arme.
+        <strong>Vous êtes le complice !</strong> Le meurtrier est {v.moi.meurtrier ? nomElement(v.moi.meurtrier) : '…'} ; vous ignorez le lieu{v.regles.mode === 'grande' ? ", l'arme et le mobile" : " et l'arme"}.
         Empêchez les enquêteurs de trouver. Vos ruses sont dans « Mon rôle » : utilisez-les avec parcimonie, elles peuvent laisser des empreintes.
       </>
     ),
@@ -31,7 +31,7 @@ const CONSEILS: Conseil[] = [
     quand: (_v, c) => c.doitRepondre,
     texte: () => (
       <>
-        <strong>On vous interroge.</strong> Si vous avez une des trois cartes, montrez-en une : seul l'auteur de l'hypothèse la verra.
+        <strong>On vous interroge.</strong> Si vous avez une des cartes annoncées, montrez-en une : seul l'auteur de l'hypothèse la verra.
       </>
     ),
   },
@@ -43,9 +43,9 @@ const CONSEILS: Conseil[] = [
   {
     id: 'premier-tour',
     quand: (_v, c) => c.monTour,
-    texte: () => (
+    texte: (v) => (
       <>
-        <strong>C'est votre tour</strong> : 2 points d'action. Une hypothèse coûte 2 PA, un dossier d'archives 1 PA. Quand vous avez fini, « Terminer mon tour ».
+        <strong>C'est votre tour</strong> : {v.regles.pointsAction} points d'action. Une hypothèse coûte {v.regles.coutHypothese} PA, un dossier d'archives 1 PA. Quand vous avez fini, « Terminer mon tour ».
       </>
     ),
   },

@@ -5,7 +5,7 @@
 // Les événements sans version roman gardent leur texte habituel (voir Textes.tsx).
 
 import type { ReactNode } from 'react';
-import { ARMES_FICHES, LIEUX_FICHES, libelleCategorie, nomCourt } from '../../../shared/data/catalogue';
+import { ARMES_FICHES, LIEUX_FICHES, MOBILES_FICHES, libelleCategorie, nomCourt } from '../../../shared/data/catalogue';
 import type { AffaireId, EvenementPublic } from '../../../shared/types';
 import { TripletVue } from '../Commun';
 import type { Noms } from './Textes';
@@ -58,7 +58,8 @@ export function texteRoman(ev: EvenementPublic, nom: Noms, moi: string, affaire:
     case 'hypothese': {
       const s = nomCourt(ev.triplet.suspect);
       const l = LIEUX_FICHES[ev.triplet.lieu]?.article ?? '';
-      const a = ARMES_FICHES[ev.triplet.arme]?.article ?? '';
+      // « Grande enquête » : le mobile s'ajoute à l'arme (« avec la dague, par jalousie »).
+      const a = (ARMES_FICHES[ev.triplet.arme]?.article ?? '') + (ev.triplet.mobile ? `, ${MOBILES_FICHES[ev.triplet.mobile]?.article ?? ''}` : '');
       const interroges = ev.interroges.map(qui).join(', puis ');
       const moiAuteur = ev.auteur === moi;
       const phrase = choisir(ev, [

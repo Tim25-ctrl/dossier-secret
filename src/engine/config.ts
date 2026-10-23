@@ -4,11 +4,45 @@
 //  - une hypothèse coûte 2 PA ;
 //  - les pouvoirs du complice dépendent du nombre de joueurs.
 
-import type { AffaireId, ModeComplice, HistoriqueCartes, TypeRuse } from '../shared/types';
+import type { AffaireId, ModeComplice, ModeJeu, HistoriqueCartes, ObjectifComplice, RoleEnquete, TypeRuse } from '../shared/types';
+
+/** « Grande enquête » : objectifs secrets du complice (docs/GRANDE-ENQUETE.md, section 6). */
+export interface ConfigObjectifs {
+  tirables: ObjectifComplice[];
+  /** Le témoin gênant : temps laissé au complice pour désigner le Témoin. */
+  delaiDesignationMs: number;
+  /** Le bouc émissaire : accusations finales nécessaires, selon le nombre de joueurs. */
+  accusationsBouc: Record<number, number>;
+  /** L'ombre : nombre de ruses à utiliser. */
+  rusesOmbre: number;
+}
+
+/** « Grande enquête » : rôles secrets et pouvoirs (docs/GRANDE-ENQUETE.md, sections 5 et 7). */
+export interface ConfigRoles {
+  /** Rôles tirés au sort pour les enquêteurs autres que le Témoin (toujours en jeu). */
+  tirables: RoleEnquete[];
+  /** Nombre d'utilisations de chaque pouvoir. */
+  utilisations: {
+    inspecteur: number;
+    legiste: number;
+    archivesGratuites: number;
+    verificationsDossier: number;
+    profileur: number;
+    journaliste: number;
+  };
+  /** Le Légiste ne peut pas servir avant cette manche. */
+  mancheExpertise: number;
+  /** Le Profileur ne peut pas servir avant cette manche. */
+  mancheProfilage: number;
+  /** Un Maître chanteur à partir de ce nombre de joueurs. */
+  maitreChanteurDes: number;
+}
 
 export interface ConfigPartie {
   /** Histoire jouée (suspects, lieux, armes et indices). */
   affaire: AffaireId;
+  /** Partie classique, ou « Grande enquête » (le mobile s'ajoute à la solution ; 4 joueurs au moins). */
+  mode: ModeJeu;
   manchesMax: number;
   pointsAction: number;
   /** Nombre maximal d'hypothèses par tour. */
@@ -52,6 +86,21 @@ export interface ConfigPartie {
   delaiRepriseTourMs: number;
 
   nbDossiersArchives: number;
+  /** « Grande enquête » : nombre minimal de dossiers d'archives consacrés aux mobiles. */
+  nbIndicesMobiles?: number;
+  /** « Grande enquête » : rôles secrets des joueurs (absent = pas de rôles). */
+  roles?: ConfigRoles;
+  /** « Grande enquête » : objectif secret du complice (absent = pas d'objectif). */
+  objectifs?: ConfigObjectifs;
+  /** « Grande enquête » : tableau d'enquête commun (absent = pas de tableau). */
+  tableau?: {
+    /** Épingles signées par joueur et par manche (une rumeur compte à part). */
+    epinglesParManche: number;
+    /** Épingles signées affichées par joueur : au-delà, la plus ancienne disparaît. */
+    maxAffichees: number;
+    /** Longueur maximale du petit mot. */
+    noteMax: number;
+  };
   nbIndicesPublicsDepart: number;
   /** Manches au début desquelles un nouvel indice est versé au dossier public. */
   manchesIndicesPublics: number[];
@@ -65,6 +114,7 @@ export interface ConfigPartie {
 
 export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   affaire: 'manoir',
+  mode: 'classique',
   manchesMax: 12,
   pointsAction: 2,
   hypothesesMaxParTour: 1,
@@ -109,11 +159,59 @@ export const CONFIG_PAR_DEFAUT: ConfigPartie = {
   indicesRelationnels: true,
 };
 
+/**
+ * Réglages propres à la « Grande enquête » (docs/GRANDE-ENQUETE.md), appliqués par-dessus la config.
+ * Premiers chiffres, à régler par simulation.
+ */
+export const CONFIG_GRANDE_ENQUETE: Partial<ConfigPartie> = {
+  mode: 'grande',
+  manchesMax: 14,
+  // Réglage K de l'étape 7 (choisi par l'auteur le 23/10/2026, docs/GRANDE-ENQUETE.md) : une question
+  // de plus demande plus d'actions — 3 points d'action par tour (une hypothèse ET un dossier) — et le
+  // complice a 3 ruses à 4 joueurs, 5 à 5 joueurs, 6 à 6 joueurs.
+  pointsAction: 3,
+  ruses: { 3: 2, 4: 3, 5: 5, 6: 6 },
+  // Avec le mobile, il y a 6 fois plus de combinaisons : même exigence que la partie classique
+  // (au moins 4 meurtrier / lieu / arme possibles avec les seuls indices), multipliée par les 6 mobiles.
+  minCombinaisonsIndices: 24,
+  // Une question de plus, donc plus d'archives : 8 dossiers, dont au moins 2 sur les mobiles.
+  nbDossiersArchives: 8,
+  nbIndicesMobiles: 2,
+  ouvertureDossiers: [1, 2, 3, 4, 5, 7, 9, 11],
+  roles: {
+    tirables: ['inspecteur', 'legiste', 'archiviste', 'journaliste', 'profileur'],
+    utilisations: { inspecteur: 2, legiste: 1, archivesGratuites: 2, verificationsDossier: 1, profileur: 1, journaliste: 3 },
+    mancheExpertise: 3,
+    mancheProfilage: 6,
+    maitreChanteurDes: 5,
+  },
+  objectifs: {
+    tirables: ['temoin_genant', 'bouc_emissaire', 'ombre'],
+    delaiDesignationMs: 30_000,
+    // Une seule accusation suffit, quelle que soit la table (décision de l'auteur, 23/10/2026).
+    accusationsBouc: { 4: 1, 5: 1, 6: 1 },
+    rusesOmbre: 3,
+  },
+  tableau: { epinglesParManche: 1, maxAffichees: 4, noteMax: 80 },
+};
+
+/** La solution de cette partie comprend-elle un mobile ? */
+export function avecMobile(config: Pick<ConfigPartie, 'mode'>): boolean {
+  return config.mode === 'grande';
+}
+
 /** Nombre de joueurs interrogés selon le nombre total de joueurs. */
 export const NB_INTERROGES: Record<number, number> = { 3: 1, 4: 2, 5: 2, 6: 3 };
 
 export const JOUEURS_MIN = 3;
 export const JOUEURS_MAX = 6;
+/** La « Grande enquête » se joue à 4 joueurs au moins. */
+export const JOUEURS_MIN_GRANDE = 4;
+
+/** Nombre minimal de joueurs pour ce mode. */
+export function joueursMin(config: Pick<ConfigPartie, 'mode'>): number {
+  return config.mode === 'grande' ? JOUEURS_MIN_GRANDE : JOUEURS_MIN;
+}
 
 /** Pouvoirs du complice pour une table de cette taille. */
 export function pouvoirsPour(config: ConfigPartie, nbJoueurs: number) {

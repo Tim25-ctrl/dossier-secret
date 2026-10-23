@@ -4,19 +4,20 @@
 // cette solution sont candidats, 3) une sélection est construite puis VALIDÉE.
 // Si la validation échoue, on régénère : une partie incohérente ne démarre jamais.
 
-import { INDICES_PAR_ID, indicesDe } from '../shared/data/catalogue';
+import { INDICES_PAR_ID, indicesDuMode, indicesMobilesDe } from '../shared/data/catalogue';
 import { combinaisonsPossibles, estRelationnel, indiceValide, indicesIncompatibles } from '../shared/logique';
 import {
   AFFAIRE_PAR_DEFAUT,
   elementsDe,
   elementsDuTriplet,
+  memeTriplet,
   type AffaireId,
   type CarteIndice,
   type ElementId,
   type SuspectId,
   type Triplet,
 } from '../shared/types';
-import { JOUEURS_MAX, JOUEURS_MIN, type ConfigPartie } from './config';
+import { JOUEURS_MAX, JOUEURS_MIN, avecMobile, type ConfigPartie } from './config';
 import { pick, shuffle, type Rng } from './rng';
 
 export interface DossierArchive {
@@ -43,9 +44,12 @@ export function tousLesIndicesDeLAffaire(a: Affaire): CarteIndice[] {
   );
 }
 
-export function tirerSolution(rng: Rng, affaire: AffaireId = AFFAIRE_PAR_DEFAUT): Triplet {
+export function tirerSolution(rng: Rng, affaire: AffaireId = AFFAIRE_PAR_DEFAUT, mobile = false): Triplet {
   const e = elementsDe(affaire);
-  return { suspect: pick(rng, e.suspects), lieu: pick(rng, e.lieux), arme: pick(rng, e.armes) };
+  const solution: Triplet = { suspect: pick(rng, e.suspects), lieu: pick(rng, e.lieux), arme: pick(rng, e.armes) };
+  // Le mobile est tiré APRÈS les trois autres : une partie classique garde exactement le même tirage.
+  if (mobile) solution.mobile = pick(rng, e.mobiles);
+  return solution;
 }
 
 function distincts<T>(items: T[]): number {
@@ -53,26 +57,39 @@ function distincts<T>(items: T[]): number {
 }
 
 /** Les indices donnés laissent-ils au moins deux possibilités dans chaque catégorie ? */
-function laisseDuDoutePartout(cartes: CarteIndice[], affaire: AffaireId): boolean {
-  const c = combinaisonsPossibles(cartes, [], affaire);
-  return distincts(c.map((t) => t.suspect)) >= 2 && distincts(c.map((t) => t.lieu)) >= 2 && distincts(c.map((t) => t.arme)) >= 2;
+function laisseDuDoutePartout(cartes: CarteIndice[], affaire: AffaireId, mobile = false): boolean {
+  const c = combinaisonsPossibles(cartes, [], affaire, mobile);
+  return (
+    distincts(c.map((t) => t.suspect)) >= 2 &&
+    distincts(c.map((t) => t.lieu)) >= 2 &&
+    distincts(c.map((t) => t.arme)) >= 2 &&
+    (!mobile || distincts(c.map((t) => t.mobile)) >= 2)
+  );
 }
 
 /** Une tentative de sélection d'indices pour une solution donnée. */
 function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Affaire | null {
   const nbDifferes = config.manchesIndicesPublics.length;
   const total = config.nbIndicesPublicsDepart + nbDifferes + config.nbDossiersArchives;
-  const compatibles = shuffle(
-    rng,
-    indicesDe(config.affaire).filter((c) => indiceValide(c, solution) && (!config.indicesRelationnels || estRelationnel(c))),
-  );
+  const mobile = avecMobile(config);
+  const utilisable = (c: CarteIndice) => indiceValide(c, solution) && (!config.indicesRelationnels || estRelationnel(c));
+  // « Grande enquête » : quelques indices sur les mobiles passent en tête, pour en garantir dans les archives.
+  const quota = mobile ? (config.nbIndicesMobiles ?? 0) : 0;
+  const surMobiles = quota ? shuffle(rng, indicesMobilesDe(config.affaire).filter(utilisable)).slice(0, quota) : [];
+  const compatibles = [
+    ...surMobiles,
+    ...shuffle(
+      rng,
+      indicesDuMode(config.affaire, mobile).filter((c) => utilisable(c) && !surMobiles.includes(c)),
+    ),
+  ];
 
   const choisis: CarteIndice[] = [];
   for (const carte of compatibles) {
     if (choisis.length >= total) break;
     if (choisis.some((c) => indicesIncompatibles(c, carte))) continue;
     const essai = [...choisis, carte];
-    if (combinaisonsPossibles(essai, [], config.affaire).length < config.minCombinaisonsIndices) continue;
+    if (combinaisonsPossibles(essai, [], config.affaire, mobile).length < config.minCombinaisonsIndices) continue;
     choisis.push(carte);
   }
   if (choisis.length < total) return null;
@@ -82,7 +99,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
   let depart: CarteIndice[] | null = null;
   for (let essai = 0; essai < 20 && !depart; essai++) {
     const tirage = shuffle(rng, departPossibles).slice(0, config.nbIndicesPublicsDepart);
-    if (tirage.length === config.nbIndicesPublicsDepart && laisseDuDoutePartout(tirage, config.affaire)) depart = tirage;
+    if (tirage.length === config.nbIndicesPublicsDepart && laisseDuDoutePartout(tirage, config.affaire, avecMobile(config))) depart = tirage;
   }
   if (!depart) return null;
   let reste = choisis.filter((c) => !depart!.includes(c));
@@ -111,7 +128,7 @@ function tenterSelection(rng: Rng, solution: Triplet, config: ConfigPartie): Aff
 
 export function genererAffaire(rng: Rng, config: ConfigPartie, solutionImposee?: Triplet): Affaire {
   for (let tentative = 0; tentative < 50; tentative++) {
-    const solution = solutionImposee ?? tirerSolution(rng, config.affaire);
+    const solution = solutionImposee ?? tirerSolution(rng, config.affaire, avecMobile(config));
     for (let essai = 0; essai < 40; essai++) {
       const affaire = tenterSelection(rng, solution, config);
       if (affaire && validerAffaire(affaire, config).length === 0) return affaire;
@@ -129,7 +146,13 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
   const erreurs: string[] = [];
   const { solution } = affaire;
   const e = elementsDe(config.affaire);
-  if (!e.suspects.includes(solution.suspect) || !e.lieux.includes(solution.lieu) || !e.armes.includes(solution.arme)) {
+  const mobileAttendu = avecMobile(config);
+  if (
+    !e.suspects.includes(solution.suspect) ||
+    !e.lieux.includes(solution.lieu) ||
+    !e.armes.includes(solution.arme) ||
+    (mobileAttendu ? !solution.mobile || !e.mobiles.includes(solution.mobile) : solution.mobile !== undefined)
+  ) {
     erreurs.push('Solution invalide.');
     return erreurs;
   }
@@ -143,7 +166,7 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
   }
   const cartes = ids.map((id) => INDICES_PAR_ID[id]);
 
-  const autreAffaire = new Set(indicesDe(config.affaire).map((c) => c.id));
+  const autreAffaire = new Set(indicesDuMode(config.affaire, mobileAttendu).map((c) => c.id));
   for (const c of cartes) if (!autreAffaire.has(c.id)) erreurs.push(`L'indice ${c.id} n'appartient pas à cette affaire.`);
   for (const c of cartes) if (!indiceValide(c, solution)) erreurs.push(`L'indice ${c.id} exclut la vraie solution.`);
   if (config.indicesRelationnels)
@@ -152,8 +175,8 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
     for (let j = i + 1; j < cartes.length; j++)
       if (indicesIncompatibles(cartes[i], cartes[j])) erreurs.push(`Les indices ${cartes[i].id} et ${cartes[j].id} se contredisent.`);
 
-  const possibles = combinaisonsPossibles(cartes, [], config.affaire);
-  if (!possibles.some((t) => t.suspect === solution.suspect && t.lieu === solution.lieu && t.arme === solution.arme))
+  const possibles = combinaisonsPossibles(cartes, [], config.affaire, mobileAttendu);
+  if (!possibles.some((t) => memeTriplet(t, solution)))
     erreurs.push('La solution ne fait pas partie des combinaisons possibles.');
   if (possibles.length < config.minCombinaisonsIndices)
     erreurs.push(`Les indices seuls révèlent trop la solution (${possibles.length} combinaison(s) restante(s)).`);
@@ -161,11 +184,14 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
   const depart = affaire.indicesPublicsDepart.map((id) => INDICES_PAR_ID[id]);
   if (depart.length !== config.nbIndicesPublicsDepart) erreurs.push("Nombre d'indices publics de départ incorrect.");
   if (depart.some((c) => c.disponibleDesManche > 1)) erreurs.push("Un indice public de départ n'est pas disponible en manche 1.");
-  if (!laisseDuDoutePartout(depart, config.affaire)) erreurs.push('Les indices publics de départ révèlent un élément de la solution.');
+  if (!laisseDuDoutePartout(depart, config.affaire, mobileAttendu)) erreurs.push('Les indices publics de départ révèlent un élément de la solution.');
 
   for (const d of affaire.indicesPublicsDifferes)
     if (INDICES_PAR_ID[d.indice].disponibleDesManche > d.manche) erreurs.push(`L'indice ${d.indice} est publié avant sa disponibilité.`);
   if (affaire.archives.length !== config.nbDossiersArchives) erreurs.push("Nombre de dossiers d'archives incorrect.");
+  const mobilesUtiles = new Set(indicesMobilesDe(config.affaire).map((c) => c.id));
+  if (mobileAttendu && affaire.archives.filter((d) => mobilesUtiles.has(d.indice)).length < (config.nbIndicesMobiles ?? 0))
+    erreurs.push('Pas assez de dossiers sur les mobiles.');
   for (const d of affaire.archives)
     if (INDICES_PAR_ID[d.indice].disponibleDesManche > d.disponibleDesManche) erreurs.push(`Le dossier ${d.dossier} s'ouvre avant sa disponibilité.`);
 
@@ -177,20 +203,22 @@ export function validerAffaire(affaire: Affaire, config: ConfigPartie): string[]
 // ---------------------------------------------------------------------------
 
 /**
- * Règle de distribution : les 15 cartes qui ne font pas partie de la solution
+ * Règle de distribution (partie classique) : les 15 cartes qui ne font pas partie de la solution
  * sont mélangées. Chaque joueur reçoit floor(15 / N) cartes ; le reste devient des
  * pièces à conviction rangées dans les archives (ou des cartes publiques, selon la config).
  *   3 joueurs : 5 cartes chacun, 0 restante
  *   4 joueurs : 3 cartes chacun, 3 restantes
  *   5 joueurs : 3 cartes chacun, 0 restante
  *   6 joueurs : 2 cartes chacun, 3 restantes
+ * En « Grande enquête », les mobiles s'ajoutent : 20 cartes hors solution.
+ *   4 joueurs : 5 cartes chacun · 5 joueurs : 4 chacun · 6 joueurs : 3 chacun, 2 restantes
  */
 export function distribuerCartes(rng: Rng, solution: Triplet, joueurs: string[], affaire: AffaireId = AFFAIRE_PAR_DEFAUT): Distribution {
   if (joueurs.length < JOUEURS_MIN || joueurs.length > JOUEURS_MAX) throw new Error('Nombre de joueurs invalide.');
   const secretes = new Set<ElementId>(elementsDuTriplet(solution));
   const paquet = shuffle(
     rng,
-    elementsDe(affaire).tous.filter((e) => !secretes.has(e)),
+    elementsDe(affaire, !!solution.mobile).tous.filter((e) => !secretes.has(e)),
   );
   const parJoueur = Math.floor(paquet.length / joueurs.length);
   const mains: Record<string, ElementId[]> = {};
@@ -205,8 +233,8 @@ export function validerDistribution(d: Distribution, solution: Triplet, joueurs:
   const toutes = [...Object.values(d.mains).flat(), ...d.cartesPubliques];
   if (new Set(toutes).size !== toutes.length) erreurs.push('Une carte est distribuée deux fois.');
   for (const e of elementsDuTriplet(solution)) if (toutes.includes(e)) erreurs.push('Une carte de la solution a été distribuée.');
-  const elements = elementsDe(affaire).tous;
-  if (toutes.length !== elements.length - 3 || toutes.some((c) => !elements.includes(c))) erreurs.push('Toutes les cartes hors solution ne sont pas distribuées.');
+  const elements = elementsDe(affaire, !!solution.mobile).tous;
+  if (toutes.length !== elements.length - elementsDuTriplet(solution).length || toutes.some((c) => !elements.includes(c))) erreurs.push('Toutes les cartes hors solution ne sont pas distribuées.');
   const tailles = joueurs.map((j) => d.mains[j]?.length ?? -1);
   if (new Set(tailles).size !== 1) erreurs.push('Les mains ne sont pas de même taille.');
   if (Object.keys(d.mains).length !== joueurs.length) erreurs.push('Mains et joueurs ne correspondent pas.');

@@ -27,6 +27,8 @@ src/
     data/paquebot.ts   Le paquebot (l'Aurélia) : présentation, suspects, lieux, armes
     data/indicesPaquebot.ts  Ses 44 cartes d'indice (même structure que le train, journal d'Édouard)
     data/fauxIndices.ts   Modèles de faux indices (ruse « Dossier trafiqué »), communs à toutes les affaires
+    data/mobiles.ts    Grande enquête : les 6 mobiles de chaque histoire (fiche, récit de fin, dessin)
+    data/indicesMobiles.ts  Grande enquête : 12 indices sur les mobiles par histoire
     logique.ts         Évaluation des règles, énumération des 216 combinaisons, conflits horaires
     types.ts           Types du jeu (actions, événements publics, journal privé, vue d'un joueur)
     protocole.ts       Messages WebSocket client <-> serveur
@@ -37,6 +39,7 @@ src/
     vue.ts             FILTRAGE : construit la vue d'un joueur à partir de l'état complet
     rng.ts             Aléa cryptographique (parties) ou déterministe (tests)
   bots/              Joueurs automatiques (n'utilisent que la vue filtrée) et simulations
+    grande.ts          Comportements propres à la Grande enquête (pouvoirs, tableau, Témoin, objectif du complice)
   server/            Serveur HTTP + WebSocket
     salons.ts          Salons, codes, identités, hôte, reconnexion, sauvegarde
     sauvegarde.ts      Sauvegardes chiffrées gardées par les joueurs (AES-256-GCM, clé CLE_SAUVEGARDE)

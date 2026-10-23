@@ -2,7 +2,7 @@
 // démarrage des parties, reconnexion. Aucune dépendance réseau : testable seul.
 
 import { createHash, randomBytes } from 'node:crypto';
-import { CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, REGLES_INITIALES, type ConfigPartie } from '../engine/config';
+import { CONFIG_GRANDE_ENQUETE, CONFIG_PAR_DEFAUT, JOUEURS_MAX, JOUEURS_MIN, REGLES_INITIALES, joueursMin, type ConfigPartie } from '../engine/config';
 import {
   abandonner,
   appliquerAction,
@@ -161,7 +161,13 @@ export class GestionnaireSalons {
       dureeTourS: ms === null ? null : Math.round((ms ?? 180_000) / 1000),
       modeComplice: this.configPartie.modeComplice ?? 'ruse',
       historiqueCartes: this.configPartie.historiqueCartes ?? 'visibles',
+      mode: 'classique',
     };
+  }
+
+  /** Joueurs nécessaires pour lancer une partie avec ces réglages (4 en « Grande enquête »). */
+  private minJoueurs(r: ReglagesSalon): number {
+    return joueursMin({ mode: r.mode ?? 'classique' });
   }
 
   salon(code: string): Salon {
@@ -212,8 +218,9 @@ export class GestionnaireSalons {
   /** Partie seul contre des bots : salon créé, bots ajoutés et enquête lancée d'un coup. */
   creerSolo(nomBrut: unknown, nbBots: number, reglages: Partial<ReglagesSalon> = {}) {
     if (!this.botsAutorises) throw new ErreurJeu('Les joueurs automatiques sont désactivés sur ce serveur.');
-    if (!Number.isInteger(nbBots) || nbBots < JOUEURS_MIN - 1 || nbBots > JOUEURS_MAX - 1)
-      throw new ErreurJeu(`Choisissez entre ${JOUEURS_MIN - 1} et ${JOUEURS_MAX - 1} adversaires.`);
+    const min = joueursMin({ mode: reglages.mode ?? 'classique' });
+    if (!Number.isInteger(nbBots) || nbBots < min - 1 || nbBots > JOUEURS_MAX - 1)
+      throw new ErreurJeu(`Choisissez entre ${min - 1} et ${JOUEURS_MAX - 1} adversaires.`);
     const r = this.creer(nomBrut);
     r.salon.solo = true;
     try {
@@ -474,6 +481,16 @@ export class GestionnaireSalons {
     this.toucher(s);
   }
 
+  /** L'hôte choisit le mode de jeu : partie classique ou « Grande enquête » (salon d'attente uniquement). */
+  reglerMode(code: string, id: string, valeur: unknown) {
+    const s = this.salon(code);
+    if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut modifier les réglages.");
+    if (s.statut !== 'lobby') throw new ErreurJeu('Les réglages ne peuvent plus changer une fois la partie lancée.');
+    if (valeur !== 'classique' && valeur !== 'grande') throw new ErreurJeu('Mode de jeu invalide.');
+    s.reglages = { ...s.reglages, mode: valeur };
+    this.toucher(s);
+  }
+
   /** L'hôte règle la durée d'un tour (dans le salon d'attente uniquement). */
   reglerDureeTour(code: string, id: string, valeur: unknown) {
     const s = this.salon(code);
@@ -489,7 +506,11 @@ export class GestionnaireSalons {
     const s = this.salon(code);
     if (s.hote !== id) throw new ErreurJeu("Seul l'hôte peut lancer la partie.");
     if (s.statut !== 'lobby') throw new ErreurJeu('La partie a déjà commencé.');
-    if (s.joueurs.length < JOUEURS_MIN) throw new ErreurJeu(`Il faut au moins ${JOUEURS_MIN} joueurs pour commencer.`);
+    const min = this.minJoueurs(s.reglages);
+    if (s.joueurs.length < min)
+      throw new ErreurJeu(
+        s.reglages.mode === 'grande' ? `La Grande enquête se joue à ${min} joueurs au moins.` : `Il faut au moins ${min} joueurs pour commencer.`,
+      );
     if (s.joueurs.length > JOUEURS_MAX) throw new ErreurJeu(`${JOUEURS_MAX} joueurs maximum.`);
     const absents = s.joueurs.filter((j) => !j.connecte);
     if (absents.length) throw new ErreurJeu(`Joueur(s) déconnecté(s) : ${absents.map((j) => j.nom).join(', ')}.`);
@@ -501,6 +522,8 @@ export class GestionnaireSalons {
       now: this.now(),
       config: {
         ...this.configPartie,
+        // « Grande enquête » : mobile, rôles, objectif du complice, tableau d'enquête, 3 PA par tour.
+        ...(s.reglages.mode === 'grande' ? CONFIG_GRANDE_ENQUETE : {}),
         delaiTourMs: s.reglages.dureeTourS === null ? null : s.reglages.dureeTourS * 1000,
         modeComplice: s.reglages.modeComplice ?? 'ruse',
         historiqueCartes: s.reglages.historiqueCartes ?? 'visibles',
@@ -578,7 +601,7 @@ export class GestionnaireSalons {
       messages: s.messages.slice(-80),
       botsAutorises: this.botsAutorises,
       reglages: { ...s.reglages },
-      min: JOUEURS_MIN,
+      min: this.minJoueurs(s.reglages),
       max: JOUEURS_MAX,
       reprise: !!s.reprise && s.statut === 'partie',
       solo: !!s.solo,

@@ -20,7 +20,7 @@ import {
   type Session,
   type TypePartie,
 } from '../shared/protocole';
-import type { ActionJeu, AffaireId, ChoixAffaire } from '../shared/types';
+import type { ActionJeu, AffaireId, ChoixAffaire, ModeJeu } from '../shared/types';
 import {
   CLE_SESSION_COMPTE,
   definirProfilCompte,
@@ -400,8 +400,9 @@ class Connexion {
     modeComplice: 'classique' | 'ruse',
     affaire: ChoixAffaire,
     historiqueCartes: 'visibles' | 'anonymes' = 'visibles',
+    mode: ModeJeu = 'classique',
   ) {
-    const r = await this.envoyer<{ session: Session }>('salon:solo', { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes });
+    const r = await this.envoyer<{ session: Session }>('salon:solo', { nom, bots, dureeTourS, modeComplice, affaire, historiqueCartes, mode });
     if (r.ok) this.memoriser(r.session);
     return r;
   }
@@ -594,6 +595,7 @@ class Connexion {
   reglerModeComplice = (modeComplice: 'classique' | 'ruse') => this.envoyer('salon:reglages', { modeComplice });
   reglerHistoriqueCartes = (historiqueCartes: 'visibles' | 'anonymes') => this.envoyer('salon:reglages', { historiqueCartes });
   reglerAffaire = (affaire: ChoixAffaire) => this.envoyer('salon:reglages', { affaire });
+  reglerMode = (mode: ModeJeu) => this.envoyer('salon:reglages', { mode });
   action = (a: ActionJeu) => this.envoyer('jeu:action', a);
 }
 

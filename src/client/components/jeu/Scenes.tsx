@@ -62,6 +62,7 @@ function ContenuAccusation({ accusateur, triplet, correcte, etape }: { accusateu
         <CarteRetournable id={triplet.suspect} visible={etape >= 1} />
         <CarteRetournable id={triplet.lieu} visible={etape >= 2} />
         <CarteRetournable id={triplet.arme} visible={etape >= 3} />
+        {triplet.mobile && <CarteRetournable id={triplet.mobile} visible={etape >= 3} />}
       </div>
       <div className={`verdict-tampon ${correcte ? 'juste' : 'fausse'}${etape >= 4 ? ' visible' : ''}`} role="status">
         {etape >= 4 ? (correcte ? 'Accusation juste' : 'Accusation fausse') : ''}
@@ -160,7 +161,12 @@ export function Revelation({ vue, nom, onBilan }: { vue: VueJoueur; nom: Noms; o
   const r = vue.resultat!;
   const infos = AFFAIRES[vue.affaire];
   // Accusation qui a terminé la partie : juste, ou dernière accusation fausse possible.
-  const decisive = r.raison === 'accusation_correcte' ? r.accusations.find((a) => a.correcte) : r.raison === 'plus_d_accusateur' ? r.accusations.at(-1) : undefined;
+  const decisive =
+    r.raison === 'accusation_correcte' || r.raison === 'objectif_complice'
+      ? r.accusations.find((a) => a.correcte)
+      : r.raison === 'plus_d_accusateur'
+        ? r.accusations.at(-1)
+        : undefined;
   const [phase, setPhase] = useState<'accusation' | 'verite'>(decisive ? 'accusation' : 'verite');
 
   // Accusation décisive (même scène qu'en partie).
@@ -207,7 +213,11 @@ export function Revelation({ vue, nom, onBilan }: { vue: VueJoueur; nom: Noms; o
       ? "L'aube se lève… et le coupable court toujours."
       : r.raison === 'plus_d_accusateur'
         ? 'Plus personne ne peut accuser… et le coupable s’en tire.'
-        : 'L’affaire est résolue.';
+        : r.raison === 'objectif_complice'
+          ? 'L’affaire est résolue… mais le complice a eu le dernier mot.'
+          : r.vainqueur === 'maitre_chanteur'
+            ? 'L’affaire est résolue… par le Maître chanteur, qui garde tout pour lui.'
+            : 'L’affaire est résolue.';
 
   return (
     <div className="scene scene-revelation" role="dialog" aria-modal="true" aria-label="La vérité">
@@ -228,6 +238,7 @@ export function Revelation({ vue, nom, onBilan }: { vue: VueJoueur; nom: Noms; o
             <CarteRetournable id={r.solution.suspect} visible={nbCartes >= 1} />
             <CarteRetournable id={r.solution.lieu} visible={nbCartes >= 2} />
             <CarteRetournable id={r.solution.arme} visible={nbCartes >= 3} />
+            {r.solution.mobile && <CarteRetournable id={r.solution.mobile} visible={nbCartes >= 3} />}
           </div>
           <div className="scene-epilogue">
             {recit.slice(0, nbParagraphes).map((p) => (

@@ -1,9 +1,10 @@
 import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, indicesDe, nomCourt } from '../../shared/data/catalogue';
 import { ceQueLIndiceEcarte, reglesEffectives } from '../../shared/logique';
 import { useState } from 'react';
-import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, elementsDe, type AffaireId } from '../../shared/types';
+import { AFFAIRES_IDS, AFFAIRE_PAR_DEFAUT, ROLES_ENQUETE, elementsDe, type AffaireId } from '../../shared/types';
 import { Modale } from '../components/Commun';
 import { Dossier } from '../components/jeu/Dossier';
+import { NOMS_ROLES, POUVOIRS_ROLES } from '../grande';
 
 export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: AffaireId }) {
   // Les exemples d'indices sont tirés de l'affaire jouée (ou du manoir depuis l'accueil).
@@ -192,6 +193,48 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
         <strong>Le carnet de la victime.</strong> Des pages de son journal intime, datées de sa dernière semaine, sont glissées dans les dossiers. Chacune
         raconte une dispute avec un proche… et écarte une combinaison. À la fin de la partie, toute sa dernière semaine est révélée.
       </p>
+
+      <h3>Mode « Grande enquête » (4 à 6 joueurs)</h3>
+      <p>
+        Une partie plus longue et plus riche, à choisir dans le salon d'attente ou pour une partie seul contre des bots. Tout ce qui précède reste vrai, avec ces
+        différences :
+      </p>
+      <ul>
+        <li>
+          <strong>Le mobile.</strong> On cherche aussi <em>pourquoi</em> : six mobiles par histoire (l'héritage, la jalousie, le chantage…). Hypothèses et
+          accusations nomment quatre éléments ; des indices des archives parlent des mobiles. Sur la fiche d'un suspect, « raison d'en vouloir à la victime » n'est
+          pas forcément le vrai mobile.
+        </li>
+        <li>
+          <strong>14 manches et 3 points d'action par tour</strong> : une hypothèse (2 PA) et un dossier (1 PA) dans le même tour.
+        </li>
+        <li>
+          <strong>Des rôles secrets.</strong> Chaque enquêteur reçoit un rôle, que lui seul connaît :
+          <ul>
+            {ROLES_ENQUETE.map((r) => (
+              <li key={r}>
+                <strong>{NOMS_ROLES[r]}</strong>
+                {r === 'temoin' ? ' (toujours en jeu)' : ''} — {POUVOIRS_ROLES[r]}
+              </li>
+            ))}
+          </ul>
+          Les pouvoirs sont secrets, gratuits et s'utilisent pendant son tour. Chacun peut prétendre avoir n'importe quel rôle…
+        </li>
+        <li>
+          <strong>Le Maître chanteur</strong> (5 et 6 joueurs) connaît le mobile. Il gagne <em>seul</em> s'il fait lui-même l'accusation juste ; si un enquêteur trouve
+          avant lui, il perd. Le dénoncer comme complice est une erreur.
+        </li>
+        <li>
+          <strong>L'objectif secret du complice</strong>, tiré au sort : <em>le témoin gênant</em> (à la fin, désigner le Témoin), <em>le bouc émissaire</em> (faire
+          accuser un suspect innocent précis) ou <em>l'ombre</em> (ne jamais être dénoncé et utiliser au moins 3 ruses). S'il le réussit, il <strong>vole la
+          victoire</strong>, même si l'enquête a abouti. Il a 3 ruses à 4 joueurs, 5 à 5 joueurs, 6 à 6 joueurs.
+        </li>
+        <li>
+          <strong>Le tableau d'enquête</strong>, visible par tous : épinglez un élément (« coupable ? », « innocent ? », « fausse piste ? ») ou un joueur
+          (« complice ? »), avec un petit mot. Une épingle par manche, à tout moment ; réactions 👍 / 👎. Rien n'est vérifié : le tableau peut mentir. À la fin,
+          chaque épingle est montrée avec son vrai auteur.
+        </li>
+      </ul>
     </div>
   );
 }
@@ -200,7 +243,18 @@ export function ContenuRegles({ affaire = AFFAIRE_PAR_DEFAUT }: { affaire?: Affa
  * Règles du jeu (communes à toutes les histoires) et onglet « Les affaires » : histoire et fiches
  * de chaque affaire. `affaire` est celle affichée d'abord (celle jouée en partie).
  */
-export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: initialeAffaire }: { onFermer: () => void; section?: 'regles' | 'dossier'; affaire?: AffaireId }) {
+export function ModaleRegles({
+  onFermer,
+  section: initiale = 'regles',
+  affaire: initialeAffaire,
+  grande = false,
+}: {
+  onFermer: () => void;
+  section?: 'regles' | 'dossier';
+  affaire?: AffaireId;
+  /** Pendant une Grande enquête : les fiches montrent aussi les mobiles. */
+  grande?: boolean;
+}) {
   const [section, setSection] = useState<'regles' | 'dossier'>(initiale);
   const [affaire, setAffaire] = useState<AffaireId>(initialeAffaire ?? AFFAIRE_PAR_DEFAUT);
   return (
@@ -225,7 +279,7 @@ export function ModaleRegles({ onFermer, section: initiale = 'regles', affaire: 
             ))}
           </div>
           <p className="muet petit">L'histoire de l'affaire, puis les fiches des six suspects, des six lieux et des six armes : histoires, mobiles, secrets et alibis déclarés.</p>
-          <Dossier key={affaire} affaire={affaire} />
+          <Dossier key={affaire} affaire={affaire} grande={grande} />
         </>
       )}
     </Modale>

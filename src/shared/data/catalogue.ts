@@ -7,21 +7,40 @@ import { FAUX_INDICES, INDICES } from './indices';
 import { FAUX_INDICES_TRAIN, INDICES_TRAIN } from './indicesTrain';
 import { AFFAIRE, ARMES_FICHES as ARMES_MANOIR, LIEUX_FICHES as LIEUX_MANOIR, PERSONNAGES as PERSONNAGES_MANOIR } from './manoir';
 import { FAUX_INDICES_PAQUEBOT, INDICES_PAQUEBOT } from './indicesPaquebot';
-import type { DonneesAffaire, FicheArme, FicheLieu, FichePersonnage, InfosAffaire } from './modeles';
+import { INDICES_MOBILES_MANOIR, INDICES_MOBILES_PAQUEBOT, INDICES_MOBILES_TRAIN } from './indicesMobiles';
+import { MOBILES_PAR_HISTOIRE } from './mobiles';
+import type { DonneesAffaire, FicheArme, FicheLieu, FicheMobile, FichePersonnage, InfosAffaire } from './modeles';
 import { AFFAIRE_PAQUEBOT, ARMES_PAQUEBOT, LIEUX_PAQUEBOT, PERSONNAGES_PAQUEBOT } from './paquebot';
 import { AFFAIRE_TRAIN, ARMES_TRAIN, LIEUX_TRAIN, PERSONNAGES_TRAIN } from './train';
 
-export type { FicheArme, FicheLieu, FichePersonnage, InfosAffaire } from './modeles';
+export type { FicheArme, FicheLieu, FicheMobile, FichePersonnage, InfosAffaire } from './modeles';
 
 export const DONNEES_AFFAIRES: Record<AffaireId, DonneesAffaire> = {
-  manoir: { infos: AFFAIRE, personnages: PERSONNAGES_MANOIR, lieux: LIEUX_MANOIR, armes: ARMES_MANOIR, indices: INDICES, fauxIndices: FAUX_INDICES },
-  train: { infos: AFFAIRE_TRAIN, personnages: PERSONNAGES_TRAIN, lieux: LIEUX_TRAIN, armes: ARMES_TRAIN, indices: INDICES_TRAIN, fauxIndices: FAUX_INDICES_TRAIN },
+  manoir: {
+    infos: AFFAIRE,
+    personnages: PERSONNAGES_MANOIR,
+    lieux: LIEUX_MANOIR,
+    armes: ARMES_MANOIR,
+    indices: INDICES,
+    indicesMobiles: INDICES_MOBILES_MANOIR,
+    fauxIndices: FAUX_INDICES,
+  },
+  train: {
+    infos: AFFAIRE_TRAIN,
+    personnages: PERSONNAGES_TRAIN,
+    lieux: LIEUX_TRAIN,
+    armes: ARMES_TRAIN,
+    indices: INDICES_TRAIN,
+    indicesMobiles: INDICES_MOBILES_TRAIN,
+    fauxIndices: FAUX_INDICES_TRAIN,
+  },
   paquebot: {
     infos: AFFAIRE_PAQUEBOT,
     personnages: PERSONNAGES_PAQUEBOT,
     lieux: LIEUX_PAQUEBOT,
     armes: ARMES_PAQUEBOT,
     indices: INDICES_PAQUEBOT,
+    indicesMobiles: INDICES_MOBILES_PAQUEBOT,
     fauxIndices: FAUX_INDICES_PAQUEBOT,
   },
 };
@@ -41,15 +60,22 @@ const tous = <K extends 'personnages' | 'lieux' | 'armes'>(k: K) =>
 export const PERSONNAGES: Record<string, FichePersonnage> = tous('personnages');
 export const LIEUX_FICHES: Record<string, FicheLieu> = tous('lieux');
 export const ARMES_FICHES: Record<string, FicheArme> = tous('armes');
+/** Mobiles de toutes les affaires (mode « Grande enquête »). */
+export const MOBILES_FICHES: Record<string, FicheMobile> = Object.assign({}, ...Object.values(MOBILES_PAR_HISTOIRE));
 
-/** Indices rédigés d'une affaire (ceux que le générateur peut tirer). */
+/** Indices rédigés d'une affaire (ceux que le générateur peut tirer dans une partie classique). */
 export const indicesDe = (affaire: AffaireId): CarteIndice[] => DONNEES_AFFAIRES[affaire].indices;
+/** Indices sur les mobiles d'une affaire (« Grande enquête »). */
+export const indicesMobilesDe = (affaire: AffaireId): CarteIndice[] => DONNEES_AFFAIRES[affaire].indicesMobiles;
+/** Tous les indices qu'une partie peut tirer : ceux de l'affaire, plus ceux des mobiles en « Grande enquête ». */
+export const indicesDuMode = (affaire: AffaireId, avecMobile: boolean): CarteIndice[] =>
+  avecMobile ? [...indicesDe(affaire), ...indicesMobilesDe(affaire)] : indicesDe(affaire);
 /** Modèles de faux indices d'une affaire (ruse « Dossier trafiqué »). */
 export const fauxIndicesDe = (affaire: AffaireId): CarteIndice[] => DONNEES_AFFAIRES[affaire].fauxIndices;
 
 /** Tous les indices, vrais et faux, de toutes les affaires. */
 export const INDICES_PAR_ID: Record<string, CarteIndice> = Object.fromEntries(
-  Object.values(DONNEES_AFFAIRES).flatMap((d) => [...d.indices, ...d.fauxIndices].map((c) => [c.id, c] as const)),
+  Object.values(DONNEES_AFFAIRES).flatMap((d) => [...d.indices, ...d.indicesMobiles, ...d.fauxIndices].map((c) => [c.id, c] as const)),
 );
 
 /** Affaire d'un indice (d'après les éléments qu'il concerne). */
@@ -58,7 +84,7 @@ export function affaireDeCarte(c: CarteIndice): AffaireId {
 }
 
 export function nomElement(id: ElementId | string): string {
-  return PERSONNAGES[id]?.nom ?? LIEUX_FICHES[id]?.nom ?? ARMES_FICHES[id]?.nom ?? id;
+  return PERSONNAGES[id]?.nom ?? LIEUX_FICHES[id]?.nom ?? ARMES_FICHES[id]?.nom ?? MOBILES_FICHES[id]?.nom ?? id;
 }
 
 /** Nom court (prénom pour les personnages, sans article pour les lieux). */

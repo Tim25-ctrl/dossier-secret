@@ -4,14 +4,16 @@ import { INDICES_PAR_ID, libelleCategorie } from '../../../shared/data/catalogue
 import { nomElement } from '../../../shared/data/catalogue';
 import { AFFAIRE_PAR_DEFAUT, type AffaireId, type EntreePrivee, type EvenementPublic } from '../../../shared/types';
 import { Carte, TripletVue } from '../Commun';
+import { NOMS_ROLES } from '../../grande';
 import { styleHistorique, texteRoman } from './Roman';
 
 export type Noms = (id: string) => string;
 
 const RAISONS_FIN = {
   accusation_correcte: 'une accusation juste a été formulée',
-  manches_ecoulees: 'les 12 manches sont écoulées',
+  manches_ecoulees: 'toutes les manches sont écoulées',
   plus_d_accusateur: "plus aucun enquêteur ne peut accuser",
+  objectif_complice: 'le complice a réussi son objectif secret',
 } as const;
 
 export function texteEvenement(
@@ -121,10 +123,20 @@ export function texteEvenement(
       return { classe: 'important', contenu: `${nom(ev.joueur)} est de retour et reprend sa place.` };
     case 'connexion':
       return { contenu: ev.connecte ? `${nom(ev.joueur)} est de retour.` : `${nom(ev.joueur)} a perdu la connexion.` };
+    case 'derniere_chance':
+      return { classe: 'important', contenu: "L'enquête a abouti… mais le complice a une dernière chance : désigner le Témoin." };
+    case 'temoin_designe':
+      return {
+        classe: 'important',
+        contenu:
+          ev.joueur === null
+            ? "Le complice n'a désigné personne."
+            : `Le complice désigne ${ev.joueur === moi ? 'vous' : nom(ev.joueur)} : ${ev.correct ? "c'était bien le Témoin !" : "ce n'était pas le Témoin."}`,
+      };
     case 'fin_partie':
       return {
         classe: 'important',
-        contenu: `Fin de l'enquête : ${ev.vainqueur === 'enqueteurs' ? 'les enquêteurs' : 'le complice'} ${ev.vainqueur === 'enqueteurs' ? 'gagnent' : 'gagne'} (${RAISONS_FIN[ev.raison]}).`,
+        contenu: `Fin de l'enquête : ${ev.vainqueur === 'enqueteurs' ? 'les enquêteurs gagnent' : ev.vainqueur === 'maitre_chanteur' ? 'le Maître chanteur gagne seul' : 'le complice gagne'} (${RAISONS_FIN[ev.raison]}).`,
       };
   }
 }
@@ -140,11 +152,34 @@ export function texteEntreePrivee(e: EntreePrivee, nom: Noms, anonyme = false): 
         <>
           Vous êtes <strong>le complice</strong>. Le meurtrier est <strong>{nomElement(e.meurtrier!)}</strong>.
         </>
+      ) : e.role === 'maitre_chanteur' ? (
+        <>
+          Vous êtes <strong>le Maître chanteur</strong>. Le mobile est <strong>{nomElement(e.mobile!)}</strong>.
+        </>
+      ) : e.roleEnquete ? (
+        <>
+          Vous êtes enquêteur, et votre rôle secret est <strong>{NOMS_ROLES[e.roleEnquete]}</strong>
+          {e.lieu ? (
+            <>
+              {' '}
+              : le crime a eu lieu <strong>{nomElement(e.lieu)}</strong>
+            </>
+          ) : null}
+          .
+        </>
       ) : (
         <>
           Vous êtes <strong>enquêteur</strong>.
         </>
       );
+    case 'verification':
+      return `Inspecteur : les réponses à votre hypothèse ${e.hypothese} ${e.honnete ? 'étaient toutes honnêtes' : 'contenaient une ruse du complice'}.`;
+    case 'expertise':
+      return `Légiste : ${e.innocents.map(nomElement).join(' et ')} ${e.innocents.length > 1 ? 'sont innocents' : 'est innocent'}.`;
+    case 'dossier_verifie':
+      return `Archiviste : le dossier n° ${e.dossier} ${e.trafique ? 'a été trafiqué !' : "n'a pas été trafiqué."}`;
+    case 'profilage':
+      return `Profileur : ${e.complicePresent ? "le complice est l'un de ces deux joueurs" : "le complice n'est aucun de ces deux joueurs"} — ${e.joueurs.map(nom).join(' et ')}.`;
     case 'main':
       return `Vous avez reçu : ${e.cartes.map(nomElement).join(', ')}.`;
     case 'hypothese_originale':

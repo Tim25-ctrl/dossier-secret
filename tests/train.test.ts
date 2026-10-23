@@ -4,7 +4,7 @@ import { CONFIG_PAR_DEFAUT, type ConfigPartie } from '../src/engine/config';
 import { distribuerCartes, genererAffaire, tousLesIndicesDeLAffaire, validerDistribution } from '../src/engine/generateur';
 import { seededRng } from '../src/engine/rng';
 import { vuePour } from '../src/engine/vue';
-import { AFFAIRES, ARMES_FICHES, INDICES_PAR_ID, LIEUX_FICHES, PERSONNAGES, fauxIndicesDe, indicesDe, nomElement } from '../src/shared/data/catalogue';
+import { AFFAIRES, ARMES_FICHES, INDICES_PAR_ID, LIEUX_FICHES, PERSONNAGES, fauxIndicesDe, indicesDe, indicesMobilesDe, nomElement } from '../src/shared/data/catalogue';
 import { jourDuJournal } from '../src/shared/data/indices';
 import { ceQueLIndiceEcarte, combinaisonsPossibles, estRelationnel, reglesEffectives, tripletsDe } from '../src/shared/logique';
 import { AFFAIRES_IDS, affaireDe, elementsDe } from '../src/shared/types';
@@ -15,11 +15,12 @@ const indices = indicesDe('train');
 
 describe("Catalogue des affaires", () => {
   it('chaque élément et chaque indice a un identifiant unique, toutes affaires confondues', () => {
-    const elements = AFFAIRES_IDS.flatMap((a) => elementsDe(a).tous);
+    // Mobiles et indices sur les mobiles (« Grande enquête ») compris.
+    const elements = AFFAIRES_IDS.flatMap((a) => elementsDe(a, true).tous);
     expect(new Set(elements).size).toBe(elements.length);
-    const tous = AFFAIRES_IDS.flatMap((a) => [...indicesDe(a), ...fauxIndicesDe(a)]);
+    const tous = AFFAIRES_IDS.flatMap((a) => [...indicesDe(a), ...indicesMobilesDe(a), ...fauxIndicesDe(a)]);
     expect(Object.keys(INDICES_PAR_ID)).toHaveLength(tous.length);
-    for (const a of AFFAIRES_IDS) for (const e of elementsDe(a).tous) expect(affaireDe(e)).toBe(a);
+    for (const a of AFFAIRES_IDS) for (const e of elementsDe(a, true).tous) expect(affaireDe(e)).toBe(a);
   });
 
   it('chaque affaire a ses 6 + 6 + 6 fiches complètes', () => {

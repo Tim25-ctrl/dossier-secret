@@ -1,6 +1,6 @@
 // Protocole WebSocket entre le navigateur et le serveur (types uniquement).
 
-import type { ActionJeu, AffaireId, ChoixAffaire, HistoriqueCartes, ModeComplice, VueJoueur } from './types';
+import type { ActionJeu, AffaireId, ChoixAffaire, HistoriqueCartes, ModeComplice, ModeJeu, VueJoueur } from './types';
 
 export const LONGUEUR_CODE = 6;
 export const ALPHABET_CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -80,6 +80,8 @@ export interface ReglagesSalon {
   modeComplice: ModeComplice;
   /** Cartes montrées et reçues : rappelées dans l'historique, ou anonymes (difficile). */
   historiqueCartes: HistoriqueCartes;
+  /** Partie classique ou « Grande enquête » (absent dans les salons créés avant : classique). */
+  mode?: ModeJeu;
 }
 
 export interface SalonVue {
@@ -127,7 +129,7 @@ export interface EvenementsClient {
   'salon:creer': (p: { nom: string }, ack: (r: Reponse<{ session: Session }>) => void) => void;
   /** Partie seul contre des bots, lancée immédiatement. */
   'salon:solo': (
-    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice; affaire: ChoixAffaire; historiqueCartes?: HistoriqueCartes },
+    p: { nom: string; bots: number; dureeTourS: number | null; modeComplice: ModeComplice; affaire: ChoixAffaire; historiqueCartes?: HistoriqueCartes; mode?: ModeJeu },
     ack: (r: Reponse<{ session: Session }>) => void,
   ) => void;
   /** Pendant une partie, « rejoindre » avec le pseudonyme d'un joueur absent demande sa place (réponse `attente`). */

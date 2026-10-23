@@ -1,11 +1,12 @@
 // Formes des fiches d'une affaire (personnages, lieux, armes) et de sa présentation.
 // Types uniquement : chaque affaire remplit ces modèles dans son propre fichier.
 
-import type { AffaireId, ArmeId, CarteIndice, ELEMENTS_PAR_AFFAIRE, LieuId, SuspectId } from '../types';
+import type { AffaireId, ArmeId, CarteIndice, ELEMENTS_PAR_AFFAIRE, LieuId, MobileId, MOBILES_PAR_AFFAIRE, SuspectId } from '../types';
 
 export type SuspectsDe<A extends AffaireId> = (typeof ELEMENTS_PAR_AFFAIRE)[A]['suspects'][number];
 export type LieuxDe<A extends AffaireId> = (typeof ELEMENTS_PAR_AFFAIRE)[A]['lieux'][number];
 export type ArmesDe<A extends AffaireId> = (typeof ELEMENTS_PAR_AFFAIRE)[A]['armes'][number];
+export type MobilesDe<A extends AffaireId> = (typeof MOBILES_PAR_AFFAIRE)[A][number];
 
 export interface FichePersonnage {
   id: SuspectId;
@@ -44,6 +45,32 @@ export interface FicheArme {
   recit: string;
   icone: string;
 }
+
+/** Mobile du crime (mode « Grande enquête »). */
+export interface FicheMobile {
+  id: MobileId;
+  nom: string;
+  article: string; // « par jalousie »
+  description: string;
+  /** Phrase de la révélation finale ; {coupable} est remplacé par le nom du coupable. */
+  recit: string;
+  /** Dessin de la carte (plusieurs histoires partagent un même dessin : l'héritage, la jalousie…). */
+  icone: IconeMobile;
+}
+
+export type IconeMobile =
+  | 'testament'
+  | 'jalousie'
+  | 'coeurBrise'
+  | 'gant'
+  | 'enveloppe'
+  | 'cartes'
+  | 'medaillon'
+  | 'documentSecret'
+  | 'mallette'
+  | 'faillite'
+  | 'parapluie'
+  | 'caisse';
 
 /** Présentation d'une affaire et textes qui lui sont propres. */
 export interface InfosAffaire {
@@ -84,5 +111,7 @@ export interface DonneesAffaire {
   lieux: Record<string, FicheLieu>;
   armes: Record<string, FicheArme>;
   indices: CarteIndice[];
+  /** Indices sur les mobiles (« Grande enquête » seulement). */
+  indicesMobiles: CarteIndice[];
   fauxIndices: CarteIndice[];
 }

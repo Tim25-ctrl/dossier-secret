@@ -2,7 +2,7 @@
 // Ils ne sont jamais tirés comme vrais indices : seule la ruse « Dossier trafiqué » les utilise,
 // quand aucun indice rédigé ne peut servir de faux pour la solution de la partie.
 
-import type { ArmeId, CarteIndice, ElementId, LieuId, SuspectId } from '../types';
+import type { ArmeId, CarteIndice, ElementId, LieuId, MobileId, SuspectId } from '../types';
 import type { FicheArme, FicheLieu, FichePersonnage } from './modeles';
 
 export interface TextesFaux {
@@ -31,7 +31,7 @@ function deLieu(nom: string): string {
  * ces deux suspects ». Traduit en une règle « pas X avec Y » pour chacun des autres suspects :
  * l'indice n'écarte rien à lui seul et laisse toujours deux coupables possibles.
  */
-export function seulsSuspects(tous: readonly SuspectId[], pivot: LieuId | ArmeId, suspects: SuspectId[]) {
+export function seulsSuspects(tous: readonly SuspectId[], pivot: LieuId | ArmeId | MobileId, suspects: SuspectId[]) {
   return tous.filter((s) => !suspects.includes(s)).map((s) => ({ type: 'pasEnsemble', a: s, b: pivot }) as const);
 }
 

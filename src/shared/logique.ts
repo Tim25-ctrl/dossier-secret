@@ -2,7 +2,7 @@
 // énumération des combinaisons possibles. Utilisée par le moteur (génération,
 // validation) et par le client (affichage de ce qu'un indice permet d'écarter).
 
-import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, affaireDeCarte, nomElement } from './data/catalogue';
+import { AFFAIRES, ARMES_FICHES, LIEUX_FICHES, MOBILES_FICHES, affaireDeCarte, nomElement } from './data/catalogue';
 import {
   AFFAIRE_PAR_DEFAUT,
   LIEUX,
@@ -49,7 +49,7 @@ export function reglesEffectives(carte: CarteIndice): RegleIndice[] {
 }
 
 function contient(t: Triplet, e: ElementId): boolean {
-  return t.suspect === e || t.lieu === e || t.arme === e;
+  return t.suspect === e || t.lieu === e || t.arme === e || t.mobile === e;
 }
 
 export function regleVraie(regle: RegleIndice, t: Triplet): boolean {
@@ -70,15 +70,20 @@ export function indiceValide(carte: CarteIndice, solution: Triplet): boolean {
   return reglesEffectives(carte).every((r) => regleVraie(r, solution));
 }
 
-const TRIPLETS = new Map<AffaireId, readonly Triplet[]>();
+const TRIPLETS = new Map<string, readonly Triplet[]>();
 
-/** Les 216 combinaisons meurtrier / lieu / arme d'une affaire. */
-export function tripletsDe(affaire: AffaireId): readonly Triplet[] {
-  let t = TRIPLETS.get(affaire);
+/**
+ * Les 216 combinaisons meurtrier / lieu / arme d'une affaire, ou les 1 296 combinaisons
+ * meurtrier / lieu / arme / mobile en « Grande enquête ».
+ */
+export function tripletsDe(affaire: AffaireId, avecMobile = false): readonly Triplet[] {
+  const cle = avecMobile ? `${affaire}+mobile` : affaire;
+  let t = TRIPLETS.get(cle);
   if (!t) {
     const e = elementsDe(affaire);
-    t = e.suspects.flatMap((suspect) => e.lieux.flatMap((lieu) => e.armes.map((arme) => ({ suspect, lieu, arme }))));
-    TRIPLETS.set(affaire, t);
+    const sansMobile = e.suspects.flatMap((suspect) => e.lieux.flatMap((lieu) => e.armes.map((arme) => ({ suspect, lieu, arme }))));
+    t = avecMobile ? sansMobile.flatMap((s) => e.mobiles.map((mobile) => ({ ...s, mobile }))) : sansMobile;
+    TRIPLETS.set(cle, t);
   }
   return t;
 }
@@ -101,12 +106,22 @@ function affaireDeduite(cartes: readonly CarteIndice[], ecartes: readonly Elemen
  * et un ensemble d'éléments connus comme n'étant pas dans la solution
  * (cartes détenues par des joueurs ou rendues publiques).
  */
-export function combinaisonsPossibles(cartes: readonly CarteIndice[], elementsEcartes: Iterable<ElementId> = [], affaire?: AffaireId): Triplet[] {
+export function combinaisonsPossibles(
+  cartes: readonly CarteIndice[],
+  elementsEcartes: Iterable<ElementId> = [],
+  affaire?: AffaireId,
+  avecMobile = false,
+): Triplet[] {
   const regles = cartes.flatMap(reglesEffectives);
   const liste = [...elementsEcartes];
   const ecartes = new Set(liste);
-  return tripletsDe(affaire ?? affaireDeduite(cartes, liste)).filter(
-    (t) => !ecartes.has(t.suspect) && !ecartes.has(t.lieu) && !ecartes.has(t.arme) && regles.every((r) => regleVraie(r, t)),
+  return tripletsDe(affaire ?? affaireDeduite(cartes, liste), avecMobile).filter(
+    (t) =>
+      !ecartes.has(t.suspect) &&
+      !ecartes.has(t.lieu) &&
+      !ecartes.has(t.arme) &&
+      !(t.mobile && ecartes.has(t.mobile)) &&
+      regles.every((r) => regleVraie(r, t)),
   );
 }
 
@@ -161,9 +176,22 @@ export function descriptionRegle(r: RegleIndice): string {
     case 'siAlors': {
       const catSi = categorieDe(r.si);
       const catAlors = categorieDe(r.alors);
-      const sujet = catSi === 'suspect' ? `${avecArticle(r.si)} est coupable` : catSi === 'arme' ? `l'arme est : ${avecArticle(r.si)}` : `le crime a eu lieu : ${avecArticle(r.si)}`;
+      const sujet =
+        catSi === 'suspect'
+          ? `${avecArticle(r.si)} est coupable`
+          : catSi === 'arme'
+            ? `l'arme est : ${avecArticle(r.si)}`
+            : catSi === 'mobile'
+              ? `le mobile est : ${avecArticle(r.si)}`
+              : `le crime a eu lieu : ${avecArticle(r.si)}`;
       const consequence =
-        catAlors === 'lieu' ? `le crime a eu lieu : ${avecArticle(r.alors)}` : catAlors === 'suspect' ? `le coupable est ${avecArticle(r.alors)}` : `l'arme est : ${avecArticle(r.alors)}`;
+        catAlors === 'lieu'
+          ? `le crime a eu lieu : ${avecArticle(r.alors)}`
+          : catAlors === 'suspect'
+            ? `le coupable est ${avecArticle(r.alors)}`
+            : catAlors === 'mobile'
+              ? `le mobile est : ${avecArticle(r.alors)}`
+              : `l'arme est : ${avecArticle(r.alors)}`;
       return `Si ${sujet}, alors ${consequence}`;
     }
   }
@@ -171,7 +199,7 @@ export function descriptionRegle(r: RegleIndice): string {
 
 function parCategorie(affaire: AffaireId): Record<Categorie, readonly ElementId[]> {
   const e = elementsDe(affaire);
-  return { suspect: e.suspects, lieu: e.lieux, arme: e.armes };
+  return { suspect: e.suspects, lieu: e.lieux, arme: e.armes, mobile: e.mobiles };
 }
 
 /** « si le crime a eu lieu dans la serre » / « si l'arme est le chandelier en bronze » / « si Victor Delorme est coupable ». */
@@ -179,6 +207,7 @@ function conditionSur(e: ElementId): string {
   const cat = categorieDe(e);
   if (cat === 'lieu') return `si le crime a eu lieu ${LIEUX_FICHES[e as LieuId].article}`;
   if (cat === 'arme') return `si le crime a été commis ${ARMES_FICHES[e as ArmeId].article}`;
+  if (cat === 'mobile') return `si le crime a été commis ${MOBILES_FICHES[e].article}`;
   return `si ${nomElement(e)} est coupable`;
 }
 
@@ -186,6 +215,7 @@ function conditionSur(e: ElementId): string {
 function seulsPossibles(cat: Categorie, elements: ElementId[]): string {
   if (cat === 'lieu') return `le crime a eu lieu ${elements.map((e) => LIEUX_FICHES[e as LieuId].article).join(' ou ')}`;
   if (cat === 'arme') return `le crime a été commis ${elements.map((e) => ARMES_FICHES[e as ArmeId].article).join(' ou ')}`;
+  if (cat === 'mobile') return `le crime a été commis ${elements.map((e) => MOBILES_FICHES[e].article).join(' ou ')}`;
   return `le coupable est ${elements.map(nomElement).join(' ou ')}`;
 }
 
@@ -200,8 +230,8 @@ export function ceQueLIndiceEcarte(carte: CarteIndice): string[] {
   const phrases: string[] = [];
   const affaire = affaireDeCarte(carte);
   const categories = parCategorie(affaire);
-  for (const pivot of elementsDe(affaire).tous) {
-    for (const cat of ['suspect', 'lieu', 'arme'] as const) {
+  for (const pivot of elementsDe(affaire, true).tous) {
+    for (const cat of ['suspect', 'lieu', 'arme', 'mobile'] as const) {
       if (categorieDe(pivot) === cat) continue;
       const groupe = regles.filter(
         (r): r is Extract<RegleIndice, { type: 'pasEnsemble' }> =>

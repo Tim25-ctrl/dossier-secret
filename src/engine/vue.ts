@@ -3,12 +3,12 @@
 // explicitement copié ici reste sur le serveur (solution, mains des autres,
 // rôle des autres, versions originales des hypothèses des autres, journal d'audit…).
 
-import { AFFAIRES, ARMES_FICHES, INDICES_PAR_ID, LIEUX_FICHES, PERSONNAGES } from '../shared/data/catalogue';
+import { AFFAIRES, ARMES_FICHES, INDICES_PAR_ID, LIEUX_FICHES, MOBILES_FICHES, PERSONNAGES } from '../shared/data/catalogue';
 import { ceQueLIndiceEcarte, combinaisonsPossibles, tripletsDe } from '../shared/logique';
 import type { HypotheseEnCoursVue, ResultatPartie, StatutReponse, VueJoueur } from '../shared/types';
-import { coutRuse, nbInterroges, pouvoirsPour, rusesPour } from './config';
+import { avecMobile, coutRuse, nbInterroges, pouvoirsPour, rusesPour } from './config';
 import { tousLesIndicesDeLAffaire } from './generateur';
-import { absentsBloquants, cartesCorrespondantes, rusesSuspendues, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
+import { objectifVu, tableauVu, absentsBloquants, cartesCorrespondantes, rusesSuspendues, cartesEmpruntables, joueurActif, peutFalsifier, peutMentir, repondantActuel, type EtatPartie } from './partie';
 
 export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
   const moi = etat.joueurs[joueurId];
@@ -56,6 +56,7 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       peutDenoncer: !!moi.peutDenoncer && !etat.compliceDemasque,
     },
     regles: {
+      mode: etat.config.mode ?? 'classique',
       manchesMax: etat.config.manchesMax,
       pointsAction: etat.config.pointsAction,
       nbInterroges: nbInterroges(etat.ordre.length),
@@ -71,6 +72,17 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       historiqueCartes: etat.config.historiqueCartes ?? 'visibles',
       premiereMancheEmpreinte: etat.config.premiereMancheEmpreinte ?? 1,
       suspensionDemasque: etat.config.suspensionDemasque ?? 3,
+      ...(etat.config.roles
+        ? {
+            roles: {
+              possibles: ['temoin', ...etat.config.roles.tirables],
+              maitreChanteur: etat.ordre.length >= etat.config.roles.maitreChanteurDes,
+              mancheExpertise: etat.config.roles.mancheExpertise,
+              mancheProfilage: etat.config.roles.mancheProfilage,
+            },
+          }
+        : {}),
+      ...(etat.config.tableau ? { tableau: { ...etat.config.tableau } } : {}),
     },
     manche: etat.manche,
     joueurActif: joueurActif(etat),
@@ -92,12 +104,24 @@ export function vuePour(etat: EtatPartie, joueurId: string): VueJoueur {
       .sort((a, b) => a.disponibleDesManche - b.disponibleDesManche || a.dossier - b.dossier)
       .map((a) => ({ ...a, disponible: a.disponibleDesManche <= etat.manche, consulte: moi.dossiersConsultes.includes(a.dossier) })),
     historique,
+    ...(etat.etape === 'designation' && etat.designation ? { echeanceDesignation: etat.designation.echeance } : {}),
+    ...(etat.config.tableau ? { tableau: tableauVu(etat, joueurId) } : {}),
     compliceDemasque: etat.compliceDemasque ? etat.complice : null,
     retourRuses: rusesSuspendues(etat) ? (etat.retourRuses ?? null) : null,
     pause: etat.pause ? { depuis: etat.pause.depuis, absents: absentsBloquants(etat).map((id) => ({ id, parti: !!etat.joueurs[id].parti })) } : null,
   };
 
+  // « Grande enquête » : chacun ne voit que son propre rôle et ce qu'il lui apprend.
+  if (moi.roleEnquete) {
+    vue.moi.roleEnquete = moi.roleEnquete;
+    vue.moi.pouvoirsRole = { ...moi.pouvoirs };
+    if (moi.roleEnquete === 'temoin') vue.moi.lieuConnu = etat.affaire.solution.lieu;
+  }
+  if (moi.role === 'maitre_chanteur') vue.moi.mobileConnu = etat.affaire.solution.mobile;
+
   if (estComplice) {
+    const objectif = objectifVu(etat);
+    if (objectif) vue.moi.objectif = objectif;
     vue.moi.meurtrier = etat.affaire.solution.suspect;
     vue.moi.mensongesRestants = moi.mensongesRestants;
     vue.moi.falsificationsRestantes = moi.falsificationsRestantes;
@@ -152,18 +176,26 @@ export function resultatPartie(etat: EtatPartie): ResultatPartie {
   const complice = etat.joueurs[etat.complice];
 
   const infos = AFFAIRES[etat.config.affaire];
+  // « Grande enquête » : le pourquoi du crime s'ajoute au récit.
+  const mobile = solution.mobile ? MOBILES_FICHES[solution.mobile] : undefined;
   const explication = [
-    `${perso.nom}, ${perso.titre}, a tué ${infos.victime} ${lieu.article}, ${arme.article}, ${infos.heureCrime}.`,
-    perso.aveu,
+    `${perso.nom}, ${perso.titre}, a tué ${infos.victime} ${lieu.article}, ${arme.article}, ${infos.heureCrime}${mobile ? `, ${mobile.article}` : ''}.`,
+    // L'aveu de la fiche raconte un mobile précis : en « Grande enquête », le récit du mobile tiré le remplace.
+    mobile ? mobile.recit.replace('{coupable}', perso.nom) : perso.aveu,
     `${lieu.recit} ${arme.recit}`,
     solution.lieu === infos.lieuDecouverte ? infos.corpsNonDeplace : infos.corpsDeplace,
-    `Le complice était ${complice.nom} : il connaissait le nom du coupable depuis le début, mais ignorait le lieu et l'arme.`,
+    mobile
+      ? `Le complice était ${complice.nom} : il connaissait le nom du coupable depuis le début, mais ignorait le lieu, l'arme et le mobile.`
+      : `Le complice était ${complice.nom} : il connaissait le nom du coupable depuis le début, mais ignorait le lieu et l'arme.`,
   ];
 
   // Indices décisifs : ceux qui éliminent le plus de fausses pistes.
   const indices = tousLesIndicesDeLAffaire(etat.affaire);
   const indicesDecisifs = indices
-    .map((c) => ({ c, elimine: tripletsDe(etat.config.affaire).length - combinaisonsPossibles([c], [], etat.config.affaire).length }))
+    .map((c) => ({
+      c,
+      elimine: tripletsDe(etat.config.affaire, avecMobile(etat.config)).length - combinaisonsPossibles([c], [], etat.config.affaire, avecMobile(etat.config)).length,
+    }))
     .sort((a, b) => b.elimine - a.elimine)
     .slice(0, 4)
     .map(({ c }) => ({ indice: c.id, explication: ceQueLIndiceEcarte(c).join(' · ') }));
@@ -194,6 +226,20 @@ export function resultatPartie(etat: EtatPartie): ResultatPartie {
     },
     denonciations: (etat.denonciations ?? []).map((d) => ({ joueur: d.joueur, cible: d.cible, correcte: d.correcte })),
     accusations: etat.accusations.map((a) => ({ joueur: a.joueur, triplet: { ...a.triplet }, correcte: a.correcte })),
+    ...(etat.config.tableau ? { tableau: tableauVu(etat, null) } : {}),
+    ...(etat.objectif
+      ? { objectifComplice: { ...objectifVu(etat)!, reussi: !!etat.objectifReussi, ...(etat.designation ? { designe: etat.designation.designe ?? null } : {}) } }
+      : {}),
+    ...(etat.config.roles
+      ? {
+          roles: Object.fromEntries(
+            etat.ordre.map((id) => {
+              const j = etat.joueurs[id];
+              return [id, { role: j.role, ...(j.roleEnquete ? { roleEnquete: j.roleEnquete } : {}) }];
+            }),
+          ),
+        }
+      : {}),
     manchesJouees: etat.manche,
     nbHypotheses: etat.hypotheses.length,
   };

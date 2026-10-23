@@ -2,7 +2,8 @@
 // Dessinées à la main en SVG pour rester gratuites, nettes et légères.
 
 import type { ReactNode } from 'react';
-import { PERSONNAGES } from '../../shared/data/catalogue';
+import { MOBILES_FICHES, PERSONNAGES } from '../../shared/data/catalogue';
+import type { IconeMobile } from '../../shared/data/modeles';
 import { categorieDe, type ArmeId, type ElementId, type LieuId, type SuspectId } from '../../shared/types';
 
 const TRAIT = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.4, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
@@ -474,6 +475,111 @@ const DESSINS_ARMES: Record<ArmeId, ReactNode> = {
   ),
 };
 
+/** Mobiles (« Grande enquête ») : un dessin par sorte de mobile, partagé entre les histoires. */
+const FOND = '#d8c9a6';
+const DESSINS_MOBILES: Record<IconeMobile, ReactNode> = {
+  testament: (
+    <>
+      <path d="M18 10h22l8 8v36H18z" {...TRAIT} />
+      <path d="M40 10v8h8" {...TRAIT} />
+      <path d="M24 25h18M24 31h18M24 37h11" {...TRAIT} />
+      <circle cx="39" cy="46" r="5" fill="currentColor" />
+      <path d="M36 50l-2 7M42 50l2 7" {...TRAIT} />
+    </>
+  ),
+  jalousie: (
+    <>
+      <path d="M32 54C18 44 10 36 10 25c0-7 5-12 11-12 5 0 9 3 11 7 2-4 6-7 11-7 6 0 11 5 11 12 0 11-8 19-22 29z" {...TRAIT} />
+      <path d="M20 30q12-9 24 0q-12 9-24 0z" {...TRAIT} />
+      <circle cx="32" cy="30" r="3.2" fill="currentColor" />
+    </>
+  ),
+  coeurBrise: (
+    <>
+      <path d="M30 18c-2-3-5-5-9-5-6 0-11 5-11 12 0 11 8 19 20 28l-3-9 5-8-6-7 5-8z" {...TRAIT} />
+      <path d="M35 18c2-3 5-5 8-5 6 0 11 5 11 12 0 11-8 19-20 28l-2-9 5-8-6-7 5-8z" {...TRAIT} />
+    </>
+  ),
+  gant: (
+    <>
+      <path d="M24 54V41l-9-10c-2-3 1-6 4-4l6 6V15c0-3 5-3 5 0v13V12c0-3 5-3 5 0v16V14c0-3 5-3 5 0v15V19c0-3 5-3 5 0v20c0 7-3 11-6 15" {...TRAIT} />
+      <path d="M22 54h19M23 48h18" {...TRAIT} />
+    </>
+  ),
+  enveloppe: (
+    <>
+      <rect x="10" y="18" width="44" height="30" rx="2" {...TRAIT} />
+      <path d="M10 20l22 16 22-16" {...TRAIT} />
+      <circle cx="32" cy="37" r="5.5" fill="currentColor" />
+    </>
+  ),
+  cartes: (
+    <>
+      <rect x="13" y="15" width="22" height="32" rx="3" transform="rotate(-14 24 32)" {...TRAIT} />
+      <g transform="rotate(10 38 32)">
+        <rect x="27" y="16" width="22" height="32" rx="3" {...TRAIT} fill={FOND} />
+        <path d="M38 25l5 7-5 7-5-7z" fill="currentColor" />
+      </g>
+    </>
+  ),
+  medaillon: (
+    <>
+      <path d="M29 16L19 6M35 16L45 6" {...TRAIT} />
+      <circle cx="32" cy="18" r="2.5" {...TRAIT} />
+      <ellipse cx="32" cy="38" rx="14" ry="17" {...TRAIT} />
+      <ellipse cx="32" cy="38" rx="9.5" ry="12.5" {...TRAIT} />
+      <circle cx="32" cy="35" r="2.8" fill="currentColor" />
+      <path d="M30.6 36.5l-1.4 6.5h5.6l-1.4-6.5z" fill="currentColor" />
+    </>
+  ),
+  documentSecret: (
+    <>
+      <path d="M10 18h15l4 5h25v29H10z" {...TRAIT} />
+      <circle cx="34" cy="37" r="9" {...TRAIT} />
+      <path d="M34 30.5l2 4.3 4.6.5-3.4 3.2 1 4.6-4.2-2.4-4.2 2.4 1-4.6-3.4-3.2 4.6-.5z" fill="currentColor" />
+    </>
+  ),
+  mallette: (
+    <>
+      <g transform="rotate(-25 46 20)">
+        <rect x="37" y="12" width="18" height="10" rx="1" {...TRAIT} />
+        <circle cx="46" cy="17" r="2" {...TRAIT} />
+      </g>
+      <rect x="10" y="26" width="44" height="26" rx="3" {...TRAIT} fill={FOND} />
+      <path d="M24 26v-5c0-2 2-4 4-4h8c2 0 4 2 4 4v5" {...TRAIT} />
+      <path d="M10 36h44" {...TRAIT} />
+      <rect x="29" y="33" width="6" height="6" rx="1" fill="currentColor" />
+    </>
+  ),
+  faillite: (
+    <>
+      <path d="M12 12h16l-3 8 4 7-4 8 3 8-3 9H12z" {...TRAIT} />
+      <path d="M35 14h17v42H35l3-9-3-8 4-8-4-7z" {...TRAIT} />
+      <path d="M17 20h6M17 26h5M44 22v17M39 34l5 5 5-5" {...TRAIT} />
+    </>
+  ),
+  parapluie: (
+    <>
+      <path d="M10 33a22 22 0 0 1 44 0q-5.5-4-11 0q-5.5-4-11 0q-5.5-4-11 0q-5.5-4-11 0z" {...TRAIT} />
+      <path d="M32 11V7M32 33v17c0 5-7 5-7 0" {...TRAIT} />
+    </>
+  ),
+  caisse: (
+    <>
+      <rect x="12" y="18" width="40" height="34" rx="1" {...TRAIT} />
+      <path d="M12 29h40M12 41h40M12 18l40 34" {...TRAIT} />
+      <path d="M24 18l-4-8h24l-4 8" {...TRAIT} />
+    </>
+  ),
+};
+
+function dessinDe(id: ElementId, cat: ReturnType<typeof categorieDe>): ReactNode {
+  if (cat === 'lieu') return DESSINS_LIEUX[id as LieuId];
+  if (cat === 'arme') return DESSINS_ARMES[id as ArmeId];
+  const mobile = MOBILES_FICHES[id];
+  return mobile ? DESSINS_MOBILES[mobile.icone] : null;
+}
+
 export function Embleme({ id, taille = 48 }: { id: ElementId; taille?: number }) {
   const cat = categorieDe(id);
   return (
@@ -484,7 +590,7 @@ export function Embleme({ id, taille = 48 }: { id: ElementId; taille?: number })
         <svg viewBox="0 0 64 64" width="100%" height="100%">
           <circle cx="32" cy="32" r="31" fill="#d8c9a6" />
           <circle cx="32" cy="32" r="28" fill="none" stroke="#8c6d33" strokeOpacity="0.6" />
-          <g transform="translate(6 6) scale(0.8125)">{cat === 'lieu' ? DESSINS_LIEUX[id as LieuId] : DESSINS_ARMES[id as ArmeId]}</g>
+          <g transform="translate(6 6) scale(0.8125)">{dessinDe(id, cat)}</g>
         </svg>
       )}
     </span>

@@ -9,7 +9,7 @@ import { vuePour } from '../../engine/vue';
 import type { EtatClient, EvenementsClient, MessageChat, Reponse } from '../../shared/protocole';
 import type { ActionJeu } from '../../shared/types';
 import { connexion, type MoteurLocal } from '../connexion';
-import { BOTS, MOI, avanceRapide, creerPartieGuidee, poserMonRole, tourSuivant, type RoleGuide } from './scenario';
+import { MOI, avanceRapide, creerPartieGuidee, poserMonRole, tourSuivant, type ModeGuide, type RoleGuide } from './scenario';
 
 export { MOI } from './scenario';
 
@@ -18,6 +18,8 @@ export type CoupScenarise = (etat: EtatPartie) => ActionJeu | null;
 
 /** Où commence la partie guidée : au chapitre donné ; `seul` : ce chapitre uniquement. */
 export interface DepartGuide {
+  /** Partie guidée classique ou de Grande enquête. */
+  guide: ModeGuide;
   chapitre: number;
   seul: boolean;
 }
@@ -45,17 +47,18 @@ export class PartieLocale implements MoteurLocal {
 
   constructor(
     private nom: string,
-    readonly depart: DepartGuide,
+    public depart: DepartGuide,
   ) {
-    this.etat = creerPartieGuidee(nom);
+    this.etat = creerPartieGuidee(nom, Date.now(), depart.guide);
     this.boucle = setInterval(() => this.tic(), 250);
   }
 
-  /** Nouvelle partie (pour rejouer un chapitre seul). */
-  recommencer() {
+  /** Nouvelle partie (pour rejouer un chapitre seul), éventuellement de l'autre partie guidée. */
+  recommencer(guide: ModeGuide = this.depart.guide) {
+    this.depart = { ...this.depart, guide };
     if (this.minuteurBot) clearTimeout(this.minuteurBot);
     this.minuteurBot = null;
-    this.etat = creerPartieGuidee(this.nom);
+    this.etat = creerPartieGuidee(this.nom, Date.now(), this.depart.guide);
     this.coups.clear();
     this.agiAuTour = -1;
     this.journalDebut = 0;
@@ -109,6 +112,10 @@ export class PartieLocale implements MoteurLocal {
     this.publier();
   }
 
+  private bots(): string[] {
+    return this.etat.ordre.filter((id) => id !== MOI);
+  }
+
   private numeroTour(): number {
     return this.etat.historique.filter((ev) => ev.type === 'debut_tour' && ev.joueur === MOI).length;
   }
@@ -129,8 +136,8 @@ export class PartieLocale implements MoteurLocal {
         joueurs: e.ordre.map((id) => ({ id, nom: e.joueurs[id].nom, connecte: true, bot: e.joueurs[id].bot, hote: id === MOI, parti: false })),
         messages: this.messages,
         botsAutorises: true,
-        reglages: { affaire: 'manoir', dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles', mode: 'grande' },
-        min: 4,
+        reglages: { affaire: 'manoir', dureeTourS: null, modeComplice: 'ruse', historiqueCartes: 'visibles', mode: this.depart.guide },
+        min: this.depart.guide === 'grande' ? 4 : 3,
         max: 6,
         reprise: false,
         demandes: [],
@@ -186,7 +193,7 @@ export class PartieLocale implements MoteurLocal {
     const sonTour = e.etape === 'tour' && joueurActif(e) === id;
     if (a.type === 'accuser' || a.type === 'denoncer') return sonTour ? { type: 'finTour' } : null;
     if (a.type === 'hypothese' && a.interroges.includes(MOI)) {
-      const libres = BOTS.filter((b) => b !== id && !a.interroges.includes(b));
+      const libres = this.bots().filter((b) => b !== id && !a.interroges.includes(b));
       return { ...a, interroges: a.interroges.map((x) => (x === MOI ? libres.shift()! : x)) };
     }
     return a;
@@ -220,7 +227,7 @@ export class PartieLocale implements MoteurLocal {
     if (e.complice === MOI && h?.etape === 'falsification' && !peutFalsifier(e, MOI)) h.echeance = Math.min(h.echeance, maintenant + 1_200);
     if (avancer(e, maintenant, cryptoRng)) this.publier();
     if (this.minuteurBot || e.etape === 'terminee') return;
-    const bot = BOTS.find((id) => this.decision(id, false));
+    const bot = this.bots().find((id) => this.decision(id, false));
     if (!bot) return;
     // Les bots prennent un peu leur temps : on suit ce qu'ils font.
     this.minuteurBot = setTimeout(
@@ -240,8 +247,8 @@ export class PartieLocale implements MoteurLocal {
 let courante: PartieLocale | null = null;
 
 /** Lance la partie guidée (remplace l'écran courant). */
-export function lancerPartieGuidee(nom: string, depart: DepartGuide = { chapitre: 0, seul: false }) {
-  const p = new PartieLocale(nom || 'Vous', depart);
+export function lancerPartieGuidee(nom: string, depart: DepartGuide = { guide: 'classique', chapitre: 0, seul: false }) {
+  const p = new PartieLocale(nom || 'Détective', depart);
   courante = p;
   connexion.demarrerLocal(p, p.etatClient());
 }

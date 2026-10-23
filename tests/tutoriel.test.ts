@@ -11,6 +11,8 @@ import {
   MARPLE,
   MOI,
   ORDRE,
+  ORDRE_CLASSIQUE,
+  SOLUTION_CLASSIQUE,
   SHERLOCK,
   SOLUTION,
   avanceRapide,
@@ -31,7 +33,7 @@ function decideur(etat: EtatPartie, graine = 1) {
     if (!a) return null;
     if (a.type === 'accuser' || a.type === 'denoncer') return { type: 'finTour' };
     if (a.type === 'hypothese' && a.interroges.includes(MOI)) {
-      const libres = ORDRE.filter((b) => b !== MOI && b !== id && !a.interroges.includes(b));
+      const libres = etat.ordre.filter((b) => b !== MOI && b !== id && !a.interroges.includes(b));
       return { ...a, interroges: a.interroges.map((x) => (x === MOI ? libres.shift()! : x)) };
     }
     return a;
@@ -122,5 +124,43 @@ describe('Partie guidée', () => {
     const roles = vuePour(e, MOI).resultat!.roles!;
     expect(roles[MARPLE]).toMatchObject({ role: 'enqueteur', roleEnquete: 'temoin' });
     expect(roles[MOI]).toMatchObject({ role: 'complice' });
+  });
+});
+
+describe('Partie guidée classique', () => {
+  it('se prépare : 4 joueurs, Marple complice rusée, pas de mobile ni de rôle à pouvoir', () => {
+    const e = creerPartieGuidee('Vous', T0, 'classique');
+    expect(e.config.mode).toBe('classique');
+    expect(e.ordre).toEqual(ORDRE_CLASSIQUE);
+    expect(joueurActif(e)).toBe(MOI);
+    expect(e.complice).toBe(MARPLE);
+    expect(e.affaire.solution).toEqual(SOLUTION_CLASSIQUE);
+    expect(e.config.pointsAction).toBe(2);
+    expect(e.config.modeComplice).toBe('ruse');
+    expect(e.objectif).toBeUndefined();
+    expect(ORDRE_CLASSIQUE.every((id) => e.joueurs[id].roleEnquete === undefined)).toBe(true);
+    // Les cartes restantes sont des pièces à conviction.
+    expect(e.pieces?.length).toBe(3);
+    // L'hypothèse conseillée n'a que trois éléments.
+    expect(hypotheseAvec(e, HERCULE, [SHERLOCK]).mobile).toBeUndefined();
+  });
+
+  it('vous et Marple échangez vos rôles ; les bots jouent jusqu’à votre tour', () => {
+    const e = creerPartieGuidee('Vous', T0, 'classique');
+    const d = decideur(e);
+    for (let manche = 2; manche <= 6; manche++) {
+      tourSuivant(e, d, T0 + manche * 1000);
+      expect(joueurActif(e)).toBe(MOI);
+      expect(e.manche).toBe(manche);
+    }
+    poserMonRole(e, { role: 'complice' }, T0);
+    expect(e.complice).toBe(MOI);
+    expect(e.joueurs[MOI].rusesRestantes).toBe(4);
+    expect(e.joueurs[MARPLE]).toMatchObject({ role: 'enqueteur', rusesRestantes: 0 });
+    poserMonRole(e, { role: 'enqueteur' }, T0);
+    expect(e.complice).toBe(MARPLE);
+    // Accusation finale juste : les enquêteurs gagnent.
+    expect(appliquerAction(e, MOI, { type: 'accuser', ...SOLUTION_CLASSIQUE }, T0 + 1).ok).toBe(true);
+    expect(e.resultat).toMatchObject({ vainqueur: 'enqueteurs' });
   });
 });

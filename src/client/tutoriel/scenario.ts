@@ -1,6 +1,7 @@
-// Partie guidée : la « fausse partie » arrangée pour le tutoriel. Une vraie partie de Grande enquête
-// à 5 joueurs (vous et quatre bots), que le guide fait avancer à sa façon : il change votre rôle
-// d'un chapitre à l'autre, fait jouer les bots d'un coup ou leur dicte un coup précis.
+// Parties guidées : les « fausses parties » arrangées pour les tutoriels. Une vraie partie, classique
+// (vous et trois bots) ou de Grande enquête (vous et quatre bots), que le guide fait avancer à sa
+// façon : il change votre rôle d'un chapitre à l'autre, fait jouer les bots d'un coup ou leur dicte
+// un coup précis.
 // Ce fichier ne dépend pas de l'interface : il est testé à part (tests/tutoriel.test.ts).
 
 import { CONFIG_GRANDE_ENQUETE, type ConfigPartie } from '../../engine/config';
@@ -13,11 +14,15 @@ export const MARPLE = 'marple';
 export const HERCULE = 'hercule';
 export const SHERLOCK = 'sherlock';
 export const MAIGRET = 'maigret';
+/** Les deux parties guidées. */
+export type ModeGuide = 'classique' | 'grande';
 /** Ordre du tour : vous commencez, Marple joue juste après vous. */
 export const ORDRE = [MOI, MARPLE, HERCULE, SHERLOCK, MAIGRET];
-export const BOTS = ORDRE.slice(1);
+export const ORDRE_CLASSIQUE = [MOI, MARPLE, HERCULE, SHERLOCK];
+const NOMS: Record<string, string> = { [MARPLE]: 'Marple (bot)', [HERCULE]: 'Hercule (bot)', [SHERLOCK]: 'Sherlock (bot)', [MAIGRET]: 'Maigret (bot)' };
 
 export const SOLUTION: Triplet = { suspect: 'gabriel', lieu: 'cave', arme: 'chandelier', mobile: 'manoir_heritage' };
+export const SOLUTION_CLASSIQUE: Triplet = { suspect: 'gabriel', lieu: 'cave', arme: 'chandelier' };
 const MANOIR = elementsDe('manoir');
 
 /** Règles de la Grande enquête, sans limite de temps, et pouvoirs utilisables dès la manche 1. */
@@ -33,29 +38,34 @@ export const CONFIG_GUIDE: Partial<ConfigPartie> = {
   roles: { ...R.roles!, mancheExpertise: 1, mancheProfilage: 1 },
   objectifs: { ...R.objectifs!, delaiDesignationMs: 120_000 },
 };
+/** Partie classique (complice rusé), sans limite de temps. */
+export const CONFIG_GUIDE_CLASSIQUE: Partial<ConfigPartie> = {
+  delaiTourMs: null,
+  delaiReponseMs: 600_000,
+  delaiFalsificationMs: 2_000,
+  attenteDepartMs: 3_600_000,
+  modeComplice: 'ruse',
+};
 /** Fenêtre de falsification quand vous êtes le complice : elle attend votre choix. */
 const FALSIFICATION_COMPLICE_MS = 600_000;
 
-export function creerPartieGuidee(nom: string, now = Date.now()): EtatPartie {
+export function creerPartieGuidee(nom: string, now = Date.now(), mode: ModeGuide = 'grande'): EtatPartie {
+  const grande = mode === 'grande';
+  const ordre = grande ? ORDRE : ORDRE_CLASSIQUE;
   // Première graine où vous jouez en premier ; l'ordre des autres est ensuite fixé.
   for (let graine = 1; graine < 500; graine++) {
     const etat = creerPartie({
-      id: `guide-${graine}`,
-      joueurs: [
-        { id: MOI, nom },
-        { id: MARPLE, nom: 'Marple (bot)', bot: true },
-        { id: HERCULE, nom: 'Hercule (bot)', bot: true },
-        { id: SHERLOCK, nom: 'Sherlock (bot)', bot: true },
-        { id: MAIGRET, nom: 'Maigret (bot)', bot: true },
-      ],
+      id: `guide-${mode}-${graine}`,
+      joueurs: ordre.map((id) => (id === MOI ? { id, nom } : { id, nom: NOMS[id], bot: true })),
       rng: seededRng(graine),
       now,
-      config: CONFIG_GUIDE,
-      imposer: { solution: SOLUTION, complice: MARPLE },
+      config: grande ? CONFIG_GUIDE : CONFIG_GUIDE_CLASSIQUE,
+      imposer: { solution: grande ? SOLUTION : SOLUTION_CLASSIQUE, complice: MARPLE },
     });
     if (etat.ordre[0] !== MOI) continue;
-    etat.ordre = [...ORDRE];
-    for (const ev of etat.historique) if (ev.type === 'debut_partie') ev.joueurs = [...ORDRE];
+    etat.ordre = [...ordre];
+    for (const ev of etat.historique) if (ev.type === 'debut_partie') ev.joueurs = [...ordre];
+    if (!grande) return etat;
     // Objectif secret du complice : le témoin gênant (le final du guide le met en scène).
     etat.objectif = { type: 'temoin_genant' };
     poserMonRole(etat, { role: 'enqueteur' }, now, false);
@@ -123,6 +133,14 @@ function entreeRole(etat: EtatPartie, id: string, now: number): EntreePrivee {
  * l'êtes (elle devient alors le Témoin) ; Sherlock est le Maître chanteur, sauf quand vous l'êtes.
  */
 export function poserMonRole(etat: EtatPartie, r: RoleGuide, now = Date.now(), annoncer = true) {
+  // Partie classique : seuls vous et Marple échangez vos rôles (enquêteur ou complice).
+  if (etat.config.mode !== 'grande') {
+    const complice = r.role === 'complice';
+    poserRole(etat, complice ? MARPLE : MOI, { role: 'enqueteur' }, now, annoncer);
+    poserRole(etat, complice ? MOI : MARPLE, { role: 'complice' }, now, annoncer);
+    etat.config.delaiFalsificationMs = complice ? FALSIFICATION_COMPLICE_MS : (CONFIG_GUIDE_CLASSIQUE.delaiFalsificationMs ?? 2_000);
+    return;
+  }
   // Le complice d'abord (il n'y en a qu'un) : l'ancien quitte son rôle avant que le nouveau le prenne.
   if (r.role === 'complice') {
     poserRole(etat, MARPLE, { role: 'enqueteur', roleEnquete: 'temoin' }, now, annoncer);
@@ -221,7 +239,7 @@ export function hypotheseAvec(etat: EtatPartie, detenteur: string, eviter: strin
   const tenues = new Set([MOI, detenteur, ...eviter].flatMap((id) => etat.joueurs[id].main));
   const ailleurs = new Set(etat.ordre.filter((id) => id !== MOI && id !== detenteur && !eviter.includes(id)).flatMap((id) => etat.joueurs[id].main));
   const t: Partial<Record<Categorie, ElementId>> = { [categorieDe(choisie)!]: choisie };
-  for (const [cat, ids] of PAR_CATEGORIE)
+  for (const [cat, ids] of PAR_CATEGORIE.filter(([c]) => c !== 'mobile' || etat.config.mode === 'grande'))
     t[cat] ??= ids.find((x) => ailleurs.has(x)) ?? ids.find((x) => !tenues.has(x)) ?? ids.find((x) => !etat.joueurs[MOI].main.includes(x))!;
   return t as unknown as Triplet;
 }

@@ -16,6 +16,9 @@ interface Conseil {
 export const CONSEILS_DU_TUTORIEL: Record<string, string[]> = {
   bases: ['premier-tour', 'interroge', 'resultat', 'archives', 'accusation'],
   complice: ['empreinte'],
+  c_bases: ['premier-tour', 'interroge', 'resultat'],
+  c_archives: ['archives'],
+  c_traque: ['empreinte', 'accusation'],
 };
 
 const CONSEILS: Conseil[] = [

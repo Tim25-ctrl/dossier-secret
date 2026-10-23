@@ -7,8 +7,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import type { VueJoueur } from '../../shared/types';
 import { Modale } from '../components/Commun';
 import { connexion, useConnexion } from '../connexion';
-import { CHAPITRES } from './chapitres';
-import { MOI, figerPartieGuidee, partieGuidee, type PartieLocale } from './partieLocale';
+import { CHAPITRES_GRANDE } from './chapitres';
+import { CHAPITRES_CLASSIQUE } from './chapitresClassique';
+import { MOI, figerPartieGuidee, partieGuidee, type DepartGuide, type PartieLocale } from './partieLocale';
+import type { ModeGuide } from './scenario';
 
 export interface Contexte {
   vue: VueJoueur;
@@ -54,6 +56,30 @@ export interface Chapitre {
   /** Ce qu'on y apprend (sommaire). */
   resume: string;
   etapes: Etape[];
+  /** Dernier chapitre : ce que dit le guide sur l'écran de fin, bulle après bulle. */
+  fin?: ((c: Contexte) => ReactNode)[];
+}
+
+/** Les deux parties guidées : la classique (pour commencer), puis la Grande enquête. */
+export const GUIDES: { id: ModeGuide; titre: string; intro: string; chapitres: Chapitre[] }[] = [
+  {
+    id: 'classique',
+    titre: 'Partie classique',
+    intro: 'Pour commencer : une partie contre trois bots (environ 12 minutes). Enquêteur, puis complice.',
+    chapitres: CHAPITRES_CLASSIQUE,
+  },
+  {
+    id: 'grande',
+    titre: 'Grande enquête',
+    intro: 'Ensuite : le mode à 4 éléments contre quatre bots (environ 25 minutes), où vous changez de rôle à chaque chapitre.',
+    chapitres: CHAPITRES_GRANDE,
+  },
+];
+export const chapitresDe = (g: ModeGuide) => GUIDES.find((x) => x.id === g)!.chapitres;
+/** Nombre de chapitres faits / en tout, toutes parties guidées confondues. */
+export function avancementGuides(faits: string[]) {
+  const tous = GUIDES.flatMap((g) => g.chapitres);
+  return { faits: tous.filter((c) => faits.includes(c.id)).length, total: tous.length };
 }
 
 /** Délai sans progrès avant que le guide montre précisément quoi faire. */
@@ -137,38 +163,40 @@ function VoileGuide({ cible, trouActif }: { cible: HTMLElement | null; trouActif
 }
 
 
-/** Sommaire de la partie guidée : tout depuis le début, ou un seul chapitre (✓ : déjà fait). */
-export function ModaleChapitres({
-  faits,
-  onChoisir,
-  onFermer,
-}: {
-  faits: string[];
-  onChoisir: (d: { chapitre: number; seul: boolean }) => void;
-  onFermer: () => void;
-}) {
+/** Sommaire des parties guidées : l'une ou l'autre en entier, ou un seul chapitre (✓ : déjà fait). */
+export function ModaleChapitres({ faits, onChoisir, onFermer }: { faits: string[]; onChoisir: (d: DepartGuide) => void; onFermer: () => void }) {
   return (
-    <Modale titre="🎓 Partie guidée" onFermer={onFermer}>
+    <Modale titre="🎓 Parties guidées" onFermer={onFermer}>
       <p style={{ marginTop: 0 }}>
-        Une partie arrangée de <strong>Grande enquête</strong> contre quatre bots, avec un guide qui vous montre où cliquer. Vous y changez de rôle d'un chapitre à
-        l'autre pour tout essayer. Suivez-la en entier (environ 25 minutes), ou rejouez un seul chapitre.
+        Des parties arrangées contre des bots, avec un guide qui vous montre où cliquer et explique tout. Suivez-en une en entier, ou rejouez un seul chapitre.
       </p>
-      <button className="btn btn-or btn-bloc" onClick={() => onChoisir({ chapitre: 0, seul: false })}>
-        ▶ Tout depuis le début
-      </button>
-      <ol className="liste-chapitres" aria-label="Les chapitres">
-        {CHAPITRES.map((c, k) => (
-          <li key={c.id}>
-            <button className="btn" onClick={() => onChoisir({ chapitre: k, seul: true })}>
-              <span className="chapitre-titre">
-                {k + 1}. {c.titre}
-                {faits.includes(c.id) && <span className="chapitre-fait" aria-label="déjà fait"> ✓</span>}
-              </span>
-              <span className="petit">{c.resume}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
+      {GUIDES.map((g) => (
+        <section key={g.id} className="sommaire-guide">
+          <h3>{g.titre}</h3>
+          <p className="petit muet">{g.intro}</p>
+          <button className="btn btn-or btn-bloc" onClick={() => onChoisir({ guide: g.id, chapitre: 0, seul: false })}>
+            ▶ {g.titre} : tout depuis le début
+          </button>
+          <ol className="liste-chapitres" aria-label={`Chapitres : ${g.titre}`}>
+            {g.chapitres.map((c, k) => (
+              <li key={c.id}>
+                <button className="btn" onClick={() => onChoisir({ guide: g.id, chapitre: k, seul: true })}>
+                  <span className="chapitre-titre">
+                    {k + 1}. {c.titre}
+                    {faits.includes(c.id) && (
+                      <span className="chapitre-fait" aria-label="déjà fait">
+                        {' '}
+                        ✓
+                      </span>
+                    )}
+                  </span>
+                  <span className="petit">{c.resume}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
     </Modale>
   );
 }
@@ -177,7 +205,7 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
   const etat = useConnexion().etat;
   const vue = etat?.partie ?? null;
   const p = partieGuidee();
-  const [pos, setPos] = useState(() => ({ c: p?.depart.chapitre ?? 0, i: 0, seul: p?.depart.seul ?? false }));
+  const [pos, setPos] = useState(() => ({ g: p?.depart.guide ?? 'classique', c: p?.depart.chapitre ?? 0, i: 0, seul: p?.depart.seul ?? false }));
   const [reduit, setReduit] = useState(false);
   const [sommaire, setSommaire] = useState(false);
   // Fin de partie : 0 = l'écran de fin, 1 = le mot de la fin.
@@ -191,11 +219,12 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
     return () => clearInterval(t);
   }, []);
 
+  const CHAPITRES = chapitresDe(pos.g);
   const chapitre = CHAPITRES[pos.c];
   const etape: Etape | undefined = chapitre?.etapes[pos.i];
   const finDeChapitre = !!chapitre && !etape;
   const terminee = vue?.etape === 'terminee';
-  const cleEtape = `${p?.generation ?? 0}|${pos.c}|${pos.i}`;
+  const cleEtape = `${p?.generation ?? 0}|${pos.g}|${pos.c}|${pos.i}`;
   const prete = !etape?.auDebut || prepare === cleEtape;
   const suivante = () => setPos((x) => ({ ...x, i: x.i + 1 }));
 
@@ -210,12 +239,12 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
   const signale = useRef('');
   useEffect(() => {
     if (!finDeChapitre) return;
-    const cle = `${p?.generation ?? 0}|${pos.c}`;
+    const cle = `${p?.generation ?? 0}|${pos.g}|${pos.c}`;
     if (signale.current !== cle) {
       signale.current = cle;
       onChapitre(chapitre.id);
     }
-    if (!pos.seul && pos.c + 1 < CHAPITRES.length) setPos({ c: pos.c + 1, i: 0, seul: false });
+    if (!pos.seul && pos.c + 1 < CHAPITRES.length) setPos({ ...pos, c: pos.c + 1, i: 0 });
   });
 
   // Mode aide : l'étape n'avance plus depuis DELAI_AIDE_MS.
@@ -272,12 +301,12 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
   if (!contexte || !p) return null;
 
   /** Rejouer depuis un chapitre : une partie neuve, seul ce chapitre ou tout ce qui suit. */
-  const choisir = (d: { chapitre: number; seul: boolean }) => {
+  const choisir = (d: DepartGuide) => {
     setSommaire(false);
     setReduit(false);
     setFinEtape(0);
-    p.recommencer();
-    setPos({ c: d.chapitre, i: 0, seul: d.seul });
+    p.recommencer(d.guide);
+    setPos({ g: d.guide, c: d.chapitre, i: 0, seul: d.seul });
   };
   const fenetreSommaire = sommaire && <ModaleChapitres faits={faits} onChoisir={choisir} onFermer={() => setSommaire(false)} />;
   const boutonQuitter = (
@@ -309,41 +338,20 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
 
   // La partie est finie (le final, ou une fin imprévue) : le guide commente l'écran de fin.
   if (terminee) {
-    const final = chapitre?.id === 'final';
-    const r = contexte.vue.resultat;
-    const vole = r?.raison === 'objectif_complice';
+    const fin = chapitre?.fin;
+    const n = Math.min(finEtape, (fin?.length ?? 1) - 1);
     return (
       <>
         <aside className="guide" role="status" aria-live="polite">
-          {entete(final ? `🎓 Partie guidée · le final` : '🎓 Partie guidée')}
-          {!final ? (
-            <p className="guide-texte">La partie est terminée. Choisissez un chapitre pour continuer à apprendre, ou quittez la partie guidée.</p>
-          ) : finEtape === 0 ? (
-            <p className="guide-texte">
-              {vole ? (
-                <>
-                  <strong>Bravo, vous avez trouvé le Témoin !</strong> Grâce à votre objectif secret, vous volez la victoire des enquêteurs.
-                </>
-              ) : (
-                <>
-                  <strong>Raté : ce n'était pas le Témoin.</strong> Les enquêteurs gardent leur victoire.
-                </>
-              )}{' '}
-              Voici l'<strong>écran de fin</strong> : la solution et son récit (le mobile compris), le complice, les <strong>rôles secrets</strong> de chacun, le{' '}
-              <strong>tableau</strong> avec le vrai auteur de chaque épingle (rumeurs comprises) et les ruses du complice. Prenez le temps de le parcourir.
-            </p>
-          ) : (
-            <p className="guide-texte">
-              <strong>Le mot de la fin : la partie classique.</strong> C'est le même jeu, en plus simple : 3 éléments à trouver (pas de mobile), pas de rôles à
-              pouvoirs, ni Maître chanteur, ni objectif secret, ni tableau ; 2 PA par tour, 12 manches, de 3 à 6 joueurs. Toutes les règles sont dans « Règles »
-              (à l'accueil et dans le menu ☰). <strong>Bonne enquête !</strong>
-            </p>
-          )}
+          {entete(fin ? `🎓 Partie guidée · ${chapitre.titre}` : '🎓 Partie guidée')}
+          <div className="guide-texte">
+            {fin ? fin[n](contexte) : <>La partie est terminée. Choisissez un chapitre pour continuer à apprendre, ou quittez la partie guidée.</>}
+          </div>
           <div className="guide-pied">
             {boutonQuitter}
             {boutonSommaire}
-            {final && finEtape === 0 && (
-              <button type="button" className="btn btn-or btn-petit" onClick={() => setFinEtape(1)}>
+            {fin && n < fin.length - 1 && (
+              <button type="button" className="btn btn-or btn-petit" onClick={() => setFinEtape(n + 1)}>
                 Suivant
               </button>
             )}
@@ -370,7 +378,7 @@ export function GuideTutoriel({ faits, onChapitre }: { faits: string[]; onChapit
             {boutonQuitter}
             {boutonSommaire}
             {prochain && (
-              <button type="button" className="btn btn-or btn-petit" onClick={() => setPos({ c: pos.c + 1, i: 0, seul: true })}>
+              <button type="button" className="btn btn-or btn-petit" onClick={() => setPos({ ...pos, c: pos.c + 1, i: 0 })}>
                 Chapitre suivant
               </button>
             )}

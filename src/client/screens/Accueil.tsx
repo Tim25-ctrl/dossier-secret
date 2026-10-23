@@ -17,8 +17,7 @@ import { installer, useInstallation } from '../installation';
 import type { Preferences } from '../preferences';
 import { ModaleRegles } from './Regles';
 import { lancerPartieGuidee, type DepartGuide } from '../tutoriel/partieLocale';
-import { CHAPITRES } from '../tutoriel/chapitres';
-import { ModaleChapitres } from '../tutoriel/Guide';
+import { ModaleChapitres, avancementGuides } from '../tutoriel/Guide';
 import { lancerPartieHorsLigne, partieHorsLigneEnCours, reprendrePartieHorsLigne } from '../horsLigne';
 
 /**
@@ -156,8 +155,8 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
   const [tutoriel, setTutoriel] = useState(!prefs.tutorielVu);
   const [choixGuide, setChoixGuide] = useState(false);
   // Tous les chapitres de la partie guidée faits : le bouton quitte l'accueil (elle reste dans Paramètres et Profil).
-  const chapitresFaits = CHAPITRES.filter((c) => prefs.chapitresGuide.includes(c.id)).length;
-  const guidesFinis = chapitresFaits === CHAPITRES.length;
+  const { faits: chapitresFaits, total: chapitresTotal } = avancementGuides(prefs.chapitresGuide);
+  const guidesFinis = chapitresFaits === chapitresTotal;
   const revoirGuide = () => {
     setParametres(false);
     setProfil(false);
@@ -189,7 +188,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
     setLecture(false);
     if (!r.ok) setErreurFichier(r.erreur);
   };
-  const guider = (depart: DepartGuide = { chapitre: 0, seul: false }) => {
+  const guider = (depart: DepartGuide = { guide: 'classique', chapitre: 0, seul: false }) => {
     setChoixGuide(false);
     majPrefs({ tutorielVu: true });
     lancerPartieGuidee((compte?.nom ?? prefs.pseudo).trim(), depart);
@@ -352,7 +351,7 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
             <button className="bouton-menu bouton-menu-discret" onClick={() => setChoixGuide(true)}>
               <span className="bouton-menu-titre">Apprendre à jouer</span>
               <span className="bouton-menu-detail">
-                {chapitresFaits ? `Partie guidée : ${chapitresFaits} chapitre${chapitresFaits > 1 ? 's' : ''} sur ${CHAPITRES.length} faits` : 'Une partie guidée, chapitre par chapitre'}
+                {chapitresFaits ? `Parties guidées : ${chapitresFaits} chapitre${chapitresFaits > 1 ? 's' : ''} sur ${chapitresTotal} faits` : 'Des parties guidées, chapitre par chapitre'}
               </span>
             </button>
           )}
@@ -508,12 +507,11 @@ export function Accueil({ prefs, majPrefs }: { prefs: Preferences; majPrefs: (p:
           }
         >
           <p>
-            Apprenez à jouer avec une partie guidée contre quatre bots, en {CHAPITRES.length} chapitres : un guide vous montre où cliquer et explique tout, des
-            bases (hypothèse, carnet, archives, accusation) aux rôles secrets de la Grande enquête, au complice et à ses ruses. Vous pouvez la faire d'un coup ou
-            chapitre par chapitre.
+            Apprenez à jouer avec une partie guidée contre trois bots, en 5 chapitres (environ 12 minutes) : un guide vous montre où cliquer et explique tout,
+            de l'hypothèse à l'accusation finale, en passant par le complice et ses ruses. Ensuite, une seconde partie guidée vous attend pour la Grande enquête.
           </p>
           <p className="muet petit" style={{ marginBottom: 0 }}>
-            Vous la retrouverez avec le bouton « Apprendre à jouer » de l'accueil, et dans les Paramètres.
+            Vous les retrouverez avec le bouton « Apprendre à jouer » de l'accueil, et dans les Paramètres.
           </p>
         </Modale>
       )}

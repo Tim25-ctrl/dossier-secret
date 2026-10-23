@@ -47,8 +47,9 @@ src/
     validation.ts      Schémas zod des messages entrants
     index.ts           Lecture de la configuration et démarrage
   client/            Interface React (écrans, composants, connexion temps réel)
-    tutoriel/          Partie guidée : scenario.ts (la partie arrangée, testée à part), partieLocale.ts (moteur local qui la pilote),
-                       chapitres.tsx (les 11 chapitres et leurs étapes), Guide.tsx (bulle, voile, sommaire des chapitres)
+    tutoriel/          Parties guidées : scenario.ts (les parties arrangées, classique et Grande enquête, testées à part), partieLocale.ts
+                       (moteur local qui les pilote), chapitresClassique.tsx (5 chapitres) et chapitres.tsx (11 chapitres de la Grande
+                       enquête), outils.tsx (outils communs), Guide.tsx (bulle, voile, sommaire des chapitres)
 tests/               Tests automatisés (moteur, salons, réseau, parties complètes)
 scripts/simulate.ts  Simulations d'équilibrage
 ```

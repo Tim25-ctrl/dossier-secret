@@ -4037,3 +4037,14 @@ button.carte:hover:not(:disabled) {
   transform: none;
   font-size: 0.9rem;
 }
+.sommaire-guide + .sommaire-guide {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--or-sombre);
+}
+.sommaire-guide h3 {
+  margin: 0 0 2px;
+}
+.sommaire-guide .btn-bloc {
+  margin-top: 8px;
+}

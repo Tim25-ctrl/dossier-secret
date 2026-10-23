@@ -1,4 +1,4 @@
-// Les chapitres de la partie guidée. Une seule partie de Grande enquête (vous et quatre bots), où
+// Les chapitres de la partie guidée de la Grande enquête. Une seule partie (vous et quatre bots), où
 // votre rôle change d'un chapitre à l'autre pour tout essayer : les bases, chaque rôle à pouvoir,
 // le Maître chanteur, le complice, puis le final (la dernière chance du complice).
 
@@ -7,9 +7,35 @@ import { CONFIG_GRANDE_ENQUETE, CONFIG_PAR_DEFAUT } from '../../engine/config';
 import { appliquerAction, joueurActif, peutMentir, repondantActuel, type EtatPartie } from '../../engine/partie';
 import { nomElement } from '../../shared/data/catalogue';
 import { categorieDe, type ActionJeu, type ElementId, type EntreePrivee, type Triplet, type VueJoueur } from '../../shared/types';
-import { InfosRoleGrande } from '../components/jeu/GrandeEnquete';
 import { LIBELLES_ETIQUETTES } from '../grande';
 import type { Chapitre, Contexte, Etape } from './Guide';
+import {
+  Conseil,
+  Fort,
+  NouveauRole,
+  PANNEAU_ROLE,
+  POUVOIR,
+  aEcarter,
+  aFait,
+  aFalsifie,
+  aTrafique,
+  cartesVues,
+  court,
+  depuis,
+  enTrop,
+  hypothese,
+  interrogesDeMaDerniereHypothese,
+  ligneCarnet,
+  liste,
+  maReponse,
+  manquants,
+  monTour,
+  reponseRecue,
+  ruses,
+  sonTour,
+  terminerTour,
+  tripletTexte,
+} from './outils';
 import { HERCULE, MAIGRET, MARPLE, MOI, SHERLOCK, SOLUTION, hypotheseAvec, ontCiteLeLieu } from './scenario';
 
 // Les chiffres des vraies parties (la partie guidée assouplit certains délais).
@@ -21,83 +47,9 @@ const PA = G.pointsAction!;
 const HYP = C.coutHypothese;
 
 // ---------------------------------------------------------------------------
-// Petits outils
-// ---------------------------------------------------------------------------
-
-/** Nom d'un joueur sans « (bot) ». */
-const court = (v: VueJoueur, id: string) => (v.joueurs.find((j) => j.id === id)?.nom ?? id).replace(/\s*\(bot\)$/, '');
-/** « A », « B » et « C ». */
-const liste = (ids: ElementId[]) => {
-  const n = ids.map((e) => `« ${nomElement(e)} »`);
-  return n.length > 1 ? `${n.slice(0, -1).join(', ')} et ${n.at(-1)}` : (n[0] ?? '');
-};
-const monTour = (v: VueJoueur) => v.joueurActif === MOI && v.etape === 'tour';
-const tourFini = ({ vue }: Contexte) => vue.joueurActif !== MOI;
-/** Ce que vous avez appris depuis le début du chapitre. */
-const depuis = (c: Contexte): EntreePrivee[] => c.vue.moi.journal.slice(c.p.journalDebut);
-const aFait = (c: Contexte, type: EntreePrivee['type']) => depuis(c).some((e) => e.type === type);
-/** La réponse reçue à votre dernière hypothèse du chapitre (null tant qu'elle n'est pas arrivée). */
-function reponseRecue(c: Contexte) {
-  const j = [...depuis(c)].reverse();
-  const origine = j.find((e) => e.type === 'hypothese_originale');
-  const r = j.find((e) => e.type === 'carte_vue' || e.type === 'aucune_carte_vue');
-  return origine?.type === 'hypothese_originale' && r && 'hypothese' in r && r.hypothese === origine.hypothese ? r : null;
-}
-/** Les joueurs que vous avez interrogés à votre dernière hypothèse. */
-const interrogesDeMaDerniereHypothese = (v: VueJoueur) => {
-  const h = [...v.historique].reverse().find((e) => e.type === 'hypothese' && e.auteur === MOI);
-  return h?.type === 'hypothese' ? h.interroges : [];
-};
-const ligneCarnet = (e: ElementId) => `.carnet-ligne[data-element="${e}"]`;
-const PANNEAU_ROLE = ['.colonne-gauche .prive', '.bande-cartes'];
-const POUVOIR = ['.modale', '.pouvoirs-role'];
-const hypothese = (t: Triplet, interroges: string[]): ActionJeu => ({ type: 'hypothese', ...t, interroges });
-const sonTour = (e: EtatPartie, id: string) => e.etape === 'tour' && joueurActif(e) === id && !e.hypothese;
-const tripletTexte = (t: Triplet) => [t.suspect, t.lieu, t.arme, t.mobile].filter(Boolean).map((x) => nomElement(x as ElementId));
-const Fort = ({ children }: { children: ReactNode }) => <strong>{children}</strong>;
-
-/** L'hypothèse conseillée, en toutes lettres. */
-function Conseil({ t, interroges, v }: { t: Triplet; interroges: string[]; v: VueJoueur }) {
-  const [s, l, a, m] = tripletTexte(t);
-  return (
-    <>
-      {' '}
-      Essayez par exemple <Fort>{s}</Fort>, <Fort>{l}</Fort>, <Fort>{a}</Fort>, <Fort>{m}</Fort>, et interrogez <Fort>{court(v, interroges[0])}</Fort> puis{' '}
-      <Fort>{court(v, interroges[1])}</Fort>.
-    </>
-  );
-}
-
-/** Fenêtre « Nouveau rôle » : ce que dit le panneau privé, puis l'explication du guide. */
-function NouveauRole({ c, children }: { c: Contexte; children: ReactNode }) {
-  return (
-    <>
-      <div className="prive guide-role">
-        <InfosRoleGrande vue={c.vue} nom={(id) => court(c.vue, id)} />
-      </div>
-      {children}
-    </>
-  );
-}
-
-/** Terminer son tour (fin de chapitre). */
-const terminerTour = (texte: ReactNode = <>Revenez sur <Fort>Enquête</Fort> et touchez <Fort>Terminer mon tour</Fort>.</>): Etape => ({
-  onglet: 'Enquête',
-  cible: ['.btn-fin-tour'],
-  texte: () => texte,
-  attendre: tourFini,
-});
-
-// ---------------------------------------------------------------------------
 // 1. Les bases
 // ---------------------------------------------------------------------------
 
-// Carnet : ce que le joueur sait innocent à ce moment (ses cartes et celles qu'on lui a montrées).
-const cartesVues = (v: VueJoueur) => [...new Set(v.moi.journal.flatMap((e) => (e.type === 'carte_vue' ? [e.carte] : [])))];
-const aEcarter = (v: VueJoueur) => [...new Set([...v.moi.main, ...cartesVues(v)])];
-const manquants = (v: VueJoueur) => aEcarter(v).filter((e) => v.moi.carnet.marques[e] !== 'ecarte');
-const enTrop = (v: VueJoueur) =>
-  (Object.entries(v.moi.carnet.marques) as [ElementId, string][]).filter(([e, m]) => m === 'ecarte' && !aEcarter(v).includes(e)).map(([e]) => e);
 
 const BASES: Etape[] = [
   {
@@ -951,11 +903,6 @@ const MAITRE: Etape[] = [
   terminerTour(),
 ];
 
-const aTrafique = (c: Contexte) => depuis(c).some((e) => e.type === 'ruse' && e.ruse === 'trafic');
-const aFalsifie = (c: Contexte) => aFait(c, 'falsification');
-const maReponse = (c: Contexte) =>
-  [...depuis(c)].reverse().find((e) => e.type === 'carte_montree' || e.type === 'mensonge' || (e.type === 'ruse' && e.ruse === 'emprunt'));
-const ruses = (v: VueJoueur) => `${v.moi.rusesRestantes ?? 0} ruse${(v.moi.rusesRestantes ?? 0) > 1 ? 's' : ''}`;
 
 /** L'hypothèse de Marple (devenue le Témoin) : elle cite le vrai lieu et une de vos cartes, et vous interroge. */
 function hypotheseDuTemoin(e: EtatPartie, interroges: string[]): ActionJeu {
@@ -991,7 +938,7 @@ const COMPLICE: Etape[] = [
     cible: PANNEAU_ROLE,
     texte: ({ vue }) => (
       <>
-        Vos ruses sont dans le panneau privé : <Fort>{ruses(vue)}</Fort> à 5 joueurs ({G.ruses![4]} à 4 joueurs, {G.ruses![6]} à 6).
+        Vos ruses sont dans le panneau privé : <Fort>{ruses(vue)}</Fort> dans une partie à 5 joueurs (dans une partie à 4 : {G.ruses![4]} ; à 6 : {G.ruses![6]}).
         <span className="guide-progres">
           Mensonge ({C.coutRuses.mensonge}) : dire « aucune carte » alors que vous en avez une · Carte empruntée ({C.coutRuses.emprunt}) : montrer une carte que vous
           n'avez pas · Hypothèse falsifiée ({C.coutRuses.falsification}) : changer un élément de l'hypothèse d'un autre · Dossier trafiqué ({C.coutRuses.trafic}) :
@@ -1212,7 +1159,7 @@ const FINAL: Etape[] = [
   },
 ];
 
-export const CHAPITRES: Chapitre[] = [
+export const CHAPITRES_GRANDE: Chapitre[] = [
   { id: 'bases', titre: "Les bases de l'enquête", resume: 'Cartes, points d’action, hypothèse, carnet, archives, historique, accusation.', etapes: BASES },
   { id: 'temoin', titre: 'Le Témoin', resume: 'Les rôles secrets ; connaître le lieu sans se trahir.', etapes: TEMOIN },
   { id: 'tableau', titre: "Le tableau d'enquête", resume: 'Épingler ses soupçons, réagir à ceux des autres.', etapes: TABLEAU },
@@ -1223,5 +1170,34 @@ export const CHAPITRES: Chapitre[] = [
   { id: 'profileur', titre: 'Le Profileur', resume: 'Le complice est-il l’un de ces deux joueurs ?', etapes: PROFILEUR },
   { id: 'maitre', titre: 'Le Maître chanteur', resume: 'Le rôle trouble qui joue pour lui seul.', etapes: MAITRE },
   { id: 'complice', titre: 'Le complice', resume: 'Ruses, objectif secret, empreintes, bluff.', etapes: COMPLICE },
-  { id: 'final', titre: 'Le final', resume: 'La dernière chance du complice, puis l’écran de fin.', etapes: FINAL },
+  {
+    id: 'final',
+    titre: 'Le final',
+    resume: 'La dernière chance du complice, puis l’écran de fin.',
+    etapes: FINAL,
+    fin: [
+      ({ vue }) => (
+        <>
+          {vue.resultat?.raison === 'objectif_complice' ? (
+            <>
+              <Fort>Bravo, vous avez trouvé le Témoin !</Fort> Grâce à votre objectif secret, vous volez la victoire des enquêteurs.
+            </>
+          ) : (
+            <>
+              <Fort>Raté : ce n'était pas le Témoin.</Fort> Les enquêteurs gardent leur victoire.
+            </>
+          )}{' '}
+          Voici l'<Fort>écran de fin</Fort> : la solution et son récit (le mobile compris), le complice, les <Fort>rôles secrets</Fort> de chacun, le{' '}
+          <Fort>tableau</Fort> avec le vrai auteur de chaque épingle (rumeurs comprises) et les ruses du complice. Prenez le temps de le parcourir.
+        </>
+      ),
+      () => (
+        <>
+          <Fort>Le mot de la fin : la partie classique.</Fort> C'est le même jeu, en plus simple : 3 éléments à trouver (pas de mobile), pas de rôles à pouvoirs,
+          ni Maître chanteur, ni objectif secret, ni tableau ; 2 PA par tour, 12 manches, de 3 à 6 joueurs. Elle a aussi sa partie guidée, dans « Apprendre à
+          jouer ». <Fort>Bonne enquête !</Fort>
+        </>
+      ),
+    ],
+  },
 ];

@@ -171,6 +171,9 @@ export interface Succes {
 
 const estComplice = (c: Contexte) => c.vue.moi.role === 'complice';
 const monAccusationJuste = (c: Contexte) => !!c.vue.resultat?.accusations.some((a) => a.joueur === c.vue.moi.id && a.correcte);
+/** Le succès de victoire de chaque histoire. */
+const SUCCES_HISTOIRES = { manoir: 'manoir', train: 'terminus', paquebot: 'bon_port' } as const;
+const mesHypotheses = (c: Contexte) => (c.vue.moi.journal ?? []).filter((e) => e.type === 'hypothese_originale').length;
 
 export const SUCCES: Succes[] = [
   { id: 'premiere', icone: '🗂️', titre: 'Première enquête', description: 'Terminer une partie.', test: () => true },
@@ -217,6 +220,41 @@ export const SUCCES: Succes[] = [
   },
   { id: 'serie3', icone: '🔥', titre: 'Sur une lancée', description: 'Gagner 3 parties d’affilée.', test: (c) => c.profil.serie >= 3 },
   {
+    id: 'intuition',
+    icone: '💡',
+    titre: 'Intuition',
+    description: 'Résoudre l’affaire par une accusation juste en 3 hypothèses ou moins.',
+    test: (c) => monAccusationJuste(c) && mesHypotheses(c) <= 3,
+  },
+  {
+    id: 'in_extremis',
+    icone: '⏳',
+    titre: 'In extremis',
+    description: 'Résoudre l’affaire pendant la toute dernière manche.',
+    test: (c) => monAccusationJuste(c) && (c.vue.resultat?.manchesJouees ?? 0) >= (c.vue.regles?.manchesMax ?? Infinity),
+  },
+  {
+    id: 'tapis',
+    icone: '🎲',
+    titre: 'Tapis !',
+    description: 'Gagner en tant que complice après avoir utilisé toutes ses ruses.',
+    test: (c) => estComplice(c) && c.gagne && c.vue.regles?.modeComplice === 'ruse' && (c.vue.moi.rusesRestantes ?? 1) === 0,
+  },
+  {
+    id: 'double_jeu',
+    icone: '🪞',
+    titre: 'Double jeu',
+    description: 'Avoir gagné au moins une fois en enquêteur et une fois en complice.',
+    test: (c) => c.profil.enqueteur.victoires > 0 && c.profil.complice.victoires > 0,
+  },
+  {
+    id: 'manoir',
+    icone: '🏰',
+    titre: 'Les brumes se lèvent',
+    description: 'Gagner une partie au Manoir des Brumes.',
+    test: (c) => c.vue.affaire === 'manoir' && c.gagne,
+  },
+  {
     id: 'terminus',
     icone: '🚂',
     titre: 'Terminus',
@@ -229,6 +267,13 @@ export const SUCCES: Succes[] = [
     titre: 'Bon port',
     description: 'Gagner une partie à bord du paquebot.',
     test: (c) => c.vue.affaire === 'paquebot' && c.gagne,
+  },
+  {
+    id: 'grand_voyageur',
+    icone: '🧳',
+    titre: 'Grand voyageur',
+    description: 'Gagner dans les trois histoires : le manoir, le train et le paquebot.',
+    test: (c) => Object.entries(SUCCES_HISTOIRES).every(([affaire, id]) => !!c.profil.succes[id] || (c.vue.affaire === affaire && c.gagne)),
   },
   // « Grande enquête »
   { id: 'nuit_entiere', icone: '🌕', titre: 'Nuit entière', description: 'Gagner une Grande enquête.', test: (c) => c.vue.regles?.mode === 'grande' && c.gagne },
@@ -246,6 +291,14 @@ export const SUCCES: Succes[] = [
     titre: 'Le dernier mot',
     description: 'En complice, voler la victoire grâce à son objectif secret.',
     test: (c) => estComplice(c) && c.vue.resultat?.raison === 'objectif_complice',
+  },
+  {
+    id: 'diplome',
+    icone: '🎓',
+    titre: 'Diplômé',
+    description: 'Terminer tous les chapitres d’une partie guidée.',
+    // Débloqué par la partie guidée elle-même (voir debloquerSucces), jamais en fin de partie.
+    test: () => false,
   },
   { id: 'habitue', icone: '🎩', titre: 'Habitué des lieux', description: 'Terminer 10 parties.', test: (c) => c.profil.parties >= 10 },
   { id: 'veteran', icone: '🏛️', titre: 'Vétéran', description: 'Terminer 50 parties.', test: (c) => c.profil.parties >= 50 },
@@ -275,6 +328,14 @@ export function enregistrerPartie(vue: VueJoueur): { profil: Profil; nouveaux: S
   for (const s of nouveaux) profil.succes[s.id] = Date.now();
   ecrireProfil(profil);
   return { profil, nouveaux, compteeIci: true };
+}
+
+/** Débloque un succès hors d'une fin de partie (partie guidée terminée). Retourne vrai s'il est nouveau. */
+export function debloquerSucces(id: string): boolean {
+  const profil = lireProfil();
+  if (profil.succes[id] || !SUCCES.some((s) => s.id === id)) return false;
+  ecrireProfil({ ...profil, succes: { ...profil.succes, [id]: Date.now() } });
+  return true;
 }
 
 /** Bilan de la partie, calculé une seule fois par page (l'écran de fin peut s'afficher plusieurs fois). */

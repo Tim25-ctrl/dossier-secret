@@ -7,7 +7,8 @@ import { Lobby } from './screens/Lobby';
 import { EcranDemandePlace, SalleReprise } from './screens/Reprise';
 import { Sceau } from './components/Emblemes';
 import { CONSEILS_DU_TUTORIEL } from './components/jeu/Conseils';
-import { GuideTutoriel } from './tutoriel/Guide';
+import { GUIDES, GuideTutoriel } from './tutoriel/Guide';
+import { debloquerSucces } from './profil';
 
 export function App() {
   const c = useConnexion();
@@ -73,13 +74,16 @@ export function App() {
       {c.tutoriel && c.etat?.partie && (
         <GuideTutoriel
           faits={prefs.chapitresGuide}
-          onChapitre={(id) =>
+          onChapitre={(id) => {
+            const faits = [...new Set([...prefs.chapitresGuide, id])];
             majPrefs({
               tutorielVu: true,
               conseilsVus: [...new Set([...prefs.conseilsVus, ...(CONSEILS_DU_TUTORIEL[id] ?? [])])],
-              chapitresGuide: [...new Set([...prefs.chapitresGuide, id])],
-            })
-          }
+              chapitresGuide: faits,
+            });
+            // Tous les chapitres d'une partie guidée : succès « Diplômé ».
+            if (GUIDES.some((g) => g.chapitres.every((c) => faits.includes(c.id)))) debloquerSucces('diplome');
+          }}
         />
       )}
     </>

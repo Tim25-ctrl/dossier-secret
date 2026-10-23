@@ -76,4 +76,30 @@ describe('Profil et succès', () => {
     expect(d.profil.serie).toBe(0);
     expect(d.profil.meilleureSerie).toBe(3);
   });
+
+  it('succès des histoires, de l’intuition, de la dernière manche et du complice qui a tout misé', async () => {
+    const { enregistrerPartie, debloquerSucces, lireProfil } = await import('../src/client/profil');
+    const partie = (id: string, affaire: string, plus: Record<string, unknown> = {}) => {
+      const v = vue(id, 'enqueteur', 'enqueteurs', true) as unknown as Record<string, any>;
+      return { ...v, affaire, regles: { manchesMax: 12, modeComplice: 'ruse' }, moi: { ...v.moi, journal: [] }, ...plus } as unknown as VueJoueur;
+    };
+    const ids = (r: { nouveaux: { id: string }[] }) => r.nouveaux.map((s) => s.id);
+    expect(ids(enregistrerPartie(partie('m1', 'manoir')))).toEqual(expect.arrayContaining(['manoir', 'intuition']));
+    expect(ids(enregistrerPartie(partie('t1', 'train')))).toContain('terminus');
+    expect(ids(enregistrerPartie(partie('t2', 'train')))).not.toContain('grand_voyageur');
+    // Accusation juste à la 12ᵉ manche, sur le paquebot : la troisième histoire.
+    const derniere = partie('b1', 'paquebot');
+    (derniere as any).resultat = { ...(derniere as any).resultat, manchesJouees: 12 };
+    expect(ids(enregistrerPartie(derniere))).toEqual(expect.arrayContaining(['bon_port', 'grand_voyageur', 'in_extremis']));
+
+    // Complice gagnant sans ruse restante : « Tapis ! », et « Double jeu ».
+    const complice = vue('c1', 'complice', 'complice') as unknown as Record<string, any>;
+    const v = { ...complice, affaire: 'train', regles: { manchesMax: 12, modeComplice: 'ruse' }, moi: { ...complice.moi, journal: [], rusesRestantes: 0 } };
+    expect(ids(enregistrerPartie(v as unknown as VueJoueur))).toEqual(expect.arrayContaining(['tapis', 'double_jeu']));
+
+    // La partie guidée débloque « Diplômé » une seule fois.
+    expect(debloquerSucces('diplome')).toBe(true);
+    expect(debloquerSucces('diplome')).toBe(false);
+    expect(lireProfil().succes.diplome).toBeTruthy();
+  });
 });
